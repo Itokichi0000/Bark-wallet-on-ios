@@ -147,7 +147,7 @@ struct SendView: View {
                 }
             }
 
-            PixelButton(parsing ? "decoding…" : "Next ▶", sound: .select) {
+            PixelButton(parsing ? "decoding…" : "Next ▶︎", sound: .select) {
                 Task { await parse() }
             }
             .disabled(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || parsing)
@@ -237,7 +237,7 @@ struct SendView: View {
                     }
                 }
 
-                PixelButton("Send ▶", sound: .select) {
+                PixelButton("Send ▶︎", sound: .select) {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                     withAnimation(.linear(duration: 0.1)) { confirming = true }
                 }
@@ -383,7 +383,7 @@ struct SendView: View {
                         .foregroundStyle(t.dim)
                 }
                 HStack(spacing: 14) {
-                    PixelButton("▶ はい / YES", sound: .send) {
+                    PixelButton("▶︎ はい / YES", sound: .send) {
                         confirming = false
                         Task { await send() }
                     }

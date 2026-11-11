@@ -72,7 +72,8 @@ enum ArkNetwork: String, CaseIterable, Identifiable {
             offboardRequiredConfirmations: nil,
             daemonManualSync: nil,
             lightningReceiveClaimRetries: nil,
-            userAgent: "Sats-OS/\(AppInfo.version)",
+            // Ark server rule: name part must be lowercase [a-z0-9-_]
+            userAgent: "sats-os/\(AppInfo.version)",
             vtxoKeyGapLimit: nil
         )
     }

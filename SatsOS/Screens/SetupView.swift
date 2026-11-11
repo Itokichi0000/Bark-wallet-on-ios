@@ -55,7 +55,7 @@ struct SetupView: View {
                         .font(PixelFont.body(15))
                         .foregroundStyle(t.creme)
 
-                    PixelButton("▶ New wallet / 新しく作る", sound: .select) {
+                    PixelButton("▶︎ New wallet / 新しく作る", sound: .select) {
                         do {
                             let words = try store.makeMnemonic()
                             wroteItDown = false
