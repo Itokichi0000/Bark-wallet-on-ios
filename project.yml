@@ -16,7 +16,8 @@ settings:
 packages:
   bark-ffi-bindings:
     url: https://gitlab.com/ark-bitcoin/bark-ffi-bindings.git
-    exactVersion: "0.27.0+bark-0.8.1"
+    # tag v0.27.0+bark-0.8.1 (XcodeGen can't parse semver build metadata, so pin the commit)
+    revision: 66d047f7ee08c2bca3675605ea7a88bc8b50adb3
 targets:
   SatsOS:
     type: application
