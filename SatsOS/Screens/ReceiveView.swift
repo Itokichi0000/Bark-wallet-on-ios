@@ -109,7 +109,7 @@ struct ReceiveView: View {
 
             if let faucet = store.network.faucetURL {
                 Link(destination: faucet) {
-                    Text("> signet faucet でテストコインをもらう ↗")
+                    Text("> signet faucet でテストコインをもらう ↗︎")
                         .font(PixelFont.body(13))
                         .foregroundStyle(t.encre)
                         .frame(maxWidth: .infinity, alignment: .leading)

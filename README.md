@@ -11,6 +11,12 @@
 - `system.cfg`：テーマ 6 種（Genesis / Cold Storage / Lightning / Mempool / Paper Wallet / Fiat）、走査線・8bit 効果音・振動、SIGNET ⇄ MAINNET、シード表示（Face ID）、Ark サーバー情報、ウォレット削除
 - シードは iPhone のキーチェーン（この端末のみ）に保存
 
+| 起動 | デスクトップ | 受け取り | 設定 |
+|---|---|---|---|
+| ![boot](docs/screenshots/02-boot.png) | ![desktop](docs/screenshots/03-desktop.png) | ![receive](docs/screenshots/04-receive.png) | ![system](docs/screenshots/07-system.png) |
+
+（CI の iPhone シミュレータで signet に接続して撮影したもの。push のたびに Actions の **screenshots** アーティファクトに最新版が残ります）
+
 最初は **SIGNET**（テスト用）で起動します。テストコインは https://signet.2nd.dev/ でもらえます。
 MAINNET（`ark.second.tech`）は system.cfg から切り替えられます（本物のビットコインです）。
 

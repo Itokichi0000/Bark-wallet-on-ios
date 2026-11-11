@@ -58,6 +58,13 @@ struct DesktopView: View {
 
     @State private var openWindow: AppWindowKind?
 
+    private static let clock: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
     var body: some View {
         ZStack {
             BitcoinParticles(burstTick: store.newBlockTick, paused: openWindow != nil)
@@ -132,7 +139,7 @@ struct DesktopView: View {
                     LeaderRow(label: "needs refresh", value: SatFormat.amount(store.needsRefresh, unit: settings.unit), valueColor: t.braise)
                 }
                 if let last = store.lastSync {
-                    LeaderRow(label: "last sync", value: last.formatted(date: .omitted, time: .standard))
+                    LeaderRow(label: "last sync", value: Self.clock.string(from: last))
                 }
 
                 HStack(spacing: 12) {
@@ -170,7 +177,7 @@ struct DesktopView: View {
                         .foregroundStyle(t.dim)
                     if let faucet = store.network.faucetURL {
                         Link(destination: faucet) {
-                            Text("> signet faucet でテストコインをもらう ↗")
+                            Text("> signet faucet でテストコインをもらう ↗︎")
                                 .font(PixelFont.body(13))
                                 .foregroundStyle(t.encre)
                         }
@@ -270,7 +277,7 @@ struct DesktopIcon: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(t.papier.opacity(0.82))
+            .background(t.papier.opacity(0.5))
             .overlay(
                 Rectangle().stroke(t.line, style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
             )
