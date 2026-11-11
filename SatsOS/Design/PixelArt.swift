@@ -8,6 +8,8 @@ struct BitcoinParticles: View {
     @Environment(\.sats) private var t
     /// Change to make the particles burst outwards (e.g. on a new block).
     var burstTick: Int = 0
+    /// Stop animating while something covers the desktop.
+    var paused = false
 
     @State private var particles: [Particle] = BitcoinParticles.makeParticles()
     @State private var burstStart: Date?
@@ -97,7 +99,7 @@ struct BitcoinParticles: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: paused)) { context in
             Canvas { gc, size in
                 let time = context.date.timeIntervalSinceReferenceDate
                 let rows = Double(Self.glyph.count)

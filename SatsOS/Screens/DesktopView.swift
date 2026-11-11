@@ -60,7 +60,7 @@ struct DesktopView: View {
 
     var body: some View {
         ZStack {
-            BitcoinParticles(burstTick: store.newBlockTick)
+            BitcoinParticles(burstTick: store.newBlockTick, paused: openWindow != nil)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -92,6 +92,11 @@ struct DesktopView: View {
                     removal: .opacity
                 ))
                 .zIndex(2)
+            }
+        }
+        .onAppear {
+            if let kind = Autopilot.window {
+                openWindow = kind
             }
         }
     }

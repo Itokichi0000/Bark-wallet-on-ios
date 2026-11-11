@@ -1,4 +1,5 @@
 import Bark
+import Combine
 import Foundation
 
 /// One line of the boot log: `[ OK ] ark.drv ........ online`

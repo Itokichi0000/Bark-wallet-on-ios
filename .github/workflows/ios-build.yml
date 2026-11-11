@@ -1,7 +1,8 @@
 name: iOS build
 
-# Compiles the app for the iOS simulator on every push, so broken code is
-# caught before a TestFlight upload. No signing or secrets needed.
+# Compiles the app for the iOS simulator on every push, then runs it in a
+# simulator against the signet Ark server and saves screenshots of every
+# screen. No signing or secrets needed.
 on:
   push:
     paths-ignore:
@@ -47,9 +48,20 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/DerivedData \
             -clonedSourcePackagesDirPath build/SourcePackages \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
             2>&1 | tee build/xcodebuild.log | grep -E "error:|warning: .*SatsOS/|\*\* BUILD" || true
           grep -q "\*\* BUILD SUCCEEDED \*\*" build/xcodebuild.log
+
+      - name: Run in simulator and take screenshots
+        run: scripts/screenshots.sh
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: build/screenshots
+          if-no-files-found: ignore
 
       - name: Upload build log
         if: always()

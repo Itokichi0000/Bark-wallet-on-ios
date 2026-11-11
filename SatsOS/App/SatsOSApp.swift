@@ -72,10 +72,30 @@ struct RootView: View {
         .onChange(of: store.bootGeneration) { _, _ in
             entered = false
         }
+        .onChange(of: store.phase) { _, phase in
+            runAutopilot(phase)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active, store.phase == .ready {
                 Task { await store.sync() }
             }
+        }
+    }
+
+    /// CI screenshots only (see Autopilot.swift); a no-op in release builds.
+    private func runAutopilot(_ phase: WalletStore.Phase) {
+        guard Autopilot.mode != nil else { return }
+        switch phase {
+        case .needsSetup where !Autopilot.holdAtSetup:
+            guard let words = try? store.makeMnemonic() else { return }
+            Task { await store.installWallet(mnemonic: words, restored: false) }
+        case .ready where !Autopilot.holdAtBoot:
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                entered = true
+            }
+        default:
+            break
         }
     }
 }
