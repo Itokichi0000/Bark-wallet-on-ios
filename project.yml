@@ -1,0 +1,71 @@
+name: SatsOS
+options:
+  bundleIdPrefix: com.itokichi0000
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: ja
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Change here or pass APP_BUNDLE_ID=... to xcodebuild (the TestFlight workflow does).
+    APP_BUNDLE_ID: com.itokichi0000.satsos
+    SWIFT_VERSION: "5.0"
+    # Overridden from CI (TestFlight workflow) with the team / bundle id from repo settings.
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+packages:
+  bark-ffi-bindings:
+    url: https://gitlab.com/ark-bitcoin/bark-ffi-bindings.git
+    # tag v0.27.0+bark-0.8.1 (XcodeGen can't parse semver build metadata, so pin the commit)
+    revision: 66d047f7ee08c2bca3675605ea7a88bc8b50adb3
+targets:
+  SatsOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: SatsOS
+    dependencies:
+      - package: bark-ffi-bindings
+        product: Bark
+    info:
+      path: SatsOS/Info.plist
+      properties:
+        CFBundleDisplayName: Sats-OS
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UIAppFonts:
+          - Jacquard12-Regular.ttf
+          - DotGothic16-Regular.ttf
+          - PixelifySans-Regular.ttf
+          - PixelifySans-Bold.ttf
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIUserInterfaceStyle: Dark
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: true
+        NSCameraUsageDescription: 送金先のQRコードを読み取るためにカメラを使います / Camera is used to scan payment QR codes.
+        NSFaceIDUsageDescription: シードフレーズを表示する前に本人確認をします / Face ID protects your seed phrase.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PRODUCT_NAME: SatsOS
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+schemes:
+  SatsOS:
+    build:
+      targets:
+        SatsOS: all
+    run:
+      config: Debug
+    archive:
+      config: Release

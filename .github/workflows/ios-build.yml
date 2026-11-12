@@ -1,0 +1,72 @@
+name: iOS build
+
+# Compiles the app for the iOS simulator on every push, then runs it in a
+# simulator against the signet Ark server and saves screenshots of every
+# screen. No signing or secrets needed.
+on:
+  push:
+    paths-ignore:
+      - "**.md"
+      - "licenses/**"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: scripts/select-xcode.sh
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: build/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('project.yml') }}
+
+      - name: Build for iOS Simulator
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild build \
+            -project SatsOS.xcodeproj \
+            -scheme SatsOS \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            -clonedSourcePackagesDirPath build/SourcePackages \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            2>&1 | tee build/xcodebuild.log | grep -E "error:|warning: .*SatsOS/|\*\* BUILD" || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" build/xcodebuild.log
+
+      - name: Run in simulator and take screenshots
+        run: scripts/screenshots.sh
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: build/screenshots
+          if-no-files-found: ignore
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build/xcodebuild.log
+          if-no-files-found: ignore

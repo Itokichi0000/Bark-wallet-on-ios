@@ -1,0 +1,78 @@
+name: TestFlight
+
+# Archives the app, signs it with Xcode cloud signing (App Store Connect API
+# key) and uploads it to TestFlight. Runs on every push to main and on demand.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   ASC_KEY_ID        App Store Connect API key id (e.g. 2X9R4HXF34)
+#   ASC_ISSUER_ID     Issuer id (UUID shown above the keys table)
+#   ASC_PRIVATE_KEY   Contents of AuthKey_<KEY_ID>.p8 (or its base64)
+#   APPLE_TEAM_ID     10-character Team ID
+# Optional repository variable:
+#   BUNDLE_ID         defaults to com.itokichi0000.satsos
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "licenses/**"
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      BUNDLE_ID: ${{ vars.BUNDLE_ID || 'com.itokichi0000.satsos' }}
+    steps:
+      - name: Check secrets
+        id: secrets
+        run: |
+          missing=""
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning::TestFlight upload skipped. Missing secrets:$missing (see README)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ready == 'true'
+
+      - name: Select Xcode
+        if: steps.secrets.outputs.ready == 'true'
+        run: scripts/select-xcode.sh
+
+      - name: Install XcodeGen
+        if: steps.secrets.outputs.ready == 'true'
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        if: steps.secrets.outputs.ready == 'true'
+        run: xcodegen generate
+
+      - name: Archive and upload to TestFlight
+        if: steps.secrets.outputs.ready == 'true'
+        run: scripts/testflight.sh
+
+      - name: Upload logs
+        if: always() && steps.secrets.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-logs
+          path: |
+            build/*.log
+            build/export/*.log
+            build/export/DistributionSummary.plist
+          if-no-files-found: ignore
