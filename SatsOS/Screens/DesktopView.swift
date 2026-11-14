@@ -57,6 +57,13 @@ struct DesktopView: View {
     @Environment(\.sats) private var t
 
     @State private var openWindow: AppWindowKind?
+    @State private var balanceTick = 0
+    @State private var deltas: [BalanceDelta] = []
+
+    struct BalanceDelta: Identifiable {
+        let id = UUID()
+        let amount: Int64
+    }
 
     private static let clock: DateFormatter = {
         let f = DateFormatter()
@@ -76,9 +83,12 @@ struct DesktopView: View {
                     VStack(spacing: 30) {
                         balanceWindow
                             .padding(.top, 62)
+                            .appearIn(delay: 0.05)
                         iconGrid
                         recentWindow
+                            .appearIn(delay: 0.35)
                         footer
+                            .appearIn(delay: 0.45)
                     }
                     .padding(.horizontal, 18)
                     .padding(.bottom, 30)
@@ -106,6 +116,17 @@ struct DesktopView: View {
                 openWindow = kind
             }
         }
+        .onChange(of: store.spendable) { old, new in
+            guard old != new else { return }
+            let change = Int64(new) - Int64(old)
+            balanceTick += 1
+            let delta = BalanceDelta(amount: change)
+            deltas.append(delta)
+            Task {
+                try? await Task.sleep(nanoseconds: 1_600_000_000)
+                deltas.removeAll { $0.id == delta.id }
+            }
+        }
     }
 
     // MARK: balance
@@ -128,9 +149,21 @@ struct DesktopView: View {
                     settings.toggleUnit()
                 } label: {
                     BalanceText(sats: store.spendable, unit: settings.unit)
+                        .pixelPop(trigger: balanceTick, from: 0.92)
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("単位を切り替え")
+                .overlay(alignment: .topLeading) {
+                    ZStack(alignment: .topLeading) {
+                        ForEach(deltas) { delta in
+                            FloatingDelta(
+                                text: deltaText(delta.amount),
+                                color: delta.amount >= 0 ? t.encre : t.braise
+                            )
+                        }
+                    }
+                    .offset(x: 4, y: -6)
+                }
 
                 if store.pendingTotal > 0 {
                     LeaderRow(label: "pending", value: SatFormat.amount(store.pendingTotal, unit: settings.unit), valueColor: t.encre)
@@ -160,8 +193,9 @@ struct DesktopView: View {
     private var iconGrid: some View {
         let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
         return LazyVGrid(columns: columns, spacing: 16) {
-            ForEach(AppWindowKind.allCases) { kind in
+            ForEach(Array(AppWindowKind.allCases.enumerated()), id: \.element) { index, kind in
                 DesktopIcon(kind: kind) { open(kind) }
+                    .appearIn(delay: 0.15 + Double(index) * 0.05)
             }
         }
     }
@@ -185,6 +219,10 @@ struct DesktopView: View {
                 } else {
                     ForEach(store.movements.prefix(4)) { movement in
                         HistoryRow(movement: movement, compact: true)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .opacity
+                            ))
                     }
                     Button {
                         open(.history)
@@ -196,6 +234,7 @@ struct DesktopView: View {
                     .buttonStyle(.plain)
                 }
             }
+            .animation(.easeOut(duration: 0.25), value: store.movements.prefix(4).map(\.id))
         }
     }
 
@@ -207,6 +246,12 @@ struct DesktopView: View {
         .font(PixelFont.body(10))
         .foregroundStyle(t.dim)
         .multilineTextAlignment(.center)
+    }
+
+    private func deltaText(_ amount: Int64) -> String {
+        let magnitude = UInt64(amount.magnitude)
+        let body = settings.unit == .sats ? SatFormat.sats(magnitude) : SatFormat.btc(magnitude)
+        return amount >= 0 ? "+\(body)" : "-\(body)"
     }
 
     private func open(_ kind: AppWindowKind) {

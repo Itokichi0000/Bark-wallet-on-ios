@@ -19,12 +19,12 @@ struct SystemView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                displaySection
-                networkSection
-                walletSection
-                serverSection
-                aboutSection
-                dangerSection
+                displaySection.appearIn(delay: 0.0)
+                networkSection.appearIn(delay: 0.06)
+                walletSection.appearIn(delay: 0.12)
+                serverSection.appearIn(delay: 0.18)
+                aboutSection.appearIn(delay: 0.22)
+                dangerSection.appearIn(delay: 0.26)
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 22)
@@ -67,7 +67,7 @@ struct SystemView: View {
                     ThemeSwatch(theme: theme, selected: settings.themeID == theme.id) {
                         Chiptune.shared.play(.select)
                         Haptics.tap()
-                        settings.themeID = theme.id
+                        withAnimation(.linear(duration: 0.25)) { settings.themeID = theme.id }
                     }
                 }
             }
@@ -140,10 +140,23 @@ struct SystemView: View {
                 }
                 .disabled(runningMaintenance)
             }
+            if store.isSyncing || runningMaintenance {
+                VStack(alignment: .leading, spacing: 8) {
+                    SegmentMarquee()
+                    HStack(spacing: 8) {
+                        PixelSpinner()
+                        LoadingDots(text: runningMaintenance ? "maintenance" : "syncing")
+                            .font(PixelFont.body(12))
+                            .foregroundStyle(t.encre)
+                    }
+                }
+                .transition(.opacity)
+            }
             if let maintenanceStatus {
                 Text(maintenanceStatus)
                     .font(PixelFont.body(12))
-                    .foregroundStyle(t.dim)
+                    .foregroundStyle(maintenanceStatus.hasPrefix("[ OK ]") ? t.encre : t.braise)
+                    .transition(.opacity)
             }
             Text("Maintenance は期限が近い VTXO を更新します（バックグラウンドでも自動実行されます）。")
                 .font(PixelFont.body(11))
@@ -154,9 +167,12 @@ struct SystemView: View {
                     Text("[ !! ] 誰にも見せないでください")
                         .font(PixelFont.body(12))
                         .foregroundStyle(t.braise)
-                    SeedGrid(words: revealedSeed.split(separator: " ").map(String.init))
-                    PixelButton("Hide seed", kind: .secondary) { self.revealedSeed = nil }
+                    SeedGrid(words: revealedSeed.split(separator: " ").map(String.init), animated: true)
+                    PixelButton("Hide seed", kind: .secondary) {
+                        withAnimation(.linear(duration: 0.12)) { self.revealedSeed = nil }
+                    }
                 }
+                .transition(.opacity)
             } else {
                 PixelButton("Show seed phrase / シードを表示", kind: .secondary) {
                     Task { await revealSeed() }
@@ -168,6 +184,9 @@ struct SystemView: View {
                 }
             }
         }
+        .animation(.linear(duration: 0.15), value: store.isSyncing)
+        .animation(.linear(duration: 0.15), value: runningMaintenance)
+        .animation(.linear(duration: 0.15), value: maintenanceStatus)
     }
 
     // MARK: server
@@ -236,12 +255,14 @@ struct SystemView: View {
                     }
                 }
                 .pixelBox(t, padding: 14, border: t.braise)
+                .transition(.opacity.combined(with: .offset(y: -8)))
             } else {
                 PixelButton("Delete wallet / ウォレット削除", kind: .danger) {
                     confirmDelete = true
                 }
             }
         }
+        .animation(.easeOut(duration: 0.2), value: confirmDelete)
     }
 
     // MARK: actions
@@ -257,7 +278,7 @@ struct SystemView: View {
         do {
             let ok = try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "シードフレーズを表示します")
             if ok {
-                revealedSeed = store.revealMnemonic()
+                withAnimation(.linear(duration: 0.12)) { revealedSeed = store.revealMnemonic() }
                 seedError = nil
             }
         } catch {
@@ -271,8 +292,10 @@ struct SystemView: View {
         do {
             try await store.runMaintenance()
             maintenanceStatus = "[ OK ] maintenance done"
+            Haptics.success()
         } catch {
             maintenanceStatus = "[ !! ] \(error.barkMessage)"
+            Haptics.error()
         }
     }
 }
@@ -281,6 +304,7 @@ struct ThemeSwatch: View {
     var theme: SatsTheme
     var selected: Bool
     var action: () -> Void
+    @State private var tick = 0
 
     var body: some View {
         Button(action: action) {
@@ -308,8 +332,13 @@ struct ThemeSwatch: View {
             .background(theme.papier)
             .overlay(Rectangle().stroke(selected ? theme.encre : theme.line, lineWidth: selected ? 3 : 2))
             .background(Rectangle().fill(theme.braise).offset(x: selected ? 4 : 0, y: selected ? 4 : 0))
+            .animation(.linear(duration: 0.08), value: selected)
         }
         .buttonStyle(.plain)
+        .pixelPop(trigger: tick, from: 0.9)
+        .onChange(of: selected) { _, isSelected in
+            if isSelected { tick += 1 }
+        }
     }
 }
 
@@ -318,12 +347,14 @@ struct ToggleRow: View {
     var label: String
     var detail: String
     @Binding var isOn: Bool
+    @State private var tick = 0
 
     var body: some View {
         Button {
             Chiptune.shared.play(.select)
             Haptics.tap()
             isOn.toggle()
+            tick += 1
         } label: {
             HStack(spacing: 10) {
                 Text(label)
@@ -335,7 +366,10 @@ struct ToggleRow: View {
                 Spacer()
                 Text(isOn ? "[ ON  ]" : "[ OFF ]")
                     .font(PixelFont.ui(14, bold: true))
-                    .foregroundStyle(isOn ? t.encre : t.dim)
+                    .foregroundStyle(isOn ? t.onEncre : t.dim)
+                    .padding(.horizontal, 4)
+                    .background(isOn ? t.encre : .clear)
+                    .pixelPop(trigger: tick, from: 0.8)
             }
             .contentShape(Rectangle())
         }

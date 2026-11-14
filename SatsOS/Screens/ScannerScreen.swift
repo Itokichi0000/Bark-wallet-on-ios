@@ -47,6 +47,20 @@ struct ScannerScreen: View {
                 ZStack {
                     ViewfinderCorners()
                         .stroke(t.encre, lineWidth: 6)
+                        .keyframeAnimator(initialValue: CGFloat(1), repeating: true) { view, scale in
+                            view.scaleEffect(scale)
+                        } keyframes: { _ in
+                            KeyframeTrack {
+                                LinearKeyframe(CGFloat(1), duration: 0.6)
+                                LinearKeyframe(CGFloat(0.97), duration: 0.001)
+                                LinearKeyframe(CGFloat(0.97), duration: 0.6)
+                                LinearKeyframe(CGFloat(1), duration: 0.001)
+                            }
+                        }
+                    if !denied {
+                        ScanBeam()
+                            .padding(14)
+                    }
                     if denied {
                         Text("カメラへのアクセスが許可されていません。\n設定アプリ > Sats-OS からカメラを許可してください。")
                             .font(PixelFont.body(13))
@@ -69,6 +83,31 @@ struct ScannerScreen: View {
                     .padding(.bottom, 30)
             }
         }
+    }
+}
+
+/// Stepped scan line sweeping the viewfinder, with a short trail.
+private struct ScanBeam: View {
+    @Environment(\.sats) private var t
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: reduceMotion)) { context in
+            Canvas { gc, size in
+                let time = context.date.timeIntervalSinceReferenceDate
+                // ping-pong 0→1→0 over 2.4s, snapped to 4pt rows
+                let phase = (time / 1.2).truncatingRemainder(dividingBy: 2)
+                let unit = phase < 1 ? phase : 2 - phase
+                let y = ((unit * (size.height - 4)) / 4).rounded() * 4
+                for trail in 0..<4 {
+                    let offset = CGFloat(trail) * 6 * (phase < 1 ? -1 : 1)
+                    let rect = CGRect(x: 0, y: y + offset, width: size.width, height: trail == 0 ? 3 : 2)
+                    gc.fill(Path(rect), with: .color(t.encre.opacity(trail == 0 ? 0.9 : 0.35 / Double(trail))))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
