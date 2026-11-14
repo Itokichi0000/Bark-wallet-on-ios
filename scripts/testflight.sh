@@ -2,14 +2,16 @@
 # Archive Sats-OS and upload it to TestFlight using an App Store Connect API key.
 #
 # Signing uses Xcode "cloud signing": with -allowProvisioningUpdates and an API
-# key that has the Admin role, Xcode creates the App ID, the distribution
-# certificate and the App Store profile by itself. No .p12 or profiles needed.
+# key that has the Admin role, Xcode creates the distribution certificate and
+# the App Store profile by itself. No .p12 or profiles needed.
+#
+# scripts/asc.py does the App Store Connect chores around it: registers the
+# bundle ID, finds the Team ID, and puts you in an internal TestFlight group.
 set -euo pipefail
 
 : "${ASC_KEY_ID:?set ASC_KEY_ID}"
 : "${ASC_ISSUER_ID:?set ASC_ISSUER_ID}"
 : "${ASC_PRIVATE_KEY:?set ASC_PRIVATE_KEY}"
-: "${APPLE_TEAM_ID:?set APPLE_TEAM_ID}"
 BUNDLE_ID="${BUNDLE_ID:-com.itokichi0000.satsos}"
 # yymmddHHMM: always increasing, unique per minute
 BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%y%m%d%H%M)}"
@@ -25,6 +27,17 @@ else
 fi
 chmod 600 "${KEY_PATH}"
 trap 'rm -f "${KEY_PATH}"' EXIT
+
+echo "==> Checking App Store Connect"
+# Registers the bundle ID if needed; stops here (exit 3) with instructions in
+# the job summary when the app hasn't been created in App Store Connect yet.
+PREPARE=$(python3 scripts/asc.py prepare --key "${KEY_PATH}" --bundle-id "${BUNDLE_ID}")
+API_TEAM_ID=$(printf '%s\n' "${PREPARE}" | sed -n 's/^team_id=//p')
+APPLE_TEAM_ID="${APPLE_TEAM_ID:-${API_TEAM_ID}}"
+if [ -z "${APPLE_TEAM_ID}" ]; then
+  echo "::error::Team ID が分かりませんでした。APPLE_TEAM_ID シークレットを追加してください。"
+  exit 1
+fi
 
 AUTH=(
   -allowProvisioningUpdates
@@ -88,6 +101,10 @@ if ! xcodebuild -exportArchive \
   exit 1
 fi
 tail -5 build/export.log
+
+echo "==> Adding you as a TestFlight tester"
+python3 scripts/asc.py testers --key "${KEY_PATH}" --bundle-id "${BUNDLE_ID}" \
+  || echo "::warning::テスターの自動登録に失敗しました。App Store Connect の TestFlight → 内部テストで自分を追加してください。"
 
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleShortVersionString" "${ARCHIVE}/Info.plist" 2>/dev/null || echo "?")
 echo "==> Uploaded Sats-OS ${VERSION} (${BUILD_NUMBER})"

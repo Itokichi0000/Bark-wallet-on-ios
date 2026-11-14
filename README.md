@@ -31,6 +31,7 @@ MAINNET（`ark.second.tech`）は system.cfg から切り替えられます（�
 | `.github/workflows/ios-build.yml` | push のたびにシミュレータ向けにビルド（コンパイル確認） |
 | `.github/workflows/testflight.yml` | main への push か手動実行で TestFlight にアップロード |
 | `scripts/testflight.sh` | アーカイブ → 署名 → アップロード |
+| `scripts/asc.py` | App Store Connect API（Bundle ID 登録、Team ID 取得、内部テスターに自分を追加） |
 | `tools/make_app_icon.py` | bitty からアプリアイコンを作るスクリプト |
 
 Bark SDK: `https://gitlab.com/ark-bitcoin/bark-ffi-bindings.git` を `0.27.0+bark-0.8.1` に固定しています。
@@ -53,53 +54,52 @@ Xcode 26 以上で、ターゲット SatsOS の Signing & Capabilities で自分
 
 ## TestFlight に上げる（Mac なしで GitHub Actions から）
 
-最初に 1 回だけ、以下を準備します。
+自分だけで使うなら TestFlight の **内部テスト** です（Apple の審査なし）。
+Bundle ID の登録、Team ID、テストグループ作成と自分の追加はワークフローが自動でやります。
+あなたがやるのは次の 3 つだけ。前提: 有料の Apple Developer Program に加入済み。
 
-### 1. App Store Connect でアプリを作る
+### 1. API キーを作る（App Store Connect）
 
-1. [App Store Connect](https://appstoreconnect.apple.com) → **ビジネス** で未同意の契約があれば同意
-2. [Certificates, Identifiers & Profiles → Identifiers](https://developer.apple.com/account/resources/identifiers/list) で App ID を登録  
-   Bundle ID：`com.itokichi0000.satsos`（別の ID にしたい場合は下の `BUNDLE_ID` 変数で指定）
-3. App Store Connect → **アプリ** → **＋ 新規 App**：プラットフォーム iOS、名前（例 `Sats-OS Wallet`）、上の Bundle ID、SKU は任意（例 `satsos`）
-4. 作ったアプリの **TestFlight** → **内部テスト** にグループを作り、自分を追加（「自動配信」をオンにすると新しいビルドが自動で届きます）
+[ユーザとアクセス → 統合 → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api) → **チームキー** の **＋**。
+名前は何でも、アクセスは **Admin**。作ったら次の 3 つを控えます。
 
-### 2. API キーを作る
+- `AuthKey_XXXXXXXXXX.p8` をダウンロード（1 回しかできません）
+- その行の **キー ID**
+- 表の上の **Issuer ID**
 
-1. App Store Connect → **ユーザとアクセス** → **統合** → **App Store Connect API** → **チームキー** の **＋**
-2. 名前は `GitHub TestFlight` など、アクセスは **Admin**（クラウド署名で配布用証明書を作るのに必要）
-3. `AuthKey_XXXXXXXXXX.p8` をダウンロード（1 回しかダウンロードできません）
-4. **Key ID** と、表の上にある **Issuer ID** を控える
-5. [Membership details](https://developer.apple.com/account) で **Team ID**（10 文字）を控える
+### 2. GitHub に 3 つ貼る
 
-### 3. GitHub に Secrets を登録
-
-このリポジトリの **Settings → Secrets and variables → Actions → New repository secret**：
+このリポジトリの **Settings → Secrets and variables → Actions → New repository secret** を 3 回。
 
 | Name | 値 |
 |---|---|
-| `ASC_KEY_ID` | Key ID |
+| `ASC_KEY_ID` | キー ID |
 | `ASC_ISSUER_ID` | Issuer ID |
-| `ASC_PRIVATE_KEY` | `.p8` ファイルの中身をまるごと（`-----BEGIN PRIVATE KEY-----` から `-----END PRIVATE KEY-----` まで） |
-| `APPLE_TEAM_ID` | Team ID |
+| `ASC_PRIVATE_KEY` | `.p8` をテキストエディタで開いて中身を全部（`-----BEGIN PRIVATE KEY-----` から `-----END PRIVATE KEY-----` まで） |
 
-Bundle ID を変える場合だけ、**Variables** タブに `BUNDLE_ID` を追加します。
+### 3. 実行 → 言われたらアプリを作る → もう一度実行
 
-### 4. アップロード
+1. **Actions → TestFlight → Run workflow**
+2. 1 回目は 1〜2 分で止まり、画面に「あと 1 ステップ」が出ます（Bundle ID は登録済み）。
+   [App Store Connect → アプリ](https://appstoreconnect.apple.com/apps) の **＋ → 新規 App** で、iOS・名前（例 `Sats-OS Wallet`）・日本語・バンドル ID `com.itokichi0000.satsos`・SKU（例 `satsos`）を入れて作成
+3. もう一度 **Run workflow**。20 分ほどで緑になり、あなたが内部テスターに自動で追加されます
+4. iPhone に **TestFlight** アプリを入れ、同じ Apple ID でサインイン → Sats-OS を **インストール**
 
-- **Actions → TestFlight → Run workflow** で手動実行、または `main` に push（マージ）すると自動で走ります
-- 成功すると数分〜15 分ほどで App Store Connect の処理が終わり、iPhone の TestFlight アプリに届きます
-- ビルド番号は実行時刻（`yymmddHHMM`）なので毎回自動で増えます。バージョンは `project.yml` の `MARKETING_VERSION`
-
-`Info.plist` に `ITSAppUsesNonExemptEncryption = NO` を入れてあるので、輸出コンプライアンスの質問は出ません。
+以後は `main` に push するたびに新しいビルドが自動で届きます。
+ビルド番号は実行時刻（`yymmddHHMM`）、バージョンは `project.yml` の `MARKETING_VERSION`。
+`ITSAppUsesNonExemptEncryption = NO` を入れてあるので輸出コンプライアンスの質問は出ません。
+Bundle ID を変える場合は **Variables** に `BUNDLE_ID` を追加します。
 
 ### うまくいかないとき
 
 | 症状 | 対処 |
 |---|---|
-| `No profiles for 'com.itokichi0000.satsos' were found` | App ID の登録漏れか、App Store Connect にアプリがない。手順 1 を確認 |
+| 「あと 1 ステップ」で止まる | App Store Connect にアプリがまだない。手順 3 の 2 を実行 |
+| `No profiles for 'com.itokichi0000.satsos' were found` | App Store Connect のアプリのバンドル ID が違う |
+| `Team ID が分かりませんでした` | Secrets に `APPLE_TEAM_ID`（[Membership details](https://developer.apple.com/account) の 10 文字）を追加 |
 | `Cloud signing permission error` / `No signing certificate "iOS Distribution"` | API キーのアクセスを **Admin** にする |
 | `The provided entity includes an attribute with a value that has already been used` | ビルド番号の重複。もう一度実行すれば新しい番号になります |
-| `Missing secrets` の警告で何もしない | 手順 3 の Secrets が足りない |
+| `Missing secrets` の警告で何もしない | 手順 2 の Secrets が足りない |
 
 ログは各実行の **Artifacts → testflight-logs** に残ります。
 
