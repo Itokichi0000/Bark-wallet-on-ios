@@ -7,9 +7,12 @@ name: TestFlight
 #   ASC_KEY_ID        App Store Connect API key id (e.g. 2X9R4HXF34)
 #   ASC_ISSUER_ID     Issuer id (UUID shown above the keys table)
 #   ASC_PRIVATE_KEY   Contents of AuthKey_<KEY_ID>.p8 (or its base64)
-#   APPLE_TEAM_ID     10-character Team ID
-# Optional repository variable:
-#   BUNDLE_ID         defaults to com.itokichi0000.satsos
+# Optional:
+#   APPLE_TEAM_ID     secret; normally read from App Store Connect
+#   BUNDLE_ID         repository variable; defaults to com.itokichi0000.satsos
+#
+# The first run registers the bundle ID and stops if the app doesn't exist in
+# App Store Connect yet; the job summary says what to click. Run it again after.
 on:
   workflow_dispatch:
   push:
@@ -37,7 +40,7 @@ jobs:
         id: secrets
         run: |
           missing=""
-          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY APPLE_TEAM_ID; do
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY; do
             if [ -z "${!name}" ]; then missing="$missing $name"; fi
           done
           if [ -n "$missing" ]; then
