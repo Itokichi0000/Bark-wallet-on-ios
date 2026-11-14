@@ -1,70 +1,55 @@
 import SwiftUI
 
-/// First run: create a new wallet ("NEW GAME") or restore one from a seed.
+/// First run: make a new wallet or bring one back from a seed phrase.
 struct SetupView: View {
     @EnvironmentObject private var store: WalletStore
-    @Environment(\.sats) private var t
 
     enum Step: Equatable {
-        case menu
+        case welcome
         case showSeed(String)
         case restore
     }
 
-    @State private var step: Step = .menu
+    @State private var step: Step = .welcome
+    @State private var forward = true
     @State private var wroteItDown = false
     @State private var restoreText = ""
     @State private var error: String?
     @State private var working = false
-    @State private var forward = true
     @State private var checkTick = 0
-    @State private var errorTick = 0
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 22) {
-                VStack(spacing: 6) {
-                    BlackletterTitle(text: "Sats-OS", size: 58)
-                    Text("SETUP.EXE — ウォレットのセットアップ")
-                        .font(PixelFont.ui(13))
-                        .foregroundStyle(t.encre)
-                }
-                .padding(.top, 36)
-                .crtPowerOn()
-
-                ZStack(alignment: .top) {
-                    Group {
-                        switch step {
-                        case .menu:
-                            menu
-                        case .showSeed(let words):
-                            seedBackup(words)
-                        case .restore:
-                            restore
-                        }
+            ZStack(alignment: .top) {
+                Group {
+                    switch step {
+                    case .welcome: welcome
+                    case .showSeed(let words): seedBackup(words)
+                    case .restore: restore
                     }
-                    .id(stepKey)
-                    .transition(stepTransition)
                 }
+                .id(stepKey)
+                .transition(stepTransition)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 40)
-            .frame(maxWidth: 560)
+            .frame(maxWidth: 520)
             .frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
+        .background(Ink.bg)
     }
 
     private var stepKey: String {
         switch step {
-        case .menu: return "menu"
+        case .welcome: return "welcome"
         case .showSeed: return "seed"
         case .restore: return "restore"
         }
     }
 
     private var stepTransition: AnyTransition {
-        let distance: CGFloat = forward ? 36 : -36
+        let distance: CGFloat = forward ? 40 : -40
         return .asymmetric(
             insertion: .offset(x: distance).combined(with: .opacity),
             removal: .offset(x: -distance).combined(with: .opacity)
@@ -73,72 +58,85 @@ struct SetupView: View {
 
     private func go(_ next: Step, forward: Bool) {
         self.forward = forward
-        withAnimation(.easeOut(duration: 0.24)) { step = next }
+        withAnimation(.spring(duration: 0.4, bounce: 0.15)) { step = next }
     }
 
-    // MARK: menu
+    // MARK: welcome
 
-    private var menu: some View {
+    private var welcome: some View {
         VStack(spacing: 22) {
-            PixelWindow(title: "setup.exe", status: "NO WALLET", statusColor: t.braise, blinkStatus: true) {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(spacing: 2) {
-                        TypewriterText(text: "> ゲームをはじめますか？", font: PixelFont.body(15), color: t.creme)
-                        BlinkingCursor()
-                            .font(PixelFont.body(15))
-                    }
+            VStack(spacing: 0) {
+                HStack(alignment: .bottom, spacing: 0) {
+                    CharacterView(art: .rabbit1, height: 150)
+                        .breathing()
+                    CharacterView(art: .frogSit, height: 56)
+                        .breathing(0.04, period: 1.3)
+                        .padding(.bottom, 6)
+                }
+                GroundLine()
+                    .frame(width: 240)
+            }
+            .padding(.top, 50)
+            .appearIn()
 
-                    PixelButton("▶︎ New wallet / 新しく作る", sound: .select) {
-                        do {
-                            let words = try store.makeMnemonic()
-                            wroteItDown = false
-                            go(.showSeed(words), forward: true)
-                        } catch {
-                            self.error = error.localizedDescription
-                            errorTick += 1
-                        }
-                    }
-                    PixelButton("Restore / シードから復元", kind: .secondary, sound: .select) {
+            VStack(spacing: 6) {
+                Text("はじめまして")
+                    .font(Brush.text(16))
+                    .foregroundStyle(Ink.sub)
+                Text("ちょうじゅ")
+                    .font(Brush.bold(34, relativeTo: .largeTitle))
+                    .foregroundStyle(Ink.ink)
+                Text("うさぎと かえると いっしょに ビットコインを ためる おさいふ")
+                    .font(Brush.text(14))
+                    .foregroundStyle(Ink.sub)
+                    .multilineTextAlignment(.center)
+            }
+            .appearIn(delay: 0.1)
+
+            VStack(spacing: 12) {
+                InkButton("あたらしく つくる", sound: .select) {
+                    do {
+                        let words = try store.makeMnemonic()
+                        wroteItDown = false
                         error = nil
-                        go(.restore, forward: true)
-                    }
-                    if let error {
-                        Text(error)
-                            .font(PixelFont.body(12))
-                            .foregroundStyle(t.braise)
+                        go(.showSeed(words), forward: true)
+                    } catch {
+                        self.error = error.localizedDescription
                     }
                 }
+                InkButton("シードフレーズから もどす", kind: .secondary, sound: .select) {
+                    error = nil
+                    go(.restore, forward: true)
+                }
+                if let error {
+                    Text(error)
+                        .font(Brush.text(13))
+                        .foregroundStyle(Ink.alert)
+                }
             }
+            .appearIn(delay: 0.2)
 
-            PixelWindow(title: "network.cfg") {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 10) {
-                        ForEach(ArkNetwork.allCases) { net in
-                            PixelChip(title: net.label, selected: store.network == net) {
-                                store.chooseNetworkForSetup(net)
-                            }
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: "ネットワーク")
+                HStack(spacing: 10) {
+                    ForEach(ArkNetwork.allCases) { net in
+                        InkChip(title: net == .mainnet ? "本番（MAINNET）" : "テスト（SIGNET）", selected: store.network == net) {
+                            store.chooseNetworkForSetup(net)
                         }
                     }
-                    if store.network.isRealMoney {
-                        Text("[ !! ] MAINNET は本物のビットコインです。最初は少額で試してください。")
-                            .font(PixelFont.body(12))
-                            .foregroundStyle(t.braise)
-                    } else {
-                        Text("SIGNET はテスト用ネットワーク。無料のテストコインで遊べます。")
-                            .font(PixelFont.body(12))
-                            .foregroundStyle(t.dim)
-                    }
-                    LeaderRow(label: "ark server", value: store.network.serverHost)
                 }
+                Text(store.network.isRealMoney
+                     ? "本物のビットコインを あつかいます。さいしょは 少しの金額で ためしてください。"
+                     : "テスト用のネットワーク。無料のテストコインで あそべます。")
+                    .font(Brush.text(12))
+                    .foregroundStyle(store.network.isRealMoney ? Ink.alert : Ink.sub)
             }
+            .inkCard()
+            .appearIn(delay: 0.3)
 
-            HStack(alignment: .bottom) {
-                Text("powered by Bark SDK \(AppInfo.barkSDKVersion)\nArk protocol · Second")
-                    .font(PixelFont.body(11))
-                    .foregroundStyle(t.dim)
-                Spacer()
-                TalkingBitty(scale: 1.1)
-            }
+            Text("Bark SDK \(AppInfo.barkSDKVersion) ・ Ark protocol")
+                .font(Brush.text(11))
+                .foregroundStyle(Ink.sub)
         }
     }
 
@@ -146,36 +144,50 @@ struct SetupView: View {
 
     private func seedBackup(_ mnemonic: String) -> some View {
         let words = mnemonic.split(separator: " ").map(String.init)
-        return VStack(spacing: 22) {
-            PixelWindow(title: "seed.txt", status: "SECRET", statusColor: t.braise) {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("この \(words.count) 個の単語があなたの鍵です。紙に書いて安全な場所に保管してください。スクリーンショットは撮らないで！")
-                        .font(PixelFont.body(13))
-                        .foregroundStyle(t.creme)
+        return VStack(spacing: 20) {
+            header("シードフレーズ") { go(.welcome, forward: false) }
 
-                    SeedGrid(words: words, animated: true)
-
-                    Button {
-                        Chiptune.shared.play(.select)
-                        Haptics.tap()
-                        wroteItDown.toggle()
-                        checkTick += 1
-                    } label: {
-                        HStack(spacing: 10) {
-                            Text(wroteItDown ? "[x]" : "[ ]")
-                                .font(PixelFont.ui(16, bold: true))
-                                .foregroundStyle(t.encre)
-                                .pixelPop(trigger: checkTick, from: 0.7)
-                            Text("書き留めました / I wrote it down")
-                                .font(PixelFont.body(14))
-                                .foregroundStyle(t.creme)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
+            HStack(alignment: .bottom, spacing: 12) {
+                CharacterView(art: .rabbit1, height: 80)
+                SpeechBubble(text: "この \(words.count) 個の ことばが 鍵だよ")
+                    .padding(.bottom, 40)
+                Spacer(minLength: 0)
             }
 
-            PixelButton("Start / はじめる", sound: .boot) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("紙に書いて、安全な場所に しまってください。スクリーンショットは とらないで。")
+                    .font(Brush.text(14))
+                    .foregroundStyle(Ink.ink)
+                SeedGrid(words: words, animated: true)
+                Button {
+                    Chiptune.shared.play(.select)
+                    Haptics.tap()
+                    wroteItDown.toggle()
+                    checkTick += 1
+                } label: {
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(wroteItDown ? Ink.ink : Ink.paper)
+                                .frame(width: 26, height: 26)
+                                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
+                            if wroteItDown {
+                                InkIcon(kind: .check, size: 18, lineWidth: 2.6, color: Ink.paper)
+                            }
+                        }
+                        .pop(trigger: checkTick, from: 0.75)
+                        Text("書きとめました")
+                            .font(Brush.text(15))
+                            .foregroundStyle(Ink.ink)
+                    }
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(wroteItDown ? .isSelected : [])
+            }
+            .inkCard()
+
+            InkButton(working ? "じゅんび中…" : "はじめる", sound: .boot) {
                 guard !working else { return }
                 working = true
                 Task {
@@ -184,11 +196,8 @@ struct SetupView: View {
                 }
             }
             .disabled(!wroteItDown || working)
-
-            PixelButton("Back", kind: .secondary) {
-                go(.menu, forward: false)
-            }
         }
+        .padding(.top, 8)
     }
 
     // MARK: restore
@@ -196,37 +205,50 @@ struct SetupView: View {
     private var restore: some View {
         let count = store.normalizedMnemonic(restoreText).split(separator: " ").count
         let valid = store.isValidMnemonic(restoreText)
-        return VStack(spacing: 22) {
-            PixelWindow(title: "restore.exe") {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("12 / 24 個の単語をスペース区切りで入力")
-                        .font(PixelFont.body(13))
-                        .foregroundStyle(t.creme)
-                    TextEditor(text: $restoreText)
-                        .scrollContentBackground(.hidden)
-                        .frame(minHeight: 130)
-                        .pixelField()
-                    HStack {
-                        Text("\(count) words")
-                            .font(PixelFont.ui(13))
-                            .foregroundStyle(t.dim)
-                            .contentTransition(.numericText(value: Double(count)))
-                            .animation(.snappy(duration: 0.2), value: count)
-                        Spacer()
-                        if count > 0 {
-                            Text(valid ? "[ OK ] checksum" : "[ .. ] checking")
-                                .font(PixelFont.ui(13))
-                                .foregroundStyle(valid ? t.encre : t.dim)
-                                .pixelPop(trigger: valid ? 1 : 0, from: 0.8)
-                        }
-                    }
-                    Text("復元時はサーバーの mailbox から残高を探します（ネットワーク: \(store.network.label)）。")
-                        .font(PixelFont.body(11))
-                        .foregroundStyle(t.dim)
-                }
+        return VStack(spacing: 20) {
+            header("シードから もどす") {
+                restoreText = ""
+                go(.welcome, forward: false)
             }
 
-            PixelButton("Restore / 復元する", sound: .boot) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("12 / 24 個の ことばを スペースで区切って 入れてください")
+                    .font(Brush.text(14))
+                    .foregroundStyle(Ink.ink)
+                TextEditor(text: $restoreText)
+                    .font(Brush.mono(15))
+                    .foregroundStyle(Ink.ink)
+                    .scrollContentBackground(.hidden)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .frame(minHeight: 130)
+                    .padding(10)
+                    .background(Ink.bg, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
+                HStack {
+                    Text("\(count) 個")
+                        .font(Brush.text(13))
+                        .foregroundStyle(Ink.sub)
+                        .contentTransition(.numericText(value: Double(count)))
+                        .animation(.snappy(duration: 0.2), value: count)
+                    Spacer()
+                    if count > 0 {
+                        HStack(spacing: 4) {
+                            if valid { InkIcon(kind: .check, size: 16, lineWidth: 2.4) }
+                            Text(valid ? "ただしい ことばです" : "たしかめ中…")
+                        }
+                        .font(Brush.text(13))
+                        .foregroundStyle(valid ? Ink.ink : Ink.sub)
+                        .pop(trigger: valid ? 1 : 0, from: 0.85)
+                    }
+                }
+                Text("もどすとき、サーバーの mailbox から残高を さがします（\(store.network.isRealMoney ? "本番" : "テスト用")ネットワーク）。")
+                    .font(Brush.text(12))
+                    .foregroundStyle(Ink.sub)
+            }
+            .inkCard()
+
+            InkButton(working ? "もどしています…" : "もどす", sound: .boot) {
                 guard !working else { return }
                 working = true
                 Task {
@@ -235,62 +257,27 @@ struct SetupView: View {
                 }
             }
             .disabled(!valid || working)
-
-            PixelButton("Back", kind: .secondary) {
-                restoreText = ""
-                go(.menu, forward: false)
-            }
         }
+        .padding(.top, 8)
     }
-}
 
-struct SeedGrid: View {
-    @Environment(\.sats) private var t
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var words: [String]
-    /// Decode the words one by one, like a terminal printing them.
-    var animated = false
-
-    @State private var shown = Int.max
-
-    var body: some View {
-        let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            ForEach(Array(words.enumerated()), id: \.offset) { index, word in
-                let visible = index < shown
-                HStack(spacing: 8) {
-                    Text(String(format: "%02d", index + 1))
-                        .font(PixelFont.ui(13))
-                        .foregroundStyle(t.braise)
-                    ZStack(alignment: .leading) {
-                        Text(word).opacity(0)
-                        Text(visible ? word : String(repeating: "▒", count: min(word.count, 8)))
-                            .foregroundStyle(visible ? t.creme : t.line)
-                    }
-                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    Spacer(minLength: 0)
-                }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 8)
-                .background(t.bgLo)
-                .overlay(Rectangle().stroke(index == shown - 1 ? t.encre : t.line, lineWidth: 2))
+    private func header(_ title: String, back: @escaping () -> Void) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                Chiptune.shared.play(.click)
+                Haptics.tap()
+                back()
+            } label: {
+                InkIcon(kind: .back, size: 22, lineWidth: 2)
+                    .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("もどる")
+            Text(title)
+                .font(Brush.bold(22, relativeTo: .title2))
+                .foregroundStyle(Ink.ink)
+            Spacer()
         }
-        .privacySensitive()
-        .task(id: words) {
-            guard animated, !reduceMotion, !words.isEmpty else {
-                shown = Int.max
-                return
-            }
-            shown = 0
-            for index in 1...words.count {
-                try? await Task.sleep(nanoseconds: 70_000_000)
-                guard !Task.isCancelled else { return }
-                shown = index
-                Chiptune.shared.play(.tick)
-            }
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            shown = Int.max
-        }
+        .padding(.top, 10)
     }
 }

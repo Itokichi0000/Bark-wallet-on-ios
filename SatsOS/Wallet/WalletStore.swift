@@ -25,7 +25,7 @@ struct WalletToast: Identifiable, Equatable {
 struct IncomingPayment: Identifiable, Equatable {
     let id = UUID()
     let amount: UInt64
-    /// "ARK" or "⚡ LN"
+    /// "Ark" or "ライトニング"
     let rail: String
     let paymentHash: String?
 }
@@ -50,7 +50,7 @@ final class WalletStore: ObservableObject {
 
         var errorDescription: String? {
             switch self {
-            case .notReady: return "ウォレットがまだ起動していません / wallet not ready"
+            case .notReady: return "ウォレットがまだ起きていません"
             }
         }
     }
@@ -74,8 +74,11 @@ final class WalletStore: ObservableObject {
     @Published var toast: WalletToast?
     /// Latest successful receive (Ark or Lightning).
     @Published private(set) var lastIncoming: IncomingPayment?
-    /// recv.exe is open and celebrates arrivals itself, so skip the toast.
+    /// The receive sheet is open and celebrates arrivals itself.
     var receiveOnScreen = false
+    /// Set when the rabbit reaches a new stage.
+    @Published private(set) var levelUp: RabbitStage?
+    private var knownStage: RabbitStage?
 
     private var wallet: Wallet?
     private var notificationTask: Task<Void, Never>?
@@ -114,6 +117,13 @@ final class WalletStore: ObservableObject {
     }
 
     var needsRefresh: UInt64 { balance?.needsRefreshSats ?? 0 }
+
+    /// Sends and receives that went through: the rabbit's food.
+    var growth: Growth { Growth(trades: movements.filter(\.countsForGrowth).count) }
+
+    func clearLevelUp() {
+        levelUp = nil
+    }
 
     // MARK: - Boot
 
@@ -274,6 +284,8 @@ final class WalletStore: ObservableObject {
         blockHeight = nil
         announced = []
         settledInvoices = []
+        knownStage = nil
+        levelUp = nil
     }
 
     func revealMnemonic() -> String? {
@@ -289,7 +301,7 @@ final class WalletStore: ObservableObject {
         do {
             try await wallet.sync()
         } catch {
-            showToast(.error, "SYNC ERROR", error.barkMessage)
+            showToast(.error, "同期できませんでした", error.barkMessage)
         }
         _ = try? await wallet.tryClaimAllLightningReceives(wait: false)
         await refreshData()
@@ -304,6 +316,11 @@ final class WalletStore: ObservableObject {
         }
         if let history = try? await wallet.history() {
             movements = history.sorted { $0.id > $1.id }
+            let stage = growth.stage
+            if let knownStage, stage > knownStage {
+                levelUp = stage
+            }
+            knownStage = stage
         }
     }
 
@@ -373,20 +390,17 @@ final class WalletStore: ObservableObject {
             guard movement.isSuccessful else { return }
             lastIncoming = IncomingPayment(
                 amount: UInt64(movement.effectiveBalanceSats.magnitude),
-                rail: movement.kind == .arkReceive ? "ARK" : "⚡ LN",
+                rail: movement.kind == .arkReceive ? "Ark" : "ライトニング",
                 paymentHash: movement.paymentHash
             )
-            if !receiveOnScreen {
-                showToast(.incoming, "INCOMING!", "+\(amount) sats を受け取りました")
-            }
             celebrate()
             Chiptune.shared.play(.coin)
             Haptics.success()
         case .arkSend, .lightningSend, .onchainSend:
             if movement.isSuccessful {
-                showToast(.outgoing, "SENT", "-\(amount) sats")
+                showToast(.outgoing, "おくったよ", "-\(amount) sats")
             } else if movement.isFailed {
-                showToast(.error, "PAYMENT FAILED", "\(movement.logName) [\(movement.status)]")
+                showToast(.error, "おくれませんでした", "\(movement.title) ・ \(movement.railName)")
                 Chiptune.shared.play(.error)
             }
         default:
@@ -480,7 +494,7 @@ final class WalletStore: ObservableObject {
     #if DEBUG
     /// CI screenshots only: pretend an Ark payment just arrived.
     func simulateIncoming(_ amount: UInt64) {
-        lastIncoming = IncomingPayment(amount: amount, rail: "ARK", paymentHash: nil)
+        lastIncoming = IncomingPayment(amount: amount, rail: "Ark", paymentHash: nil)
         celebrate()
         Chiptune.shared.play(.coin)
     }
@@ -495,7 +509,6 @@ final class WalletStore: ObservableObject {
 
     private func log(_ status: BootLine.Status, _ name: String, _ detail: String) async {
         bootLog.append(BootLine(status: status, name: name, detail: detail))
-        Chiptune.shared.play(.tick)
         await pause(110)
     }
 

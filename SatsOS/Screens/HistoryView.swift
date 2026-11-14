@@ -1,10 +1,9 @@
 import Bark
 import SwiftUI
 
-/// history.log — every wallet movement as a terminal log.
+/// きろく: every movement, newest first.
 struct HistoryView: View {
     @EnvironmentObject private var store: WalletStore
-    @Environment(\.sats) private var t
 
     @State private var detail: Movement?
     @State private var filter: Filter = .all
@@ -14,16 +13,9 @@ struct HistoryView: View {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .all: return "ALL"
-            case .incoming: return "⇠ IN"
-            case .outgoing: return "⇢ OUT"
-            }
-        }
-        var grep: String {
-            switch self {
-            case .all: return ""
-            case .incoming: return " | grep IN"
-            case .outgoing: return " | grep OUT"
+            case .all: return "すべて"
+            case .incoming: return "もらった"
+            case .outgoing: return "おくった"
             }
         }
     }
@@ -38,25 +30,23 @@ struct HistoryView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 2) {
-                    Text("$ tail -f history.log\(filter.grep)")
-                        .font(PixelFont.body(13))
-                        .foregroundStyle(t.dim)
-                        .lineLimit(1)
-                    BlinkingCursor(color: t.dim)
-                        .font(PixelFont.body(13))
-                    Spacer()
-                    Text("\(rows.count) entries")
-                        .font(PixelFont.ui(13))
-                        .foregroundStyle(t.dim)
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("きろく")
+                        .font(Brush.bold(26, relativeTo: .title))
+                        .foregroundStyle(Ink.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("\(store.movements.count) 件")
+                        .font(Brush.text(13))
+                        .foregroundStyle(Ink.sub)
                         .contentTransition(.numericText())
                 }
+                .padding(.top, 14)
 
                 if !store.movements.isEmpty {
                     HStack(spacing: 8) {
                         ForEach(Filter.allCases) { item in
-                            PixelChip(title: item.label, selected: filter == item) {
+                            InkChip(title: item.label, selected: filter == item) {
                                 withAnimation(.easeOut(duration: 0.2)) { filter = item }
                             }
                         }
@@ -64,255 +54,178 @@ struct HistoryView: View {
                 }
 
                 if rows.isEmpty {
-                    PixelWindow(title: "history.log") {
-                        HStack(alignment: .bottom) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("(empty)")
-                                    .font(PixelFont.ui(16))
-                                    .foregroundStyle(t.encre)
-                                Text(store.movements.isEmpty
-                                     ? "まだ取引がありません。下に引っ張ると同期します。"
-                                     : "この条件の取引はありません。")
-                                    .font(PixelFont.body(13))
-                                    .foregroundStyle(t.dim)
-                            }
-                            Spacer(minLength: 8)
-                            TalkingBitty(scale: 1.0)
+                    HStack(alignment: .bottom, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("まだ ありません")
+                                .font(Brush.bold(16))
+                                .foregroundStyle(Ink.ink)
+                            Text(store.movements.isEmpty
+                                 ? "下に引っぱると 同期します"
+                                 : "この条件の きろくは ありません")
+                                .font(Brush.text(13))
+                                .foregroundStyle(Ink.sub)
                         }
+                        Spacer(minLength: 8)
+                        CharacterView(art: .frogSit, height: 56)
+                            .breathing(0.04, period: 1.2)
                     }
+                    .inkCard()
                     .appearIn()
                 } else {
-                    PixelWindow(title: "history.log", padding: 0) {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(rows.enumerated()), id: \.element.id) { index, movement in
-                                Button {
-                                    Chiptune.shared.play(.select)
-                                    Haptics.tap()
-                                    detail = movement
-                                } label: {
-                                    HistoryRow(movement: movement)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 10)
-                                        .contentShape(Rectangle())
-                                }
-                                .buttonStyle(HistoryRowStyle(theme: t))
-                                .appearIn(delay: index < 14 ? Double(index) * 0.035 : 0, distance: 8)
-                                Rectangle()
-                                    .fill(t.grid)
-                                    .frame(height: 2)
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, movement in
+                            Button {
+                                Chiptune.shared.play(.select)
+                                Haptics.tap()
+                                detail = movement
+                            } label: {
+                                TransactionRow(movement: movement)
+                                    .padding(.horizontal, 16)
+                            }
+                            .buttonStyle(RowPressStyle())
+                            .appearIn(delay: index < 12 ? Double(index) * 0.03 : 0, distance: 8)
+                            if index < rows.count - 1 {
+                                DashedDivider().padding(.horizontal, 16)
                             }
                         }
                     }
+                    .padding(.vertical, 4)
+                    .background(Ink.paper, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
                     .id(filter)
                     .transition(.opacity)
                 }
             }
             .padding(.horizontal, 18)
-            .padding(.vertical, 22)
+            .padding(.bottom, 24)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
         .refreshable {
             await store.sync()
         }
+        .background(Ink.bg)
         .sheet(item: $detail) { movement in
             MovementDetailView(movement: movement)
-                .environment(\.sats, t)
                 .presentationDetents([.medium, .large])
-                .presentationBackground(t.papier)
+                .presentationBackground(Ink.bg)
+                .presentationCornerRadius(28)
         }
     }
 }
 
-struct HistoryRow: View {
-    @EnvironmentObject private var settings: AppSettings
-    @Environment(\.sats) private var t
-    var movement: Movement
-    var compact = false
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Group {
-                if movement.isPending {
-                    HStack(spacing: 0) {
-                        Text("[")
-                        PixelSpinner(color: statusColor)
-                            .scaleEffect(0.8)
-                        Text("]")
-                    }
-                } else {
-                    Text("[\(movement.statusTag)]")
-                }
-            }
-            .font(PixelFont.ui(13))
-            .foregroundStyle(statusColor)
-            .frame(minWidth: 30, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(movement.logName)
-                    .font(PixelFont.body(14))
-                    .foregroundStyle(t.creme)
-                if !compact {
-                    Text("\(BarkDate.short(movement.createdAt)) · #\(movement.id)")
-                        .font(PixelFont.body(11))
-                        .foregroundStyle(t.dim)
-                }
-            }
-            Spacer(minLength: 6)
-            Text(amountText)
-                .font(PixelFont.ui(compact ? 15 : 17, bold: true))
-                .foregroundStyle(movement.effectiveBalanceSats >= 0 ? t.encre : t.creme)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-    }
-
-    private var amountText: String {
-        let value = movement.effectiveBalanceSats
-        switch settings.unit {
-        case .sats:
-            return SatFormat.signed(value)
-        case .btc:
-            let body = SatFormat.btc(UInt64(value.magnitude))
-            return value >= 0 ? "+\(body)" : "-\(body)"
-        }
-    }
-
-    private var statusColor: Color {
-        if movement.isPending { return t.dim }
-        if movement.isFailed { return t.braise }
-        return t.encre
+private struct RowPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? Ink.bg : Color.clear)
     }
 }
 
 struct MovementDetailView: View {
-    @Environment(\.sats) private var t
+    @EnvironmentObject private var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
     var movement: Movement
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    Text("movement_\(movement.id).log")
-                        .font(PixelFont.body(14))
-                        .foregroundStyle(t.creme)
-                    Spacer()
-                    Button("✕") { dismiss() }
-                        .font(PixelFont.ui(18, bold: true))
-                        .foregroundStyle(t.encre)
-                }
+                SheetHeader(title: movement.title, onClose: { dismiss() })
+                    .padding(.horizontal, -20)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(movement.kindLabel)
-                        .font(PixelFont.body(13))
-                        .foregroundStyle(t.dim)
+                    Text("\(movement.railName) ・ \(movement.statusText)")
+                        .font(Brush.text(13))
+                        .foregroundStyle(Ink.sub)
                     CountUpText(value: UInt64(movement.effectiveBalanceSats.magnitude), duration: 0.5) {
                         (movement.effectiveBalanceSats >= 0 ? "+" : "-") + SatFormat.sats($0) + " sats"
                     }
-                        .font(PixelFont.ui(36, bold: true))
-                        .foregroundStyle(movement.effectiveBalanceSats >= 0 ? t.encre : t.creme)
-                        .shadow(color: t.rouille, radius: 0, x: 3, y: 3)
+                    .font(Brush.amount(38))
+                    .foregroundStyle(Ink.ink)
                 }
 
-                VStack(spacing: 8) {
-                    LeaderRow(label: "status", value: "[\(movement.statusTag)] \(movement.status)")
-                    LeaderRow(label: "subsystem", value: "\(movement.subsystemName)/\(movement.subsystemKind)")
-                    LeaderRow(label: "intended", value: "\(SatFormat.signed(movement.intendedBalanceSats)) sats")
-                    LeaderRow(label: "fee", value: "\(SatFormat.sats(movement.offchainFeeSats)) sats")
-                    LeaderRow(label: "created", value: BarkDate.display(movement.createdAt))
+                VStack(spacing: 12) {
+                    InfoRow(label: "じょうたい", value: movement.statusText)
+                    InfoRow(label: "しゅるい", value: movement.kindLabel)
+                    InfoRow(label: "予定の金額", value: "\(SatFormat.signed(movement.intendedBalanceSats)) sats")
+                    InfoRow(label: "てすうりょう", value: "\(SatFormat.sats(movement.offchainFeeSats)) sats")
+                    InfoRow(label: "はじまり", value: BarkDate.display(movement.createdAt))
                     if let completed = movement.completedAt {
-                        LeaderRow(label: "completed", value: BarkDate.display(completed))
+                        InfoRow(label: "おわり", value: BarkDate.display(completed))
                     }
+                    InfoRow(label: "ID", value: "#\(movement.id)")
                 }
+                .inkCard()
 
                 ForEach(movement.sentTo, id: \.self) { value in
-                    copyBlock(title: "sent to", value: value)
+                    CopyBlock(title: "あて先", value: value)
                 }
                 ForEach(movement.receivedOn, id: \.self) { value in
-                    copyBlock(title: "received on", value: value)
+                    CopyBlock(title: "うけとった アドレス", value: value)
                 }
                 if let hash = movement.paymentHash {
-                    copyBlock(title: "payment hash", value: hash)
+                    CopyBlock(title: "payment hash", value: hash)
                 }
                 if let invoice = movement.lightningInvoice {
-                    copyBlock(title: "invoice", value: invoice)
+                    CopyBlock(title: "invoice", value: invoice)
                 }
                 if !movement.outputVtxoIds.isEmpty {
-                    copyBlock(title: "output VTXOs", value: movement.outputVtxoIds.joined(separator: "\n"))
+                    CopyBlock(title: "output VTXO", value: movement.outputVtxoIds.joined(separator: "\n"))
                 }
                 if !movement.inputVtxoIds.isEmpty {
-                    copyBlock(title: "input VTXOs", value: movement.inputVtxoIds.joined(separator: "\n"))
+                    CopyBlock(title: "input VTXO", value: movement.inputVtxoIds.joined(separator: "\n"))
                 }
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 30)
         }
-        .background(t.papier)
-    }
-
-    private func copyBlock(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(title)
-                    .font(PixelFont.body(12))
-                    .foregroundStyle(t.dim)
-                Spacer()
-                CopyChip(value: value)
-            }
-            Text(value)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(t.creme)
-                .textSelection(.enabled)
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(t.bgLo)
-                .overlay(Rectangle().stroke(t.line, lineWidth: 2))
-        }
+        .background(Ink.bg)
     }
 }
 
-/// Row highlight while pressed: an ink bar on the left, like a cursor.
-private struct HistoryRowStyle: ButtonStyle {
-    var theme: SatsTheme
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(configuration.isPressed ? theme.grid : .clear)
-            .overlay(alignment: .leading) {
-                Rectangle()
-                    .fill(theme.encre)
-                    .frame(width: 4)
-                    .opacity(configuration.isPressed ? 1 : 0)
-            }
-    }
-}
-
-/// `⎘ copy` → `✓ copied` for a value in the detail sheet.
-private struct CopyChip: View {
-    @Environment(\.sats) private var t
+/// A long value with a copy button.
+struct CopyBlock: View {
+    var title: String
     var value: String
     @State private var copied = false
     @State private var tick = 0
 
     var body: some View {
-        Button {
-            UIPasteboard.general.string = value
-            Chiptune.shared.play(.select)
-            Haptics.success()
-            copied = true
-            tick += 1
-            Task {
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
-                copied = false
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SectionLabel(text: title)
+                Button {
+                    UIPasteboard.general.string = value
+                    Chiptune.shared.play(.select)
+                    Haptics.success()
+                    copied = true
+                    tick += 1
+                    Task {
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        copied = false
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        InkIcon(kind: copied ? .check : .copy, size: 14, lineWidth: 2.2, color: copied ? Ink.paper : Ink.ink)
+                        Text(copied ? "コピーした" : "コピー")
+                    }
+                    .font(Brush.bold(12))
+                    .foregroundStyle(copied ? Ink.paper : Ink.ink)
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 32)
+                    .background(copied ? Ink.ink : Color.clear, in: Capsule())
+                    .overlay(Capsule().stroke(Ink.ink, lineWidth: 1.2))
+                }
+                .buttonStyle(.plain)
+                .pop(trigger: tick, from: 0.85)
             }
-        } label: {
-            Text(copied ? "✓ copied" : "⎘ copy")
-                .font(PixelFont.ui(12, bold: true))
-                .foregroundStyle(copied ? t.onEncre : t.encre)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(copied ? t.encre : .clear)
-                .overlay(Rectangle().stroke(t.encre, lineWidth: 2))
+            Text(value)
+                .font(Brush.mono(12))
+                .foregroundStyle(Ink.ink)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Ink.paper, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
         }
-        .buttonStyle(.plain)
-        .pixelPop(trigger: tick, from: 0.85)
     }
 }

@@ -1,9 +1,8 @@
 import AVFoundation
 import SwiftUI
 
-/// scan.exe — camera QR scanner in a Sats-OS frame.
+/// QR scanner: the camera behind a soft rounded viewfinder.
 struct ScannerScreen: View {
-    @Environment(\.sats) private var t
     var onScan: (String) -> Void
     var onCancel: () -> Void
 
@@ -23,115 +22,68 @@ struct ScannerScreen: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Text("~/desktop / send.exe / ")
-                        .foregroundStyle(t.dim)
-                    + Text("scan.exe")
-                        .foregroundStyle(t.encre)
+                    Text("QRを よみとる")
+                        .font(Brush.bold(20))
+                        .foregroundStyle(.white)
                     Spacer()
                     Button {
                         Chiptune.shared.play(.click)
                         onCancel()
                     } label: {
-                        Text("ESC ✕")
-                            .foregroundStyle(t.encre)
-                            .padding(8)
+                        InkIcon(kind: .close, size: 20, color: .white)
+                            .frame(width: 44, height: 44)
+                            .background(.white.opacity(0.15), in: Circle())
                     }
+                    .accessibilityLabel("とじる")
                 }
-                .font(PixelFont.body(13))
-                .padding(.horizontal, 16)
-                .background(t.papier.opacity(0.9))
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
 
                 Spacer()
 
-                // Viewfinder with pixel corners
                 ZStack {
-                    ViewfinderCorners()
-                        .stroke(t.encre, lineWidth: 6)
-                        .keyframeAnimator(initialValue: CGFloat(1), repeating: true) { view, scale in
-                            view.scaleEffect(scale)
-                        } keyframes: { _ in
-                            KeyframeTrack {
-                                LinearKeyframe(CGFloat(1), duration: 0.6)
-                                LinearKeyframe(CGFloat(0.97), duration: 0.001)
-                                LinearKeyframe(CGFloat(0.97), duration: 0.6)
-                                LinearKeyframe(CGFloat(1), duration: 0.001)
-                            }
+                    RoundedRectangle(cornerRadius: 36, style: .continuous)
+                        .stroke(.white, style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [44, 160]))
+                        .phaseAnimator([false, true]) { view, breathe in
+                            view.scaleEffect(breathe ? 0.97 : 1)
+                        } animation: { _ in
+                            .easeInOut(duration: 1.1)
                         }
-                    if !denied {
-                        ScanBeam()
-                            .padding(14)
-                    }
                     if denied {
-                        Text("カメラへのアクセスが許可されていません。\n設定アプリ > Sats-OS からカメラを許可してください。")
-                            .font(PixelFont.body(13))
-                            .foregroundStyle(t.creme)
+                        Text("カメラが つかえません。\n設定アプリ ＞ ちょうじゅ から カメラを許可してください。")
+                            .font(Brush.text(14))
+                            .foregroundStyle(.white)
                             .multilineTextAlignment(.center)
                             .padding()
                     }
                 }
                 .frame(width: 250, height: 250)
 
-                Text("QR コードを枠に合わせてください")
-                    .font(PixelFont.body(14))
-                    .foregroundStyle(t.creme)
-                    .padding(.top, 20)
+                HStack(spacing: 8) {
+                    CharacterView(art: .frogSit, height: 30)
+                        .environment(\.colorScheme, .dark)
+                    Text("QRコードを 枠にあわせてね")
+                        .font(Brush.text(15))
+                        .foregroundStyle(.white)
+                }
+                .padding(.top, 22)
 
                 Spacer()
 
-                PixelButton("Cancel", kind: .secondary) { onCancel() }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 30)
-            }
-        }
-    }
-}
-
-/// Stepped scan line sweeping the viewfinder, with a short trail.
-private struct ScanBeam: View {
-    @Environment(\.sats) private var t
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: reduceMotion)) { context in
-            Canvas { gc, size in
-                let time = context.date.timeIntervalSinceReferenceDate
-                // ping-pong 0→1→0 over 2.4s, snapped to 4pt rows
-                let phase = (time / 1.2).truncatingRemainder(dividingBy: 2)
-                let unit = phase < 1 ? phase : 2 - phase
-                let y = ((unit * (size.height - 4)) / 4).rounded() * 4
-                for trail in 0..<4 {
-                    let offset = CGFloat(trail) * 6 * (phase < 1 ? -1 : 1)
-                    let rect = CGRect(x: 0, y: y + offset, width: size.width, height: trail == 0 ? 3 : 2)
-                    gc.fill(Path(rect), with: .color(t.encre.opacity(trail == 0 ? 0.9 : 0.35 / Double(trail))))
+                Button {
+                    Chiptune.shared.play(.click)
+                    onCancel()
+                } label: {
+                    Text("やめる")
+                        .font(Brush.bold(17))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white, lineWidth: 1.5))
                 }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 30)
             }
         }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
-
-private struct ViewfinderCorners: Shape {
-    func path(in rect: CGRect) -> Path {
-        let length: CGFloat = 36
-        var path = Path()
-        // top-left
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY + length))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.minX + length, y: rect.minY))
-        // top-right
-        path.move(to: CGPoint(x: rect.maxX - length, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + length))
-        // bottom-right
-        path.move(to: CGPoint(x: rect.maxX, y: rect.maxY - length))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.maxX - length, y: rect.maxY))
-        // bottom-left
-        path.move(to: CGPoint(x: rect.minX + length, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - length))
-        return path
     }
 }
 

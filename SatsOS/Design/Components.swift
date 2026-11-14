@@ -1,205 +1,55 @@
+import Bark
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import SwiftUI
-
-// MARK: - Backgrounds
-
-/// Dark CRT glass: a warm radial glow in the middle that falls off to the edges.
-struct CRTBackground: View {
-    @Environment(\.sats) private var t
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                t.bgLo
-                RadialGradient(
-                    colors: [t.bgHi, t.bgLo],
-                    center: .center,
-                    startRadius: 0,
-                    endRadius: max(proxy.size.width, proxy.size.height) * 0.75
-                )
-            }
-        }
-        .ignoresSafeArea()
-    }
-}
-
-/// Scanlines + vignette laid over the whole app, like the website's CRT pass.
-struct ScanlineOverlay: View {
-    @Environment(\.sats) private var t
-
-    var body: some View {
-        ZStack {
-            Canvas { context, size in
-                var y: CGFloat = 0
-                while y < size.height {
-                    context.fill(
-                        Path(CGRect(x: 0, y: y, width: size.width, height: 1)),
-                        with: .color(.black.opacity(t.isLight ? 0.06 : 0.22))
-                    )
-                    y += 3
-                }
-            }
-            RadialGradient(
-                colors: [.clear, .black.opacity(t.isLight ? 0.18 : 0.55)],
-                center: .center,
-                startRadius: 180,
-                endRadius: 620
-            )
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
-
-// MARK: - Window
-
-/// A Sats-OS window: thick ink border, title bar, hard offset shadow.
-struct PixelWindow<Content: View>: View {
-    @Environment(\.sats) private var t
-
-    var title: String
-    var status: String?
-    var statusColor: Color?
-    var blinkStatus = false
-    var onClose: (() -> Void)?
-    var padding: CGFloat = 14
-    @ViewBuilder var content: () -> Content
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Text(title)
-                    .font(PixelFont.body(13))
-                    .foregroundStyle(t.creme)
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                if let status {
-                    HStack(spacing: 5) {
-                        BlinkingSquare(color: statusColor ?? t.braise, blinking: blinkStatus)
-                        Text(status)
-                            .font(PixelFont.ui(12))
-                            .foregroundStyle(statusColor ?? t.braise)
-                    }
-                }
-                if let onClose {
-                    Button {
-                        Chiptune.shared.play(.click)
-                        Haptics.tap()
-                        onClose()
-                    } label: {
-                        Text("✕")
-                            .font(PixelFont.ui(14, bold: true))
-                            .foregroundStyle(t.encre)
-                            .frame(width: 26, height: 22)
-                            .overlay(Rectangle().stroke(t.encre, lineWidth: 2))
-                    }
-                    .accessibilityLabel("Close")
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            Rectangle().fill(t.encre).frame(height: 3)
-            content()
-                .padding(padding)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(t.papier)
-        .overlay(Rectangle().stroke(t.encre, lineWidth: 3))
-        .background(Rectangle().fill(t.braise).offset(x: 6, y: 6))
-    }
-}
-
-struct BlinkingSquare: View {
-    var color: Color
-    var blinking = true
-    var size: CGFloat = 8
-    @State private var on = true
-
-    var body: some View {
-        Rectangle()
-            .fill(color)
-            .frame(width: size, height: size)
-            .opacity(on ? 1 : 0.15)
-            .onAppear {
-                guard blinking else { return }
-                withAnimation(.linear(duration: 0.01).delay(1).repeatForever(autoreverses: true)) {
-                    on = false
-                }
-            }
-    }
-}
-
-struct BlinkingCursor: View {
-    @Environment(\.sats) private var t
-    var color: Color?
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.5)) { context in
-            let visible = Int(context.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
-            Text("▮")
-                .foregroundStyle(color ?? t.encre)
-                .opacity(visible ? 1 : 0)
-        }
-    }
-}
 
 // MARK: - Buttons
 
-struct PixelButtonStyle: ButtonStyle {
-    enum Kind { case primary, secondary, danger }
-
+struct InkButtonStyle: ButtonStyle {
+    enum Kind { case primary, secondary, quiet, danger }
     var kind: Kind = .primary
-    var theme: SatsTheme
-    var fullWidth = true
+    var height: CGFloat = 56
 
     func makeBody(configuration: Configuration) -> some View {
-        let pressed = configuration.isPressed
         let fill: Color
-        let ink: Color
+        let text: Color
         let border: Color
         switch kind {
-        case .primary:
-            fill = theme.encre; ink = theme.onEncre; border = theme.encre
-        case .secondary:
-            fill = theme.papier; ink = theme.encre; border = theme.encre
-        case .danger:
-            fill = theme.papier; ink = theme.braise; border = theme.braise
+        case .primary: fill = Ink.ink; text = Ink.paper; border = Ink.ink
+        case .secondary: fill = Ink.paper; text = Ink.ink; border = Ink.ink
+        case .quiet: fill = .clear; text = Ink.ink; border = Ink.line
+        case .danger: fill = Ink.paper; text = Ink.alert; border = Ink.alert
         }
         return configuration.label
-            .font(PixelFont.ui(17, bold: true))
-            .textCase(.uppercase)
-            .foregroundStyle(ink)
-            .padding(.vertical, 12)
+            .font(Brush.bold(17))
+            .foregroundStyle(text)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
             .padding(.horizontal, 16)
-            .frame(maxWidth: fullWidth ? .infinity : nil)
-            .background(fill)
-            .overlay(Rectangle().stroke(border, lineWidth: 3))
-            .background(
-                Rectangle()
-                    .fill(kind == .primary ? theme.braise : theme.rouille)
-                    .offset(x: pressed ? 1 : 4, y: pressed ? 1 : 4)
-            )
-            .offset(x: pressed ? 3 : 0, y: pressed ? 3 : 0)
-            .animation(.linear(duration: 0.05), value: pressed)
+            .frame(maxWidth: .infinity, minHeight: height)
+            .background(fill, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(border, lineWidth: 1.5))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.2), value: configuration.isPressed)
     }
 }
 
-/// Button with the click blip + haptic built in.
-struct PixelButton: View {
-    @Environment(\.sats) private var t
+/// Button with a soft sound and tap haptic.
+struct InkButton: View {
     @Environment(\.isEnabled) private var isEnabled
-
     var title: String
-    var kind: PixelButtonStyle.Kind = .primary
-    var fullWidth = true
+    var icon: InkIcon.Kind?
+    var kind: InkButtonStyle.Kind = .primary
+    var height: CGFloat = 56
     var sound: Chiptune.SFX = .click
     var action: () -> Void
 
-    init(_ title: String, kind: PixelButtonStyle.Kind = .primary, fullWidth: Bool = true,
-         sound: Chiptune.SFX = .click, action: @escaping () -> Void) {
+    init(_ title: String, icon: InkIcon.Kind? = nil, kind: InkButtonStyle.Kind = .primary,
+         height: CGFloat = 56, sound: Chiptune.SFX = .click, action: @escaping () -> Void) {
         self.title = title
+        self.icon = icon
         self.kind = kind
-        self.fullWidth = fullWidth
+        self.height = height
         self.sound = sound
         self.action = action
     }
@@ -210,18 +60,20 @@ struct PixelButton: View {
             Haptics.tap()
             action()
         } label: {
-            Text(title)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            HStack(spacing: 8) {
+                if let icon {
+                    InkIcon(kind: icon, size: 18, lineWidth: 2.2)
+                }
+                Text(title)
+            }
         }
-        .buttonStyle(PixelButtonStyle(kind: kind, theme: t, fullWidth: fullWidth))
-        .opacity(isEnabled ? 1 : 0.4)
+        .buttonStyle(InkButtonStyle(kind: kind, height: height))
+        .opacity(isEnabled ? 1 : 0.35)
     }
 }
 
-/// Small bordered chip button used for tabs and toggles.
-struct PixelChip: View {
-    @Environment(\.sats) private var t
+/// Small rounded choice chip.
+struct InkChip: View {
     var title: String
     var selected: Bool
     var action: () -> Void
@@ -233,314 +85,555 @@ struct PixelChip: View {
             action()
         } label: {
             Text(title)
-                .font(PixelFont.ui(14, bold: true))
-                .foregroundStyle(selected ? t.onEncre : t.encre)
-                .padding(.vertical, 7)
+                .font(Brush.bold(14))
+                .foregroundStyle(selected ? Ink.paper : Ink.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity)
-                .background(selected ? t.encre : t.papier)
-                .overlay(Rectangle().stroke(t.encre, lineWidth: 2))
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .background(selected ? Ink.ink : Ink.paper, in: Capsule())
+                .overlay(Capsule().stroke(selected ? Ink.ink : Ink.line, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
-// MARK: - Text rows
-
-/// `label ............ value`
-struct LeaderRow: View {
-    @Environment(\.sats) private var t
+/// Round icon-only button (close, settings).
+struct CircleIconButton: View {
+    var icon: InkIcon.Kind
     var label: String
-    var value: String
-    var valueColor: Color?
-    var monospaced = false
+    var action: () -> Void
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(label)
-                .font(PixelFont.body(14))
-                .foregroundStyle(t.dim)
-                .lineLimit(1)
-                .layoutPriority(1)
-            DottedLine()
-                .stroke(t.line, style: StrokeStyle(lineWidth: 2, dash: [2, 4]))
-                .frame(height: 2)
-                .frame(minWidth: 12)
-            Text(value)
-                .font(monospaced ? .system(size: 13, design: .monospaced) : PixelFont.body(14))
-                .foregroundStyle(valueColor ?? t.creme)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .layoutPriority(2)
+        Button {
+            Chiptune.shared.play(.click)
+            Haptics.tap()
+            action()
+        } label: {
+            InkIcon(kind: icon, size: 20)
+                .frame(width: 44, height: 44)
+                .background(Ink.paper, in: Circle())
+                .overlay(Circle().stroke(Ink.line, lineWidth: 1.5))
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
-struct DottedLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-        return path
-    }
-}
+// MARK: - Icons (hand-drawn-ish strokes)
 
-/// `[ OK ]` `[ .. ]` `[ !! ]`
-struct StatusTag: View {
-    @Environment(\.sats) private var t
-    var status: BootLine.Status
-
-    var body: some View {
-        Text(label)
-            .font(PixelFont.ui(14))
-            .foregroundStyle(color)
+struct InkIcon: View {
+    enum Kind {
+        case send, receive, gear, close, back, home, record, rabbit, scan, paste, copy, share, check, alert, refresh
     }
 
-    private var label: String {
-        switch status {
-        case .ok: return "[ OK ]"
-        case .busy: return "[ .. ]"
-        case .warn: return "[ !! ]"
-        case .fail: return "[FAIL]"
-        }
-    }
-
-    private var color: Color {
-        switch status {
-        case .ok: return t.encre
-        case .busy: return t.dim
-        case .warn: return t.braise
-        case .fail: return t.braise
-        }
-    }
-}
-
-/// The five color bar from the boot screen.
-struct SegmentBar: View {
-    @Environment(\.sats) private var t
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array([t.rouille, t.braise, t.encre, t.creme, t.grid].enumerated()), id: \.offset) { _, color in
-                Rectangle().fill(color)
-            }
-        }
-        .frame(height: 10)
-    }
-}
-
-/// `▮▮▮▮▮▮▮▮▮▮....` progress bar
-struct SegmentProgress: View {
-    @Environment(\.sats) private var t
-    var progress: Double
-    var segments = 28
-
-    var body: some View {
-        GeometryReader { proxy in
-            let filled = Int((Double(segments) * min(max(progress, 0), 1)).rounded(.down))
-            HStack(spacing: 2) {
-                ForEach(0..<segments, id: \.self) { index in
-                    Rectangle()
-                        .fill(index < filled ? t.encre : t.grid)
-                }
-            }
-            .padding(3)
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .overlay(Rectangle().stroke(t.encre, lineWidth: 2))
-        }
-        .frame(height: 18)
-    }
-}
-
-/// `~/desktop / send.exe                ESC ✕`
-struct PathBar: View {
-    @Environment(\.sats) private var t
-    var path: String
-    var onClose: () -> Void
-
-    var body: some View {
-        HStack {
-            Text("~/desktop")
-                .foregroundStyle(t.dim)
-            + Text(" / ")
-                .foregroundStyle(t.dim)
-            + Text(path)
-                .foregroundStyle(t.encre)
-            Spacer()
-            Button {
-                Chiptune.shared.play(.click)
-                Haptics.tap()
-                onClose()
-            } label: {
-                Text("ESC ✕ 戻る")
-                    .foregroundStyle(t.dim)
-                    .padding(.vertical, 6)
-                    .padding(.leading, 12)
-            }
-            .buttonStyle(.plain)
-        }
-        .font(PixelFont.body(13))
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(t.line).frame(height: 2)
-        }
-    }
-}
-
-/// Section heading in system.cfg style: `[ display ]`
-struct SectionHeader: View {
-    @Environment(\.sats) private var t
-    var title: String
-    var subtitle: String?
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("[ \(title) ]")
-                .font(PixelFont.ui(15, bold: true))
-                .foregroundStyle(t.encre)
-            if let subtitle {
-                Text(subtitle)
-                    .font(PixelFont.body(12))
-                    .foregroundStyle(t.dim)
-            }
-            Spacer()
-        }
-    }
-}
-
-/// Big blackletter title with the website's hard text shadow.
-struct BlackletterTitle: View {
-    @Environment(\.sats) private var t
-    var text: String
-    var size: CGFloat = 54
+    var kind: Kind
+    var size: CGFloat = 22
+    var lineWidth: CGFloat = 1.9
     var color: Color?
 
     var body: some View {
-        Text(text)
-            .font(PixelFont.head(size))
-            .foregroundStyle(color ?? t.creme)
-            .shadow(color: t.rouille, radius: 0, x: 4, y: 4)
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
+        Canvas { gc, canvasSize in
+            let s = canvasSize.width / 24
+            func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
+            var path = Path()
+            switch kind {
+            case .send:
+                path.move(to: p(7, 17)); path.addLine(to: p(17, 7))
+                path.move(to: p(9, 7)); path.addLine(to: p(17, 7)); path.addLine(to: p(17, 15))
+            case .receive:
+                path.move(to: p(17, 7)); path.addLine(to: p(7, 17))
+                path.move(to: p(15, 17)); path.addLine(to: p(7, 17)); path.addLine(to: p(7, 9))
+            case .gear:
+                path.addEllipse(in: CGRect(x: 8.8 * s, y: 8.8 * s, width: 6.4 * s, height: 6.4 * s))
+                for i in 0..<8 {
+                    let a = Double(i) * .pi / 4
+                    path.move(to: p(12 + 6.2 * cos(a), 12 + 6.2 * sin(a)))
+                    path.addLine(to: p(12 + 9 * cos(a), 12 + 9 * sin(a)))
+                }
+            case .close:
+                path.move(to: p(6, 6)); path.addLine(to: p(18, 18))
+                path.move(to: p(18, 6)); path.addLine(to: p(6, 18))
+            case .back:
+                path.move(to: p(15, 5)); path.addLine(to: p(8, 12)); path.addLine(to: p(15, 19))
+            case .home:
+                path.move(to: p(4, 11)); path.addLine(to: p(12, 4)); path.addLine(to: p(20, 11))
+                path.move(to: p(6, 10)); path.addLine(to: p(6, 20)); path.addLine(to: p(18, 20)); path.addLine(to: p(18, 10))
+            case .record:
+                path.move(to: p(6, 4)); path.addLine(to: p(16, 4)); path.addLine(to: p(19, 7))
+                path.addLine(to: p(19, 20)); path.addLine(to: p(6, 20)); path.closeSubpath()
+                path.move(to: p(9, 10)); path.addLine(to: p(16, 10))
+                path.move(to: p(9, 14)); path.addLine(to: p(16, 14))
+                path.move(to: p(9, 18)); path.addLine(to: p(13, 18))
+            case .rabbit:
+                path.move(to: p(9, 10)); path.addQuadCurve(to: p(8, 2), control: p(6, 5))
+                path.addQuadCurve(to: p(11, 9.5), control: p(11, 5))
+                path.move(to: p(13, 9.5)); path.addQuadCurve(to: p(16, 2), control: p(13, 4))
+                path.addQuadCurve(to: p(15, 10), control: p(18, 6))
+                path.addEllipse(in: CGRect(x: 6 * s, y: 9 * s, width: 12 * s, height: 11 * s))
+            case .scan:
+                for (x, y, dx, dy) in [(4.0, 4.0, 1.0, 1.0), (20.0, 4.0, -1.0, 1.0), (4.0, 20.0, 1.0, -1.0), (20.0, 20.0, -1.0, -1.0)] {
+                    path.move(to: p(x, y + 5 * dy)); path.addLine(to: p(x, y)); path.addLine(to: p(x + 5 * dx, y))
+                }
+                path.move(to: p(7, 12)); path.addLine(to: p(17, 12))
+            case .paste:
+                path.addRoundedRect(in: CGRect(x: 6 * s, y: 5 * s, width: 12 * s, height: 15 * s), cornerSize: CGSize(width: 2 * s, height: 2 * s))
+                path.move(to: p(9, 5)); path.addLine(to: p(9, 3.5)); path.addLine(to: p(15, 3.5)); path.addLine(to: p(15, 5))
+                path.move(to: p(9, 11)); path.addLine(to: p(15, 11))
+                path.move(to: p(9, 15)); path.addLine(to: p(13, 15))
+            case .copy:
+                path.addRoundedRect(in: CGRect(x: 8 * s, y: 8 * s, width: 11 * s, height: 12 * s), cornerSize: CGSize(width: 2 * s, height: 2 * s))
+                path.move(to: p(5, 15)); path.addLine(to: p(5, 5)); path.addLine(to: p(15, 5))
+            case .share:
+                path.move(to: p(12, 15)); path.addLine(to: p(12, 3))
+                path.move(to: p(8, 7)); path.addLine(to: p(12, 3)); path.addLine(to: p(16, 7))
+                path.move(to: p(8, 11)); path.addLine(to: p(5, 11)); path.addLine(to: p(5, 20))
+                path.addLine(to: p(19, 20)); path.addLine(to: p(19, 11)); path.addLine(to: p(16, 11))
+            case .check:
+                path.move(to: p(5, 12.5)); path.addLine(to: p(10, 17)); path.addLine(to: p(19, 7))
+            case .alert:
+                path.addEllipse(in: CGRect(x: 3 * s, y: 3 * s, width: 18 * s, height: 18 * s))
+                path.move(to: p(12, 7.5)); path.addLine(to: p(12, 13))
+                path.move(to: p(12, 16.5)); path.addLine(to: p(12, 16.6))
+            case .refresh:
+                path.addArc(center: p(12, 12), radius: 7 * s, startAngle: .degrees(-60), endAngle: .degrees(240), clockwise: false)
+                path.move(to: p(15.5, 5.9)); path.addLine(to: p(16, 2.5))
+                path.move(to: p(15.5, 5.9)); path.addLine(to: p(19, 6.5))
+            }
+            gc.stroke(path, with: .color(color ?? Ink.ink),
+                      style: StrokeStyle(lineWidth: lineWidth * s, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
     }
 }
 
-// MARK: - Inputs
-
-struct PixelFieldModifier: ViewModifier {
-    @Environment(\.sats) private var t
-    func body(content: Content) -> some View {
-        content
-            .font(.system(size: 15, design: .monospaced))
-            .foregroundStyle(t.creme)
-            .tint(t.encre)
-            .padding(10)
-            .background(t.bgLo)
-            .overlay(Rectangle().stroke(t.encre, lineWidth: 2))
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
-    }
-}
+// MARK: - Cards & rows
 
 extension View {
-    func pixelField() -> some View { modifier(PixelFieldModifier()) }
+    /// White card with a hairline border.
+    func inkCard(padding: CGFloat = 16, radius: CGFloat = 22, border: Color = Ink.line) -> some View {
+        self
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Ink.paper, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(border, lineWidth: 1.5))
+    }
+}
+
+/// Small grey label above a section.
+struct SectionLabel: View {
+    var text: String
+    var body: some View {
+        Text(text)
+            .font(Brush.text(13, relativeTo: .footnote))
+            .foregroundStyle(Ink.sub)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// `label            value`
+struct InfoRow: View {
+    var label: String
+    var value: String
+    var mono = false
+    var emphasized = false
+    var valueColor: Color?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label)
+                .font(emphasized ? Brush.bold(15) : Brush.text(14))
+                .foregroundStyle(emphasized ? Ink.ink : Ink.sub)
+                .lineLimit(1)
+                .layoutPriority(1)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(mono ? Brush.mono(13) : (emphasized ? Brush.bold(17) : Brush.text(15)))
+                .foregroundStyle(valueColor ?? Ink.ink)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct DashedDivider: View {
+    var body: some View {
+        Line()
+            .stroke(Ink.line, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            .frame(height: 1)
+            .accessibilityHidden(true)
+    }
+
+    private struct Line: Shape {
+        func path(in rect: CGRect) -> Path {
+            var path = Path()
+            path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+            return path
+        }
+    }
+}
+
+/// A wobbly brush line for the ground under the characters.
+struct GroundLine: View {
+    var body: some View {
+        Canvas { gc, size in
+            var main = Path()
+            main.move(to: CGPoint(x: 8, y: size.height * 0.55))
+            main.addCurve(to: CGPoint(x: size.width * 0.54, y: size.height * 0.5),
+                          control1: CGPoint(x: size.width * 0.2, y: size.height * 0.25),
+                          control2: CGPoint(x: size.width * 0.34, y: size.height * 0.8))
+            main.addCurve(to: CGPoint(x: size.width - 8, y: size.height * 0.52),
+                          control1: CGPoint(x: size.width * 0.72, y: size.height * 0.3),
+                          control2: CGPoint(x: size.width * 0.86, y: size.height * 0.4))
+            gc.stroke(main, with: .color(Ink.ink), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            for (from, to) in [(0.12, 0.28), (0.66, 0.84)] {
+                var tuft = Path()
+                tuft.move(to: CGPoint(x: size.width * from, y: size.height * 0.85))
+                tuft.addQuadCurve(to: CGPoint(x: size.width * to, y: size.height * 0.85),
+                                  control: CGPoint(x: size.width * (from + to) / 2, y: size.height * 0.95))
+                gc.stroke(tuft, with: .color(Ink.sub), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
+            }
+        }
+        .frame(height: 20)
+        .accessibilityHidden(true)
+    }
+}
+
+/// `●●●●●●○○○○` growth progress; the newest filled dot is orange.
+struct GrowthDots: View {
+    var progress: Double
+    var count = 10
+
+    var body: some View {
+        let filled = Int((Double(count) * progress).rounded(.down))
+        HStack(spacing: 4) {
+            ForEach(0..<count, id: \.self) { index in
+                Circle()
+                    .fill(index < filled ? (index == filled - 1 ? Ink.orange : Ink.ink) : Color.clear)
+                    .overlay(Circle().stroke(Ink.ink, lineWidth: 1.5))
+                    .frame(width: 9, height: 9)
+            }
+        }
+        .animation(.spring(duration: 0.4), value: filled)
+        .accessibilityElement(children: .ignore)
+        .accessibilityValue("\(Int(progress * 100))%")
+    }
+}
+
+/// Rounded speech bubble.
+struct SpeechBubble: View {
+    var text: String
+    var body: some View {
+        Text(text)
+            .font(Brush.text(14))
+            .foregroundStyle(Ink.ink)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Ink.paper, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
+            .fixedSize()
+    }
+}
+
+/// `Lv.2 わかうさぎ` badge.
+struct LevelBadge: View {
+    var stage: RabbitStage
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("Lv.\(stage.rawValue)")
+            Text(stage.name)
+        }
+        .font(Brush.bold(13))
+        .foregroundStyle(Ink.paper)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .background(Ink.ink, in: Capsule())
+    }
+}
+
+/// Sheet title bar: title on the left, close on the right.
+struct SheetHeader: View {
+    var title: String
+    var onBack: (() -> Void)? = nil
+    var onClose: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let onBack {
+                Button {
+                    Chiptune.shared.play(.click)
+                    Haptics.tap()
+                    onBack()
+                } label: {
+                    InkIcon(kind: .back, size: 22, lineWidth: 2)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("もどる")
+            }
+            Text(title)
+                .font(Brush.bold(22, relativeTo: .title2))
+                .foregroundStyle(Ink.ink)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            CircleIconButton(icon: .close, label: "とじる", action: onClose)
+        }
+        .padding(.horizontal, onBack == nil ? 20 : 8)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
+    }
+}
+
+/// `あて先 ・ きんがく ・ かくにん` with the current step underlined in orange.
+struct StepLabels: View {
+    var steps: [String]
+    var current: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                if index > 0 {
+                    Text("・").foregroundStyle(Ink.sub)
+                }
+                Text(step)
+                    .font(index == current ? Brush.bold(13) : Brush.text(13))
+                    .foregroundStyle(index <= current ? Ink.ink : Ink.sub)
+                    .padding(.bottom, 2)
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(Ink.orange)
+                            .frame(height: 2)
+                            .opacity(index == current ? 1 : 0)
+                    }
+            }
+        }
+        .font(Brush.text(13))
+        .animation(.spring(duration: 0.3), value: current)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(current + 1) / \(steps.count): \(steps[min(current, steps.count - 1)])")
+    }
+}
+
+// MARK: - Amounts
+
+/// Big balance: `123,456 sats` or `₿0.00123456`.
+struct AmountText: View {
+    var sats: UInt64
+    var unit: AmountUnit
+    var size: CGFloat = 44
+    var sign: String = ""
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            switch unit {
+            case .sats:
+                Text(sign + SatFormat.sats(sats))
+                    .font(Brush.amount(size))
+                Text("sats")
+                    .font(Brush.text(size * 0.4))
+            case .btc:
+                Text(sign + SatFormat.btc(sats))
+                    .font(Brush.amount(size * 0.8))
+            }
+        }
+        .foregroundStyle(Ink.ink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
+        .contentTransition(.numericText())
+        .animation(.snappy, value: sats)
+    }
+}
+
+// MARK: - History row
+
+struct TransactionRow: View {
+    @EnvironmentObject private var settings: AppSettings
+    var movement: Movement
+
+    var body: some View {
+        HStack(spacing: 12) {
+            marker
+                .frame(width: 14)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(movement.title)
+                    .font(Brush.text(15))
+                    .foregroundStyle(Ink.ink)
+                Text(movement.isPending ? "\(movement.railName) ・ とどけ中" : movement.railName)
+                    .font(Brush.text(11, relativeTo: .caption))
+                    .foregroundStyle(Ink.sub)
+            }
+            Spacer(minLength: 6)
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(amountText)
+                    .font(Brush.bold(16))
+                    .foregroundStyle(movement.isFailed ? Ink.sub : Ink.ink)
+                    .strikethrough(movement.isFailed)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(BarkDate.friendly(movement.createdAt))
+                    .font(Brush.text(11, relativeTo: .caption))
+                    .foregroundStyle(Ink.sub)
+            }
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var marker: some View {
+        if movement.isPending {
+            InkDots(size: 3.5)
+        } else if movement.isFailed {
+            InkIcon(kind: .alert, size: 14, lineWidth: 2.4, color: Ink.alert)
+        } else if movement.isIncoming {
+            Circle().fill(Ink.orange).frame(width: 10, height: 10)
+        } else {
+            Circle().stroke(Ink.ink, lineWidth: 1.5).frame(width: 10, height: 10)
+        }
+    }
+
+    private var amountText: String {
+        let value = movement.effectiveBalanceSats
+        switch settings.unit {
+        case .sats: return SatFormat.signed(value)
+        case .btc:
+            let body = SatFormat.btc(UInt64(value.magnitude))
+            return value >= 0 ? "+\(body)" : "-\(body)"
+        }
+    }
 }
 
 // MARK: - Toast
 
 struct ToastView: View {
-    @Environment(\.sats) private var t
     var toast: WalletToast
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text(icon)
-                .font(PixelFont.ui(20, bold: true))
-                .foregroundStyle(accent)
+        HStack(spacing: 12) {
+            marker
             VStack(alignment: .leading, spacing: 2) {
                 Text(toast.title)
-                    .font(PixelFont.ui(15, bold: true))
-                    .foregroundStyle(accent)
+                    .font(Brush.bold(15))
+                    .foregroundStyle(Ink.ink)
                 Text(toast.message)
-                    .font(PixelFont.body(13))
-                    .foregroundStyle(t.creme)
+                    .font(Brush.text(13))
+                    .foregroundStyle(Ink.sub)
                     .lineLimit(2)
             }
             Spacer(minLength: 0)
         }
-        .padding(12)
-        .background(t.papier)
-        .overlay(Rectangle().stroke(accent, lineWidth: 3))
-        .background(Rectangle().fill(t.braise).offset(x: 5, y: 5))
+        .padding(14)
+        .background(Ink.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         .padding(.horizontal, 16)
+        .accessibilityElement(children: .combine)
     }
 
-    private var icon: String {
+    @ViewBuilder
+    private var marker: some View {
         switch toast.style {
-        case .incoming: return "₿"
-        case .outgoing: return "⇢"
-        case .info: return "i"
-        case .error: return "!!"
-        }
-    }
-
-    private var accent: Color {
-        switch toast.style {
-        case .incoming: return t.encre
-        case .outgoing: return t.creme
-        case .info: return t.encre
-        case .error: return t.braise
+        case .incoming: Circle().fill(Ink.orange).frame(width: 14, height: 14)
+        case .outgoing: Circle().stroke(Ink.ink, lineWidth: 1.5).frame(width: 14, height: 14)
+        case .info: InkIcon(kind: .check, size: 18)
+        case .error: InkIcon(kind: .alert, size: 18, color: Ink.alert)
         }
     }
 }
 
-// MARK: - Celebration
+// MARK: - QR
 
-/// Pixel coins raining down when sats arrive or a payment completes.
-struct CoinBurst: View {
-    @Environment(\.sats) private var t
-    var trigger: Int
-
-    @State private var start: Date?
-    @State private var coins: [Coin] = (0..<60).map { _ in Coin() }
-
-    struct Coin {
-        let x = Double.random(in: 0...1)
-        let delay = Double.random(in: 0...0.6)
-        let speed = Double.random(in: 0.7...1.3)
-        let size = Double.random(in: 6...12).rounded()
-        let colorIndex = Int.random(in: 0...2)
-    }
+/// Black on white so every scanner reads it, in a rounded paper frame.
+struct QRCodeView: View {
+    var content: String
+    @State private var image: UIImage?
 
     var body: some View {
-        TimelineView(.animation(paused: start == nil)) { context in
-            Canvas { gc, size in
-                guard let start else { return }
-                let elapsed = context.date.timeIntervalSince(start)
-                let palette = [t.encre, t.creme, t.braise]
-                for coin in coins {
-                    let local = elapsed - coin.delay
-                    guard local > 0 else { continue }
-                    let y = -20 + local * local * 900 * coin.speed
-                    guard y < size.height + 20 else { continue }
-                    let wobble = sin(local * 9 + coin.x * 20) * 6
-                    let x = coin.x * size.width + wobble
-                    // snap to a 2pt grid so motion looks stepped / pixel-ish
-                    let rect = CGRect(x: (x / 2).rounded() * 2, y: (y / 2).rounded() * 2, width: coin.size, height: coin.size)
-                    gc.fill(Path(rect), with: .color(palette[coin.colorIndex]))
-                    if coin.size >= 10 {
-                        gc.fill(Path(rect.insetBy(dx: 3, dy: 3)), with: .color(t.rouille))
-                    }
-                }
+        ZStack {
+            Color.white
+            if let image {
+                Image(uiImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(16)
+            } else {
+                InkDots(color: .black)
             }
         }
-        .allowsHitTesting(false)
-        .onChange(of: trigger) { _, _ in
-            start = Date()
-            Task {
-                try? await Task.sleep(nanoseconds: 2_200_000_000)
-                start = nil
+        .aspectRatio(1, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
+        .task(id: content) {
+            image = Self.render(content)
+        }
+        .accessibilityLabel("QRコード")
+    }
+
+    static func render(_ string: String) -> UIImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(string.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else { return nil }
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(output, from: output.extent) else { return nil }
+        return UIImage(cgImage: cgImage)
+    }
+}
+
+// MARK: - Seed
+
+struct SeedGrid: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var words: [String]
+    /// Reveal the words one by one.
+    var animated = false
+
+    @State private var shown = Int.max
+
+    var body: some View {
+        let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                HStack(spacing: 8) {
+                    Text("\(index + 1)")
+                        .font(Brush.text(12))
+                        .foregroundStyle(Ink.sub)
+                        .frame(width: 20, alignment: .trailing)
+                    Text(word)
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Ink.ink)
+                        .opacity(index < shown ? 1 : 0)
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 10)
+                .background(Ink.bg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(index == shown - 1 ? Ink.orange : Ink.line, lineWidth: 1.5)
+                )
             }
+        }
+        .privacySensitive()
+        .task(id: words) {
+            guard animated, !reduceMotion, !words.isEmpty else {
+                shown = Int.max
+                return
+            }
+            shown = 0
+            for index in 1...words.count {
+                try? await Task.sleep(nanoseconds: 70_000_000)
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeOut(duration: 0.15)) { shown = index }
+            }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            shown = Int.max
         }
     }
 }
