@@ -72,9 +72,23 @@ final class WalletStore: ObservableObject {
     private var isBooting = false
 
     init() {
-        let raw = UserDefaults.standard.string(forKey: "network") ?? ArkNetwork.signet.rawValue
-        network = ArkNetwork(rawValue: raw) ?? .signet
+        let defaults = UserDefaults.standard
+        if Autopilot.mode != nil {
+            // CI screenshots (DEBUG only): never create throwaway wallets on mainnet.
+            network = .signet
+            return
+        }
+        // Since 1.0.1 the app starts on mainnet. Move existing installs over once;
+        // after that, whatever the user picks in system.cfg sticks.
+        if !defaults.bool(forKey: Self.mainnetDefaultKey) {
+            defaults.set(true, forKey: Self.mainnetDefaultKey)
+            defaults.set(ArkNetwork.mainnet.rawValue, forKey: "network")
+        }
+        let raw = defaults.string(forKey: "network") ?? ArkNetwork.mainnet.rawValue
+        network = ArkNetwork(rawValue: raw) ?? .mainnet
     }
+
+    private static let mainnetDefaultKey = "mainnetDefaultApplied"
 
     // MARK: - Derived values
 
