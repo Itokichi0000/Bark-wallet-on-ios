@@ -17,8 +17,8 @@
 
 （CI の iPhone シミュレータで signet に接続して撮影したもの。push のたびに Actions の **screenshots** アーティファクトに最新版が残ります）
 
-最初は **SIGNET**（テスト用）で起動します。テストコインは https://signet.2nd.dev/ でもらえます。
-MAINNET（`ark.second.tech`）は system.cfg から切り替えられます（本物のビットコインです）。
+**MAINNET**（`ark.second.tech`、本物のビットコイン）で起動します。最初は少額で試してください。
+テスト用の **SIGNET** には system.cfg から切り替えられます（テストコインは https://signet.2nd.dev/ ）。
 
 ## 構成
 
