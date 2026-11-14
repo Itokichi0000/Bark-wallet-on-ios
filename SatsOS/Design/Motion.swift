@@ -228,19 +228,44 @@ struct PacketTransfer: View {
     }
 }
 
+// MARK: - Signal bars
+
+/// `▂▄▆█` bars filling one by one: "listening for something to arrive".
+struct SignalBars: View {
+    @Environment(\.sats) private var t
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.25)) { context in
+            let lit = reduceMotion ? 4 : Int(context.date.timeIntervalSinceReferenceDate * 4) % 5
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(0..<4, id: \.self) { index in
+                    Rectangle()
+                        .fill(index < lit ? t.encre : t.grid)
+                        .frame(width: 4, height: CGFloat(4 + index * 3))
+                }
+            }
+        }
+        .frame(height: 13)
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Counting number
 
 /// A number that counts up when it first appears (receipt totals etc).
 struct CountUpText: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var value: UInt64
-    var format: (UInt64) -> String
+    /// Where the count starts (e.g. the old balance). Defaults to 0.
+    var from: UInt64 = 0
     var duration: Double = 0.7
+    var format: (UInt64) -> String
 
-    @State private var shown: Double = 0
+    @State private var shown: Double?
 
     var body: some View {
-        CountingLabel(value: shown, format: format)
+        CountingLabel(value: shown ?? Double(from), format: format)
             .accessibilityLabel(format(value))
             .onAppear {
                 guard !reduceMotion else {

@@ -21,6 +21,15 @@ struct WalletToast: Identifiable, Equatable {
     let style: Style
 }
 
+/// A payment that just landed, for the receive screen's celebration.
+struct IncomingPayment: Identifiable, Equatable {
+    let id = UUID()
+    let amount: UInt64
+    /// "ARK" or "⚡ LN"
+    let rail: String
+    let paymentHash: String?
+}
+
 /// Owns the Bark `Wallet` and publishes everything the UI shows.
 ///
 /// Bark rules worth remembering (from the SDK docs):
@@ -63,6 +72,10 @@ final class WalletStore: ObservableObject {
     @Published private(set) var celebrationTick = 0
     @Published private(set) var settledInvoices: Set<String> = []
     @Published var toast: WalletToast?
+    /// Latest successful receive (Ark or Lightning).
+    @Published private(set) var lastIncoming: IncomingPayment?
+    /// recv.exe is open and celebrates arrivals itself, so skip the toast.
+    var receiveOnScreen = false
 
     private var wallet: Wallet?
     private var notificationTask: Task<Void, Never>?
@@ -344,7 +357,14 @@ final class WalletStore: ObservableObject {
         switch movement.kind {
         case .arkReceive, .lightningReceive:
             guard movement.isSuccessful else { return }
-            showToast(.incoming, "INCOMING!", "+\(amount) sats を受け取りました")
+            lastIncoming = IncomingPayment(
+                amount: UInt64(movement.effectiveBalanceSats.magnitude),
+                rail: movement.kind == .arkReceive ? "ARK" : "⚡ LN",
+                paymentHash: movement.paymentHash
+            )
+            if !receiveOnScreen {
+                showToast(.incoming, "INCOMING!", "+\(amount) sats を受け取りました")
+            }
             celebrate()
             Chiptune.shared.play(.coin)
             Haptics.success()
@@ -442,6 +462,15 @@ final class WalletStore: ObservableObject {
     func celebrate() {
         celebrationTick += 1
     }
+
+    #if DEBUG
+    /// CI screenshots only: pretend an Ark payment just arrived.
+    func simulateIncoming(_ amount: UInt64) {
+        lastIncoming = IncomingPayment(amount: amount, rail: "ARK", paymentHash: nil)
+        celebrate()
+        Chiptune.shared.play(.coin)
+    }
+    #endif
 
     // MARK: - Helpers
 

@@ -4,7 +4,8 @@ import Foundation
 /// app create a throwaway signet wallet, skip "TAP TO ENTER" and open a
 /// window, so the simulator can be captured without UI automation.
 ///
-/// Modes: `setup`, `boot`, `desktop`, `send`, `receive`, `history`, `system`.
+/// Modes: `setup`, `boot`, `desktop`, `send`, `receive`, `receive-incoming`,
+/// `history`, `system`.
 /// Release builds always return nil.
 enum Autopilot {
     static var mode: String? {
@@ -25,6 +26,10 @@ enum Autopilot {
 
     static var window: AppWindowKind? {
         guard let mode else { return nil }
+        if mode == "receive-incoming" { return .receive }
         return AppWindowKind(rawValue: mode)
     }
+
+    /// Open recv.exe and fake an incoming payment to show the celebration.
+    static var fakeIncoming: Bool { mode == "receive-incoming" }
 }
