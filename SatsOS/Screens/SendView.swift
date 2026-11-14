@@ -8,6 +8,7 @@ struct SendView: View {
     @EnvironmentObject private var store: WalletStore
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.sats) private var t
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var close: () -> Void
 
     enum Stage: Equatable {
@@ -40,24 +41,44 @@ struct SendView: View {
     @State private var lightning: LightningProgress?
     @State private var successLine = BittyLines.success.randomElement() ?? "+1 EXP"
 
+    // motion state
+    /// Direction of the last stage change, so "Back" slides the other way.
+    @State private var forward = true
+    @State private var parseErrorTick = 0
+    @State private var insufficientTick = 0
+    @State private var sendStart = Date()
+    @State private var delivered = false
+    @State private var titleTick = 0
+    @State private var receiptRows = 0
+    @State private var stampVisible = false
+    @State private var stampTick = 0
+    @State private var failTick = 0
+    @State private var dialogTick = 0
+
     var body: some View {
         ZStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    switch stage {
-                    case .input: inputStage
-                    case .review: reviewStage
-                    case .sending: sendingStage
-                    case .done: doneStage
-                    case .failed(let message): failedStage(message)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 18) {
+                        SendSteps(step: stepIndex, failed: isFailed)
+                            .id("top")
+
+                        ZStack(alignment: .top) {
+                            stageContent
+                                .id(stageKey)
+                                .transition(stageTransition)
+                        }
                     }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 18)
+                    .frame(maxWidth: 560)
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 22)
-                .frame(maxWidth: 560)
-                .frame(maxWidth: .infinity)
+                .scrollDismissesKeyboard(.interactively)
+                .onChange(of: stageKey) { _, _ in
+                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("top", anchor: .top) }
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
 
             if confirming {
                 confirmDialog
@@ -77,6 +98,20 @@ struct SendView: View {
         }
         .task(id: feeKey) {
             await estimateFee()
+        }
+        .onChange(of: insufficient) { _, isShort in
+            if isShort { insufficientTick += 1 }
+        }
+    }
+
+    @ViewBuilder
+    private var stageContent: some View {
+        switch stage {
+        case .input: inputStage
+        case .review: reviewStage
+        case .sending: sendingStage
+        case .done: doneStage
+        case .failed(let message): failedStage(message)
         }
     }
 
@@ -115,11 +150,50 @@ struct SendView: View {
         return !insufficient
     }
 
+    private var stageKey: String {
+        switch stage {
+        case .input: return "input"
+        case .review: return "review"
+        case .sending: return "sending"
+        case .done: return "done"
+        case .failed: return "failed"
+        }
+    }
+
+    private var isFailed: Bool {
+        if case .failed = stage { return true }
+        if case .failed = lightning, stage == .done { return true }
+        return false
+    }
+
+    /// 0 宛先, 1 確認, 2 送金, 3 all done.
+    private var stepIndex: Int {
+        switch stage {
+        case .input: return 0
+        case .review: return 1
+        case .sending, .failed: return 2
+        case .done: return lightning == .routing || isFailed ? 2 : 3
+        }
+    }
+
+    private var stageTransition: AnyTransition {
+        if reduceMotion { return .opacity }
+        let distance: CGFloat = forward ? 36 : -36
+        return .asymmetric(
+            insertion: .offset(x: distance).combined(with: .opacity),
+            removal: .offset(x: -distance).combined(with: .opacity)
+        )
+    }
+
+    private var isEstimatingFee: Bool {
+        fee == nil && feeError == nil && displayAmount != nil
+    }
+
     // MARK: - Stages
 
     private var inputStage: some View {
         VStack(spacing: 22) {
-            PixelWindow(title: "send.exe", status: "READY", statusColor: t.encre, blinkStatus: true) {
+            PixelWindow(title: "send.exe", status: parsing ? "DECODE" : "READY", statusColor: t.encre, blinkStatus: true) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 2) {
                         Text("> 宛先を入力 / paste or scan")
@@ -132,6 +206,7 @@ struct SendView: View {
                         .scrollContentBackground(.hidden)
                         .frame(minHeight: 110)
                         .pixelField()
+                        .overlay(Rectangle().stroke(parseError == nil ? .clear : t.braise, lineWidth: 2))
                     Text("Ark address · ⚡ invoice / offer · lightning address · LNURL · bitcoin: URI · on-chain address")
                         .font(PixelFont.body(11))
                         .foregroundStyle(t.dim)
@@ -139,13 +214,26 @@ struct SendView: View {
                         PixelButton("▣ Scan", kind: .secondary) { showScanner = true }
                         PixelButton("⎘ Paste", kind: .secondary) { paste() }
                     }
+                    if parsing {
+                        HStack(spacing: 8) {
+                            PixelSpinner()
+                            LoadingDots(text: "decoding")
+                                .font(PixelFont.body(12))
+                                .foregroundStyle(t.encre)
+                        }
+                        .transition(.opacity)
+                    }
                     if let parseError {
                         Text("[ !! ] \(parseError)")
                             .font(PixelFont.body(12))
                             .foregroundStyle(t.braise)
+                            .transition(.opacity)
                     }
                 }
+                .animation(.linear(duration: 0.12), value: parsing)
+                .animation(.linear(duration: 0.12), value: parseError)
             }
+            .pixelShake(trigger: parseErrorTick)
 
             PixelButton(parsing ? "decoding…" : "Next ▶︎", sound: .select) {
                 Task { await parse() }
@@ -169,6 +257,8 @@ struct SendView: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(t.encre)
+                            .id(selected.method.typeLabel)
+                            .transition(.opacity)
 
                         Text(selected.method.value)
                             .font(.system(size: 12, design: .monospaced))
@@ -184,7 +274,7 @@ struct SendView: View {
                             HStack(spacing: 8) {
                                 ForEach(Array(options.enumerated()), id: \.offset) { _, option in
                                     PixelChip(title: shortLabel(option.method), selected: option.method == selected.method) {
-                                        select(option)
+                                        withAnimation(.linear(duration: 0.1)) { select(option) }
                                     }
                                 }
                             }
@@ -217,10 +307,12 @@ struct SendView: View {
                         }
 
                         VStack(spacing: 8) {
-                            LeaderRow(label: "fee", value: feeText, valueColor: t.encre)
+                            feeRow
                             if let total {
                                 LeaderRow(label: "total", value: SatFormat.amount(total, unit: settings.unit),
                                           valueColor: insufficient ? t.braise : t.creme)
+                                    .contentTransition(.numericText(value: Double(total)))
+                                    .animation(.snappy(duration: 0.25), value: total)
                             }
                             LeaderRow(label: "spendable", value: SatFormat.amount(store.spendable, unit: settings.unit))
                         }
@@ -228,6 +320,7 @@ struct SendView: View {
                             Text("[ !! ] 残高が足りません / insufficient funds")
                                 .font(PixelFont.body(12))
                                 .foregroundStyle(t.braise)
+                                .transition(.opacity)
                         }
                         if store.network.isRealMoney {
                             Text("MAINNET — 本物のビットコインが動きます")
@@ -235,18 +328,42 @@ struct SendView: View {
                                 .foregroundStyle(t.braise)
                         }
                     }
+                    .animation(.linear(duration: 0.12), value: insufficient)
                 }
 
                 PixelButton("Send ▶︎", sound: .select) {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    withAnimation(.linear(duration: 0.1)) { confirming = true }
+                    withAnimation(.linear(duration: 0.12)) { confirming = true }
                 }
                 .disabled(!canSend)
 
                 PixelButton("Back", kind: .secondary) {
-                    stage = .input
+                    go(.input, forward: false)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var feeRow: some View {
+        if isEstimatingFee {
+            HStack(alignment: .center, spacing: 6) {
+                Text("fee")
+                    .font(PixelFont.body(14))
+                    .foregroundStyle(t.dim)
+                DottedLine()
+                    .stroke(t.line, style: StrokeStyle(lineWidth: 2, dash: [2, 4]))
+                    .frame(height: 2)
+                    .frame(minWidth: 12)
+                PixelSpinner()
+                LoadingDots(text: "estimating")
+                    .font(PixelFont.body(14))
+                    .foregroundStyle(t.dim)
+            }
+        } else {
+            LeaderRow(label: "fee", value: feeText, valueColor: t.encre)
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.25), value: feeText)
         }
     }
 
@@ -260,11 +377,12 @@ struct SendView: View {
                 TextField("0", text: $amountText)
                     .keyboardType(.numberPad)
                     .font(PixelFont.ui(34, bold: true))
-                    .foregroundStyle(t.creme)
+                    .foregroundStyle(insufficient ? t.braise : t.creme)
                     .tint(t.encre)
                     .padding(10)
                     .background(t.bgLo)
-                    .overlay(Rectangle().stroke(t.encre, lineWidth: 2))
+                    .overlay(Rectangle().stroke(insufficient ? t.braise : t.encre, lineWidth: 2))
+                    .pixelShake(trigger: insufficientTick)
                     .onChange(of: amountText) { _, value in
                         let digits = String(value.filter(\.isNumber).prefix(15))
                         if digits != value { amountText = digits }
@@ -291,57 +409,174 @@ struct SendView: View {
         }
     }
 
+    // MARK: sending
+
+    private var sendingRows: [(name: String, busy: String, done: String)] {
+        [
+            ("tx.build", "building", "built"),
+            ("sign.sys", "signing", "signed"),
+            (selected?.method.rail ?? "ark.drv", "broadcasting", "sent"),
+        ]
+    }
+
     private var sendingStage: some View {
-        VStack(spacing: 22) {
-            PixelWindow(title: "send.exe", status: "BUSY", statusColor: t.encre, blinkStatus: true) {
-                VStack(alignment: .leading, spacing: 10) {
-                    BootLogRow(line: BootLine(status: .ok, name: "sign.sys", detail: "signed"))
-                    BootLogRow(line: BootLine(status: .busy, name: selected?.method.rail ?? "ark.drv", detail: "broadcasting"))
-                    SegmentProgress(progress: 0.6)
+        VStack(spacing: 24) {
+            PixelWindow(title: "send.exe", status: delivered ? "SENT" : "BUSY", statusColor: t.encre, blinkStatus: !delivered) {
+                VStack(alignment: .leading, spacing: 14) {
+                    if let sentAmount {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("-\(SatFormat.amount(sentAmount, unit: settings.unit))")
+                                .font(PixelFont.ui(26, bold: true))
+                                .foregroundStyle(t.creme)
+                                .shadow(color: t.rouille, radius: 0, x: 2, y: 2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                        }
+                    }
+
+                    PacketTransfer(to: selected.map { shortLabel($0.method) } ?? "ARK", delivered: delivered)
+
+                    TimelineView(.periodic(from: sendStart, by: 0.1)) { context in
+                        let elapsed = context.date.timeIntervalSince(sendStart)
+                        let visible = delivered ? sendingRows.count : 1 + (elapsed > 0.45 ? 1 : 0) + (elapsed > 0.9 ? 1 : 0)
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(0..<visible, id: \.self) { index in
+                                let row = sendingRows[index]
+                                let ok = delivered || index < visible - 1
+                                BootLogRow(line: BootLine(status: ok ? .ok : .busy, name: row.name, detail: ok ? row.done : row.busy))
+                                    .transition(.opacity)
+                            }
+                            // creeps toward 90% while we wait, then snaps full on success
+                            SegmentProgress(progress: delivered ? 1 : 0.9 * (1 - exp(-elapsed / 1.6)))
+                        }
+                        .animation(.linear(duration: 0.1), value: visible)
+                    }
+
+                    HStack(spacing: 8) {
+                        if delivered {
+                            Text("[ OK ] 送信完了")
+                                .font(PixelFont.body(13))
+                                .foregroundStyle(t.encre)
+                        } else {
+                            PixelSpinner()
+                            LoadingDots(text: "送金中 / transmitting")
+                                .font(PixelFont.body(13))
+                                .foregroundStyle(t.dim)
+                        }
+                    }
                 }
             }
-            BittyView(scale: 1.6, hopHeight: 16)
+            BittyView(scale: 1.6, hopHeight: delivered ? 22 : 12)
         }
-        .padding(.top, 30)
+        .padding(.top, 8)
+    }
+
+    // MARK: done
+
+    private var doneTitle: String {
+        switch lightning {
+        case .routing: return "Routing…"
+        case .failed: return "Failed"
+        default: return "Complete!"
+        }
+    }
+
+    private var stamp: (text: String, color: Color)? {
+        switch lightning {
+        case .routing: return nil
+        case .failed: return ("FAILED", t.braise)
+        case .paid: return ("PAID ✓", t.encre)
+        case .none: return ("SENT ✓", t.encre)
+        }
     }
 
     private var doneStage: some View {
         VStack(spacing: 18) {
-            BlackletterTitle(text: lightning == .routing ? "Routing…" : "Complete!", size: 54)
-                .padding(.top, 20)
-            BittyView(scale: 1.8, hopHeight: lightning == .routing ? 6 : 18)
-            Text(lightning == .routing ? "⚡ ルーティング中… しばらくお待ちください" : successLine)
-                .font(PixelFont.body(15))
-                .foregroundStyle(t.encre)
+            BlackletterTitle(text: doneTitle, size: 54, color: isFailed ? t.braise : nil)
+                .pixelPop(trigger: titleTick)
+                .padding(.top, 8)
+                .contentTransition(.opacity)
+                .animation(.linear(duration: 0.12), value: doneTitle)
+
+            if let sentAmount {
+                CountUpText(value: sentAmount) { "-" + SatFormat.amount($0, unit: settings.unit) }
+                    .font(PixelFont.ui(30, bold: true))
+                    .foregroundStyle(t.creme)
+                    .shadow(color: t.rouille, radius: 0, x: 3, y: 3)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            }
+
+            BittyView(scale: 1.8, hopping: !isFailed, hopHeight: lightning == .routing ? 6 : 18)
+
+            Group {
+                switch lightning {
+                case .routing:
+                    HStack(spacing: 8) {
+                        PixelSpinner()
+                        LoadingDots(text: "⚡ ルーティング中")
+                    }
+                case .failed:
+                    Text("[FAIL] 支払いが完了しませんでした")
+                default:
+                    Text(successLine)
+                }
+            }
+            .font(PixelFont.body(15))
+            .foregroundStyle(isFailed ? t.braise : t.encre)
 
             PixelWindow(title: "receipt.txt") {
                 VStack(spacing: 8) {
                     if let sentAmount {
                         LeaderRow(label: "amount", value: SatFormat.amount(sentAmount, unit: settings.unit))
+                            .receiptRow(0, shown: receiptRows)
                     }
                     if let selected {
                         LeaderRow(label: "rail", value: selected.method.rail)
+                            .receiptRow(1, shown: receiptRows)
                         LeaderRow(label: "to", value: selected.method.value, monospaced: true)
+                            .receiptRow(2, shown: receiptRows)
                     }
                     if let result {
                         switch result {
                         case .ark(let movementId):
                             LeaderRow(label: "movement", value: "#\(movementId)")
+                                .receiptRow(3, shown: receiptRows)
                         case .onchain(let txid):
                             LeaderRow(label: "txid", value: txid, monospaced: true)
+                                .receiptRow(3, shown: receiptRows)
                         case .lightning(_, let paymentHash):
                             LeaderRow(label: "hash", value: paymentHash, monospaced: true)
+                                .receiptRow(3, shown: receiptRows)
                             LeaderRow(label: "status", value: lightningStatusText,
-                                      valueColor: lightning == .paid ? t.encre : t.creme)
+                                      valueColor: lightning == .paid ? t.encre : (isFailed ? t.braise : t.creme))
+                                .receiptRow(4, shown: receiptRows)
                         }
                     }
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if let stamp {
+                    PixelStamp(text: stamp.text, color: stamp.color)
+                        .opacity(stampVisible ? 1 : 0)
+                        .pixelPop(trigger: stampTick, from: 2.2)
+                        .offset(x: -14, y: -10)
+                        .allowsHitTesting(false)
                 }
             }
 
             PixelButton("Done / 閉じる") { close() }
             PixelButton("Send another", kind: .secondary) { reset() }
         }
+        .task { await revealReceipt() }
+        .onChange(of: lightning) { _, value in
+            guard value == .paid || isLightningFailure(value) else { return }
+            titleTick += 1
+            slamStamp()
+        }
     }
+
+    // MARK: failed
 
     private func failedStage(_ message: String) -> some View {
         VStack(spacing: 22) {
@@ -354,9 +589,19 @@ struct SendView: View {
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(t.creme)
                         .textSelection(.enabled)
+                    Text("残高は変わっていません。内容を確認してもう一度お試しください。")
+                        .font(PixelFont.body(12))
+                        .foregroundStyle(t.dim)
                 }
             }
-            PixelButton("Retry") { stage = .review }
+            .pixelShake(trigger: failTick)
+            .task {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                failTick += 1
+            }
+            BittyView(scale: 1.4, hopping: false)
+                .opacity(0.7)
+            PixelButton("Retry") { go(.review, forward: false) }
             PixelButton("Back", kind: .secondary) { reset() }
         }
     }
@@ -365,43 +610,75 @@ struct SendView: View {
 
     private var confirmDialog: some View {
         ZStack {
-            Color.black.opacity(0.55)
+            Color.black.opacity(0.6)
                 .ignoresSafeArea()
-                .onTapGesture { confirming = false }
-            VStack(alignment: .leading, spacing: 16) {
-                Text("本当に送りますか？")
-                    .font(PixelFont.body(18))
-                    .foregroundStyle(t.creme)
+                .onTapGesture { dismissConfirm() }
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 6) {
+                    Text("▶︎")
+                        .font(PixelFont.ui(16, bold: true))
+                        .foregroundStyle(t.encre)
+                    TypewriterText(text: "本当に送りますか？", font: PixelFont.body(18), color: t.creme)
+                }
                 if let amount = displayAmount {
                     Text("\(SatFormat.sats(amount)) sats ⇢ \(selected.map { shortLabel($0.method) } ?? "")")
                         .font(PixelFont.ui(20, bold: true))
                         .foregroundStyle(t.encre)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                if let value = selected?.method.value {
+                    Text(value)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(t.dim)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
                 if let fee {
-                    Text("fee \(SatFormat.sats(fee.feeSats)) sats")
-                        .font(PixelFont.body(13))
-                        .foregroundStyle(t.dim)
+                    LeaderRow(label: "fee", value: "\(SatFormat.sats(fee.feeSats)) sats")
                 }
-                HStack(spacing: 14) {
-                    PixelButton("▶︎ はい / YES", sound: .send) {
-                        confirming = false
-                        Task { await send() }
-                    }
-                    PixelButton("いいえ", kind: .secondary) {
-                        confirming = false
-                    }
+                if let total {
+                    LeaderRow(label: "total", value: SatFormat.amount(total, unit: settings.unit), valueColor: t.creme)
+                }
+                if store.network.isRealMoney {
+                    Text("MAINNET — 本物のビットコインが動きます")
+                        .font(PixelFont.body(11))
+                        .foregroundStyle(t.braise)
+                }
+                HoldToConfirmButton(title: "▶︎ 長押しで送金 / HOLD", holdingTitle: "チャージ中… / CHARGING") {
+                    withAnimation(.linear(duration: 0.1)) { confirming = false }
+                    Task { await send() }
+                }
+                .padding(.top, 4)
+                PixelButton("いいえ / NO", kind: .secondary) {
+                    dismissConfirm()
                 }
             }
             .pixelBox(t, padding: 20)
             .padding(.horizontal, 24)
+            .pixelPop(trigger: dialogTick, from: 0.86)
+            .task { dialogTick += 1 }
         }
+    }
+
+    private func dismissConfirm() {
+        withAnimation(.linear(duration: 0.1)) { confirming = false }
     }
 
     // MARK: - Actions
 
+    private func go(_ next: Stage, forward: Bool) {
+        self.forward = forward
+        withAnimation(reduceMotion ? .linear(duration: 0.15) : .easeOut(duration: 0.24)) {
+            stage = next
+        }
+    }
+
     private func paste() {
         guard let text = UIPasteboard.general.string, !text.isEmpty else {
             parseError = "クリップボードが空です / clipboard is empty"
+            parseErrorTick += 1
+            Haptics.error()
             return
         }
         input = text
@@ -417,14 +694,17 @@ struct SendView: View {
             request = parsed
             guard let choice = parsed.defaultOption ?? parsed.options.first else {
                 parseError = "支払える宛先が見つかりません / nothing payable found"
+                parseErrorTick += 1
+                Haptics.error()
                 return
             }
             amountText = ""
             comment = ""
             select(choice)
-            stage = .review
+            go(.review, forward: true)
         } catch {
             parseError = error.barkMessage
+            parseErrorTick += 1
             Chiptune.shared.play(.error)
             Haptics.error()
         }
@@ -464,24 +744,29 @@ struct SendView: View {
         guard let method = selected?.method else { return }
         let amount: UInt64? = requiresAmount ? typedAmount : nil
         sentAmount = displayAmount
-        stage = .sending
+        delivered = false
+        sendStart = Date()
+        go(.sending, forward: true)
         do {
             let paid = try await store.pay(method, amount: amount, comment: comment.isEmpty ? nil : comment)
             result = paid
+            // let the bar fill and the packets land before the receipt
+            withAnimation(.linear(duration: 0.1)) { delivered = true }
+            try? await Task.sleep(nanoseconds: reduceMotion ? 150_000_000 : 550_000_000)
             if case .lightning(_, let paymentHash) = paid {
                 lightning = .routing
-                stage = .done
+                go(.done, forward: true)
                 Chiptune.shared.play(.select)
                 await followLightning(paymentHash)
             } else {
                 lightning = nil
-                stage = .done
+                go(.done, forward: true)
                 Chiptune.shared.play(.coin)
                 Haptics.success()
                 store.celebrate()
             }
         } catch {
-            stage = .failed(error.barkMessage)
+            go(.failed(error.barkMessage), forward: true)
             Chiptune.shared.play(.error)
             Haptics.error()
         }
@@ -500,6 +785,8 @@ struct SendView: View {
                 lightning = .routing
             case .unknown:
                 lightning = .failed("unknown")
+                Chiptune.shared.play(.error)
+                Haptics.error()
             }
         } catch {
             lightning = .failed(error.barkMessage)
@@ -508,8 +795,42 @@ struct SendView: View {
         }
     }
 
+    /// Prints the receipt line by line (after the success jingle), then
+    /// slams the stamp on it.
+    private func revealReceipt() async {
+        receiptRows = 0
+        stampVisible = false
+        titleTick += 1
+        if reduceMotion {
+            receiptRows = 5
+            if stamp != nil { stampVisible = true }
+            return
+        }
+        try? await Task.sleep(nanoseconds: 380_000_000)
+        for row in 1...5 {
+            guard !Task.isCancelled else { return }
+            withAnimation(.linear(duration: 0.08)) { receiptRows = row }
+            Chiptune.shared.play(.tick)
+            try? await Task.sleep(nanoseconds: 110_000_000)
+        }
+        guard !Task.isCancelled, stamp != nil else { return }
+        try? await Task.sleep(nanoseconds: 120_000_000)
+        slamStamp()
+    }
+
+    private func slamStamp() {
+        guard stamp != nil else { return }
+        stampVisible = true
+        stampTick += 1
+        Haptics.heavy()
+    }
+
+    private func isLightningFailure(_ value: LightningProgress?) -> Bool {
+        if case .failed = value { return true }
+        return false
+    }
+
     private func reset() {
-        stage = .input
         input = ""
         request = nil
         selected = nil
@@ -520,7 +841,11 @@ struct SendView: View {
         result = nil
         sentAmount = nil
         lightning = nil
+        delivered = false
+        stampVisible = false
+        receiptRows = 0
         successLine = BittyLines.success.randomElement() ?? "+1 EXP"
+        go(.input, forward: false)
     }
 
     // MARK: - Text helpers
@@ -547,5 +872,62 @@ struct SendView: View {
         case .invoice, .offer, .lightningAddress, .lnurl: return "⚡ LN"
         case .custom: return "?"
         }
+    }
+}
+
+// MARK: - Step indicator
+
+/// `[1 宛先]━━[2 確認]━━[3 送金]` — where you are in the send flow.
+private struct SendSteps: View {
+    @Environment(\.sats) private var t
+    /// 0...2 = current step, 3 = everything done.
+    var step: Int
+    var failed = false
+
+    private let titles = ["宛先", "確認", "送金"]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<titles.count, id: \.self) { index in
+                if index > 0 {
+                    Rectangle()
+                        .fill(index <= step ? t.encre : t.line)
+                        .frame(height: 3)
+                        .frame(maxWidth: .infinity)
+                }
+                chip(index)
+            }
+        }
+        .animation(.linear(duration: 0.12), value: step)
+        .animation(.linear(duration: 0.12), value: failed)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \(min(step + 1, titles.count)) of \(titles.count): \(titles[min(step, titles.count - 1)])")
+    }
+
+    private func chip(_ index: Int) -> some View {
+        let isCurrent = index == step
+        let isDone = index < step
+        let isFailedStep = failed && isCurrent
+        let ink: Color = isFailedStep ? t.braise : (isCurrent || isDone ? t.encre : t.dim)
+        return HStack(spacing: 4) {
+            Text(isDone ? "✓" : "\(index + 1)")
+                .font(PixelFont.ui(12, bold: true))
+            Text(titles[index])
+                .font(PixelFont.body(12))
+        }
+        .foregroundStyle(isCurrent ? (isFailedStep ? t.papier : t.onEncre) : ink)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(isCurrent ? ink : t.papier)
+        .overlay(Rectangle().stroke(isCurrent || isDone ? ink : t.line, lineWidth: 2))
+        .fixedSize()
+    }
+}
+
+private extension View {
+    /// Receipt line that "prints" in when its turn comes.
+    func receiptRow(_ index: Int, shown: Int) -> some View {
+        opacity(index < shown ? 1 : 0)
+            .offset(y: index < shown ? 0 : -4)
     }
 }
