@@ -62,13 +62,21 @@ struct InkButton: View {
         } label: {
             HStack(spacing: 8) {
                 if let icon {
-                    InkIcon(kind: icon, size: 18, lineWidth: 2.2)
+                    InkIcon(kind: icon, size: 18, lineWidth: 2.2, color: iconColor)
                 }
                 Text(title)
             }
         }
         .buttonStyle(InkButtonStyle(kind: kind, height: height))
         .opacity(isEnabled ? 1 : 0.35)
+    }
+
+    private var iconColor: Color {
+        switch kind {
+        case .primary: return Ink.paper
+        case .danger: return Ink.alert
+        case .secondary, .quiet: return Ink.ink
+        }
     }
 }
 

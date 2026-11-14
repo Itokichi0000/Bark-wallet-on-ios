@@ -130,6 +130,7 @@ struct SetupView: View {
                      : "テスト用のネットワーク。無料のテストコインで あそべます。")
                     .font(Brush.text(12))
                     .foregroundStyle(store.network.isRealMoney ? Ink.alert : Ink.sub)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .inkCard()
             .appearIn(delay: 0.3)
