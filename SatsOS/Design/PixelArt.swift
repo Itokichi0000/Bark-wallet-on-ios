@@ -216,6 +216,14 @@ enum BittyLines {
         "not your keys, not your coins",
     ]
 
+    static let received = [
+        "sats が届いた！",
+        "stack sats ✓",
+        "+1 EXP",
+        "ごちそうさま₿",
+        "HODL するぞ",
+    ]
+
     static let success = [
         "やったね！",
         "+1 EXP",
