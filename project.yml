@@ -32,20 +32,16 @@ targets:
     info:
       path: SatsOS/Info.plist
       properties:
-        CFBundleDisplayName: Sats-OS
+        CFBundleDisplayName: ちょうじゅ
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
         ITSAppUsesNonExemptEncryption: false
         UIAppFonts:
-          - Jacquard12-Regular.ttf
-          - DotGothic16-Regular.ttf
-          - PixelifySans-Regular.ttf
-          - PixelifySans-Bold.ttf
+          - KleeOne-Regular.ttf
+          - KleeOne-SemiBold.ttf
         UILaunchScreen:
           UIColorName: LaunchBackground
-        UIUserInterfaceStyle: Dark
-        UIStatusBarStyle: UIStatusBarStyleLightContent
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIRequiresFullScreen: true

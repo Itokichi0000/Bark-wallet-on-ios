@@ -124,6 +124,29 @@ enum BarkDate {
         guard let date = parse(string) else { return string }
         return shortFormatter.string(from: date)
     }
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "H:mm"
+        return f
+    }()
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "M/d"
+        return f
+    }()
+
+    /// きょう 9:30 / きのう 21:04 / 11/12
+    static func friendly(_ string: String) -> String {
+        guard let date = parse(string) else { return string }
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "きょう " + timeFormatter.string(from: date) }
+        if calendar.isDateInYesterday(date) { return "きのう " + timeFormatter.string(from: date) }
+        return dayFormatter.string(from: date)
+    }
 }
 
 // MARK: - Movements (history entries)

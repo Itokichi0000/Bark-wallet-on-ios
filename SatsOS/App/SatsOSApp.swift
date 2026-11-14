@@ -10,24 +10,20 @@ struct SatsOSApp: App {
             RootView()
                 .environmentObject(settings)
                 .environmentObject(store)
-                .environment(\.sats, settings.theme)
-                .preferredColorScheme(settings.theme.isLight ? .light : .dark)
         }
     }
 }
 
 struct RootView: View {
     @EnvironmentObject private var store: WalletStore
-    @EnvironmentObject private var settings: AppSettings
-    @Environment(\.sats) private var t
     @Environment(\.scenePhase) private var scenePhase
 
-    /// The boot screen waits for a tap ("PRESS ANY KEY") before the desktop.
+    /// The splash stays up briefly after the wallet is ready.
     @State private var entered = false
 
     var body: some View {
         ZStack {
-            CRTBackground()
+            Ink.bg.ignoresSafeArea()
 
             Group {
                 switch store.phase {
@@ -35,24 +31,16 @@ struct RootView: View {
                     SetupView()
                         .transition(.opacity)
                 case .ready where entered:
-                    DesktopView()
-                        .transition(.opacity)
+                    MainView()
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 default:
-                    BootView {
-                        Chiptune.shared.play(.boot)
-                        Haptics.heavy()
-                        withAnimation(.easeOut(duration: 0.25)) { entered = true }
-                    }
-                    .transition(.opacity)
+                    SplashView()
+                        .transition(.opacity)
                 }
             }
 
-            CoinBurst(trigger: store.celebrationTick)
+            CoinShower(trigger: store.celebrationTick)
                 .ignoresSafeArea()
-
-            if settings.crt {
-                ScanlineOverlay()
-            }
 
             VStack {
                 if let toast = store.toast {
@@ -63,9 +51,9 @@ struct RootView: View {
                 Spacer()
             }
             .padding(.top, 6)
-            .animation(.spring(duration: 0.3), value: store.toast)
+            .animation(.spring(duration: 0.35), value: store.toast)
         }
-        .tint(t.encre)
+        .tint(Ink.ink)
         .task {
             await store.boot()
         }
@@ -73,6 +61,12 @@ struct RootView: View {
             entered = false
         }
         .onChange(of: store.phase) { _, phase in
+            if phase == .ready, !entered, !Autopilot.holdAtBoot {
+                Task {
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    withAnimation(.easeOut(duration: 0.35)) { entered = true }
+                }
+            }
             runAutopilot(phase)
         }
         .onChange(of: scenePhase) { _, phase in
@@ -85,17 +79,9 @@ struct RootView: View {
     /// CI screenshots only (see Autopilot.swift); a no-op in release builds.
     private func runAutopilot(_ phase: WalletStore.Phase) {
         guard Autopilot.mode != nil else { return }
-        switch phase {
-        case .needsSetup where !Autopilot.holdAtSetup:
+        if case .needsSetup = phase, !Autopilot.holdAtSetup {
             guard let words = try? store.makeMnemonic() else { return }
             Task { await store.installWallet(mnemonic: words, restored: false) }
-        case .ready where !Autopilot.holdAtBoot:
-            Task {
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
-                entered = true
-            }
-        default:
-            break
         }
     }
 }

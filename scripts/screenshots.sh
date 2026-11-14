@@ -31,13 +31,14 @@ run() {
 }
 
 run 01-setup setup 10
-run 02-boot boot 45
-run 03-desktop desktop 30
+run 02-splash boot 40
+run 03-home home 30
 run 04-receive receive 25
 run 05-send send 15
 run 06-history history 15
-run 07-system system 20
-run 08-receive-incoming receive-incoming 30
+run 07-growth growth 15
+run 08-settings settings 20
+run 09-receive-incoming receive-incoming 30
 
 # keep the app's own log lines (wallet open errors etc.) for debugging
 xcrun simctl spawn "${UDID}" log show --last 6m --style compact \
