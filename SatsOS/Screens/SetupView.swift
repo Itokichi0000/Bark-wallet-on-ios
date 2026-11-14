@@ -16,6 +16,9 @@ struct SetupView: View {
     @State private var restoreText = ""
     @State private var error: String?
     @State private var working = false
+    @State private var forward = true
+    @State private var checkTick = 0
+    @State private var errorTick = 0
 
     var body: some View {
         ScrollView {
@@ -27,14 +30,21 @@ struct SetupView: View {
                         .foregroundStyle(t.encre)
                 }
                 .padding(.top, 36)
+                .crtPowerOn()
 
-                switch step {
-                case .menu:
-                    menu
-                case .showSeed(let words):
-                    seedBackup(words)
-                case .restore:
-                    restore
+                ZStack(alignment: .top) {
+                    Group {
+                        switch step {
+                        case .menu:
+                            menu
+                        case .showSeed(let words):
+                            seedBackup(words)
+                        case .restore:
+                            restore
+                        }
+                    }
+                    .id(stepKey)
+                    .transition(stepTransition)
                 }
             }
             .padding(.horizontal, 20)
@@ -45,28 +55,52 @@ struct SetupView: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
+    private var stepKey: String {
+        switch step {
+        case .menu: return "menu"
+        case .showSeed: return "seed"
+        case .restore: return "restore"
+        }
+    }
+
+    private var stepTransition: AnyTransition {
+        let distance: CGFloat = forward ? 36 : -36
+        return .asymmetric(
+            insertion: .offset(x: distance).combined(with: .opacity),
+            removal: .offset(x: -distance).combined(with: .opacity)
+        )
+    }
+
+    private func go(_ next: Step, forward: Bool) {
+        self.forward = forward
+        withAnimation(.easeOut(duration: 0.24)) { step = next }
+    }
+
     // MARK: menu
 
     private var menu: some View {
         VStack(spacing: 22) {
             PixelWindow(title: "setup.exe", status: "NO WALLET", statusColor: t.braise, blinkStatus: true) {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("> ゲームをはじめますか？")
-                        .font(PixelFont.body(15))
-                        .foregroundStyle(t.creme)
+                    HStack(spacing: 2) {
+                        TypewriterText(text: "> ゲームをはじめますか？", font: PixelFont.body(15), color: t.creme)
+                        BlinkingCursor()
+                            .font(PixelFont.body(15))
+                    }
 
                     PixelButton("▶︎ New wallet / 新しく作る", sound: .select) {
                         do {
                             let words = try store.makeMnemonic()
                             wroteItDown = false
-                            step = .showSeed(words)
+                            go(.showSeed(words), forward: true)
                         } catch {
                             self.error = error.localizedDescription
+                            errorTick += 1
                         }
                     }
                     PixelButton("Restore / シードから復元", kind: .secondary, sound: .select) {
                         error = nil
-                        step = .restore
+                        go(.restore, forward: true)
                     }
                     if let error {
                         Text(error)
@@ -119,17 +153,19 @@ struct SetupView: View {
                         .font(PixelFont.body(13))
                         .foregroundStyle(t.creme)
 
-                    SeedGrid(words: words)
+                    SeedGrid(words: words, animated: true)
 
                     Button {
                         Chiptune.shared.play(.select)
                         Haptics.tap()
                         wroteItDown.toggle()
+                        checkTick += 1
                     } label: {
                         HStack(spacing: 10) {
                             Text(wroteItDown ? "[x]" : "[ ]")
                                 .font(PixelFont.ui(16, bold: true))
                                 .foregroundStyle(t.encre)
+                                .pixelPop(trigger: checkTick, from: 0.7)
                             Text("書き留めました / I wrote it down")
                                 .font(PixelFont.body(14))
                                 .foregroundStyle(t.creme)
@@ -150,7 +186,7 @@ struct SetupView: View {
             .disabled(!wroteItDown || working)
 
             PixelButton("Back", kind: .secondary) {
-                step = .menu
+                go(.menu, forward: false)
             }
         }
     }
@@ -174,11 +210,14 @@ struct SetupView: View {
                         Text("\(count) words")
                             .font(PixelFont.ui(13))
                             .foregroundStyle(t.dim)
+                            .contentTransition(.numericText(value: Double(count)))
+                            .animation(.snappy(duration: 0.2), value: count)
                         Spacer()
                         if count > 0 {
                             Text(valid ? "[ OK ] checksum" : "[ .. ] checking")
                                 .font(PixelFont.ui(13))
                                 .foregroundStyle(valid ? t.encre : t.dim)
+                                .pixelPop(trigger: valid ? 1 : 0, from: 0.8)
                         }
                     }
                     Text("復元時はサーバーの mailbox から残高を探します（ネットワーク: \(store.network.label)）。")
@@ -199,7 +238,7 @@ struct SetupView: View {
 
             PixelButton("Back", kind: .secondary) {
                 restoreText = ""
-                step = .menu
+                go(.menu, forward: false)
             }
         }
     }
@@ -207,27 +246,51 @@ struct SetupView: View {
 
 struct SeedGrid: View {
     @Environment(\.sats) private var t
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var words: [String]
+    /// Decode the words one by one, like a terminal printing them.
+    var animated = false
+
+    @State private var shown = Int.max
 
     var body: some View {
         let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
         LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
             ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                let visible = index < shown
                 HStack(spacing: 8) {
                     Text(String(format: "%02d", index + 1))
                         .font(PixelFont.ui(13))
                         .foregroundStyle(t.braise)
-                    Text(word)
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(t.creme)
+                    ZStack(alignment: .leading) {
+                        Text(word).opacity(0)
+                        Text(visible ? word : String(repeating: "▒", count: min(word.count, 8)))
+                            .foregroundStyle(visible ? t.creme : t.line)
+                    }
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
                     Spacer(minLength: 0)
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 8)
                 .background(t.bgLo)
-                .overlay(Rectangle().stroke(t.line, lineWidth: 2))
+                .overlay(Rectangle().stroke(index == shown - 1 ? t.encre : t.line, lineWidth: 2))
             }
         }
         .privacySensitive()
+        .task(id: words) {
+            guard animated, !reduceMotion, !words.isEmpty else {
+                shown = Int.max
+                return
+            }
+            shown = 0
+            for index in 1...words.count {
+                try? await Task.sleep(nanoseconds: 70_000_000)
+                guard !Task.isCancelled else { return }
+                shown = index
+                Chiptune.shared.play(.tick)
+            }
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            shown = Int.max
+        }
     }
 }

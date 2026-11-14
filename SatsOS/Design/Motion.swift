@@ -424,3 +424,110 @@ struct HoldToConfirmButton: View {
         action()
     }
 }
+
+// MARK: - Entrance
+
+extension View {
+    /// Slide up + fade in once, `delay` seconds after first appearing.
+    /// Use small staggered delays to build a screen piece by piece.
+    func appearIn(delay: Double = 0, distance: CGFloat = 12) -> some View {
+        modifier(AppearInModifier(delay: delay, distance: distance))
+    }
+
+    /// Old CRT turning on: a bright horizontal line that opens vertically.
+    func crtPowerOn() -> some View {
+        modifier(CRTPowerOnModifier())
+    }
+}
+
+private struct AppearInModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var delay: Double
+    var distance: CGFloat
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : distance)
+            .onAppear {
+                guard !shown, !reduceMotion else { return }
+                withAnimation(.easeOut(duration: 0.28).delay(delay)) { shown = true }
+            }
+    }
+}
+
+private struct CRTPowerOnModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Beam {
+        var scaleX: CGFloat = 0.5
+        var scaleY: CGFloat = 0.006
+        var flash: Double = 0.9
+    }
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content
+        } else {
+            content.keyframeAnimator(initialValue: Beam(), repeating: false) { view, beam in
+                view
+                    .scaleEffect(x: beam.scaleX, y: beam.scaleY)
+                    .brightness(beam.flash)
+            } keyframes: { _ in
+                KeyframeTrack(\.scaleX) {
+                    LinearKeyframe(0.5, duration: 0.02)
+                    LinearKeyframe(1, duration: 0.14)
+                }
+                KeyframeTrack(\.scaleY) {
+                    LinearKeyframe(0.006, duration: 0.16)
+                    LinearKeyframe(1.04, duration: 0.14)
+                    LinearKeyframe(1, duration: 0.06)
+                }
+                KeyframeTrack(\.flash) {
+                    LinearKeyframe(0.9, duration: 0.16)
+                    LinearKeyframe(0, duration: 0.3)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Floating delta
+
+/// `+21,000` that floats up from a balance and fades, like damage numbers.
+struct FloatingDelta: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var text: String
+    var color: Color
+
+    private struct Rise {
+        var y: CGFloat = 0
+        var opacity: Double = 0
+    }
+
+    var body: some View {
+        Text(text)
+            .font(PixelFont.ui(20, bold: true))
+            .foregroundStyle(color)
+            .shadow(color: .black.opacity(0.6), radius: 0, x: 2, y: 2)
+            .fixedSize()
+            .keyframeAnimator(initialValue: Rise(), repeating: false) { view, value in
+                view
+                    .offset(y: reduceMotion ? 0 : value.y)
+                    .opacity(value.opacity)
+            } keyframes: { _ in
+                KeyframeTrack(\.y) {
+                    LinearKeyframe(0, duration: 0.05)
+                    CubicKeyframe(-46, duration: 1.3)
+                }
+                KeyframeTrack(\.opacity) {
+                    LinearKeyframe(1, duration: 0.08)
+                    LinearKeyframe(1, duration: 0.8)
+                    LinearKeyframe(0, duration: 0.5)
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}

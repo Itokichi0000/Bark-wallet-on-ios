@@ -45,6 +45,7 @@ struct BootView: View {
                         .padding(.top, 6)
                 }
                 .pixelBox(t, padding: 18)
+                .crtPowerOn()
 
                 VStack(alignment: .leading, spacing: 9) {
                     ForEach(store.bootLog) { line in
@@ -61,6 +62,8 @@ struct BootView: View {
                         .animation(.linear(duration: 0.2), value: progress)
                 }
                 .pixelBox(t, padding: 16)
+                .appearIn(delay: 0.35)
+                .animation(.linear(duration: 0.12), value: store.bootLog.count)
 
                 footer
                     .frame(maxWidth: .infinity)
