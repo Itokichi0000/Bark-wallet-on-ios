@@ -228,85 +228,163 @@ const rabbitJump = {
 };
 
 // ------------------------------------------------------------ the frog
+// Side view, sitting or standing like a person, as in the scrolls: flat
+// head, pointed snout, a long mouth line back under the eye, eyes bulging
+// on top, inked spots on the back, long limbs with spread fingers.
 
-const frogBody = {
+const frogHead = {
   paper: [
-    "M92 262 C 82 192, 128 132, 200 130 C 272 132, 318 192, 308 262 C 304 298, 262 312, 200 312 C 138 312, 96 298, 92 262 Z",
-    ellipse(146, 116, 40, 37),
-    ellipse(254, 116, 40, 37),
+    "M320 150 C 306 126, 276 112, 246 112 C 224 106, 200 104, 184 112 C 176 140, 196 168, 230 176 C 262 182, 300 172, 320 154 Z",
+    ellipse(238, 104, 24, 22),
+    ellipse(204, 100, 18, 17),
+  ],
+  strokes: [
+    // top of the head from the snout to the near eye
+    contour("M321 150 C 304 128, 280 118, 260 118", { w: 6.6, taper: [0.12, 0.3] }),
+    // the eyes bulging on top
+    line("M214 106 C 212 88, 224 80, 238 80 C 254 80, 264 92, 262 108", { w: 5, taper: [0.2, 0.3] }),
+    fine("M188 104 C 186 90, 194 82, 204 82 C 214 82, 220 88, 220 96", { w: 3.6 }),
+    // the long mouth, ending with a curl under the eye
+    contour("M320 154 C 300 170, 270 178, 234 174 C 222 173, 212 169, 206 164", { w: 5.6, taper: [0.08, 0.4] }),
+    fine("M206 164 c -6 -4 -6 -10 0 -12", { w: 2.4 }),
+    fine("M310 141 q 3 1 4 4", { w: 3 }),
+  ],
+  fills: [ellipse(246, 104, 8.5, 9), ellipse(209, 99, 6, 6.5)],
+};
+
+const frogSpots = {
+  // inked blots on the back, with wash around them
+  fills: [
+    "M150 164 c 8 -5 18 0 15 8 c -3 7 -15 7 -16 -1 z",
+    "M126 214 c 7 -4 15 1 13 7 c -3 6 -13 5 -13 -1 z",
+    "M172 200 c 6 -3 12 1 10 6 c -2 5 -10 4 -10 -1 z",
+    "M118 258 c 6 -3 12 1 10 6 c -2 5 -10 4 -10 -1 z",
+    "M196 138 c 5 -3 10 1 8 5 c -2 4 -8 3 -8 -1 z",
   ],
   wash: [
-    "M110 190 C 100 220, 100 250, 110 280 C 120 286, 122 256, 124 228 C 126 204, 120 186, 110 190 Z",
-    ellipse(134, 182, 12, 9),
-    ellipse(270, 186, 12, 9),
-    ellipse(137, 242, 10, 8),
-    "M128 292 C 166 306, 234 306, 272 292 C 244 302, 156 302, 128 292 Z",
+    ellipse(156, 170, 22, 16),
+    ellipse(132, 220, 18, 14),
+    ellipse(176, 204, 14, 10),
+    ellipse(122, 262, 16, 12),
+    "M112 176 C 100 210, 100 250, 112 280 C 124 288, 128 250, 130 216 C 132 192, 124 172, 112 176 Z",
   ],
-  strokes: [
-    contour("M110 136 C 96 160, 88 190, 90 222 C 90 246, 94 266, 104 282", { w: 8 }),
-    contour("M290 136 C 304 160, 312 190, 310 222 C 310 246, 306 266, 296 282", { w: 8 }),
-    line("M182 110 C 194 106, 206 106, 218 110", { w: 4.2, taper: [0.3, 0.3] }),
-    contour("M104 288 C 140 312, 260 312, 296 288", { w: 6.4, taper: [0.2, 0.2] }),
-    line("M107 126 C 100 96, 120 79, 146 79 C 172 79, 188 96, 184 122", { w: 5.6, taper: [0.2, 0.25] }),
-    line("M216 122 C 212 96, 228 79, 254 79 C 280 79, 300 96, 293 126", { w: 5.6, taper: [0.2, 0.25] }),
-    fine("M188 158 q 2 4 0 6", { w: 3 }),
-    fine("M212 158 q -2 4 0 6", { w: 3 }),
-  ],
-  fills: [],
 };
 
-const frogHindLegs = [
-  contour("M96 256 C 58 252, 42 286, 62 304 C 80 316, 104 316, 122 310", { w: 6 }),
-  fine("M62 304 l -24 6", { w: 2.6 }),
-  fine("M62 304 l -20 16", { w: 2.6 }),
-  fine("M62 304 l -7 21", { w: 2.6 }),
-  contour("M304 256 C 342 252, 358 286, 338 304 C 320 316, 296 316, 278 310", { w: 6 }),
-  fine("M338 304 l 24 6", { w: 2.6 }),
-  fine("M338 304 l 20 16", { w: 2.6 }),
-  fine("M338 304 l 7 21", { w: 2.6 }),
-];
-
-const frogHindPaper = [
-  "M96 256 C 58 252, 42 286, 62 304 C 80 316, 104 316, 122 310 L 118 274 Z",
-  "M304 256 C 342 252, 358 286, 338 304 C 320 316, 296 316, 278 310 L 282 274 Z",
-];
-
-const frogEyesOpen = {
-  strokes: [
-  ],
-  fills: [ellipse(154, 112, 11, 12), ellipse(246, 112, 11, 12)],
-};
-
-const frogFrontArmsDown = [
-  line("M146 290 C 140 306, 130 318, 116 326", { w: 4.6 }),
-  fine("M116 326 l -15 -2", { w: 2.4 }),
-  fine("M116 326 l -11 9", { w: 2.4 }),
-  fine("M116 326 l -2 13", { w: 2.4 }),
-  line("M254 290 C 260 306, 270 318, 284 326", { w: 4.6 }),
-  fine("M284 326 l 15 -2", { w: 2.4 }),
-  fine("M284 326 l 11 9", { w: 2.4 }),
-  fine("M284 326 l 2 13", { w: 2.4 }),
-];
-
-function frog({ eyes, mouth, arms, viewBox = [0, 0, 400, 340], extra = {} }) {
+function sittingFrog({ arms, extra = {}, viewBox = [0, 0, 400, 340] }) {
   return {
     viewBox,
-    paper: [...frogBody.paper, ...frogHindPaper, ...(extra.paper ?? [])],
-    wash: [...frogBody.wash, ...(extra.wash ?? [])],
+    paper: [
+      ...frogHead.paper,
+      "M262 196 C 272 228, 268 262, 250 288 C 240 302, 226 310, 206 312 L 302 324 L 158 326 C 132 318, 108 302, 100 270 C 92 238, 98 198, 118 166 C 138 136, 166 116, 196 110 L 236 176 Z",
+      ...(extra.paper ?? []),
+    ],
+    wash: [...frogSpots.wash, "M210 300 C 230 296, 246 284, 252 270 C 254 288, 236 304, 212 308 Z", ...(extra.wash ?? [])],
     softInk: extra.softInk ?? [],
-    strokes: [...frogBody.strokes, ...frogHindLegs, ...eyes.strokes, ...mouth.strokes, ...arms, ...(extra.strokes ?? [])],
-    fills: [...frogBody.fills, ...eyes.fills, ...mouth.fills, ...(extra.fills ?? [])],
+    strokes: [
+      ...frogHead.strokes,
+      // throat and belly
+      line("M316 160 C 306 182, 288 194, 264 198", { w: 4.6 }),
+      contour("M264 198 C 272 228, 268 260, 252 286 C 242 300, 228 308, 208 310", { w: 6.8 }),
+      // the hunched back
+      contour("M188 112 C 152 122, 116 156, 102 206", { w: 8, swell: 0.35 }),
+      contour("M102 204 C 94 240, 100 274, 122 296", { w: 7.2 }),
+      // folded thigh, shin and the long foot reaching forward
+      contour("M122 294 C 142 264, 188 254, 216 272 C 238 286, 240 302, 230 314", { w: 6.6 }),
+      line("M230 314 C 210 320, 184 322, 160 320", { w: 4.6 }),
+      line("M192 324 C 228 328, 266 326, 300 320", { w: 4.4, taper: [0.2, 0.2] }),
+      fine("M300 320 l 20 -9", { w: 2.4 }),
+      fine("M300 320 l 22 2", { w: 2.4 }),
+      fine("M300 320 l 17 13", { w: 2.4 }),
+      fine("M150 248 q 6 10 2 20", { w: 2 }),
+      ...arms,
+      ...(extra.strokes ?? []),
+    ],
+    fills: [...frogHead.fills, ...frogSpots.fills, ...(extra.fills ?? [])],
     accent: extra.accent ?? [],
   };
 }
 
-const smile = {
-  strokes: [
-    line("M118 204 C 154 230, 246 230, 282 204", { w: 4.8, taper: [0.15, 0.15] }),
-    fine("M118 204 c -7 -2 -11 2 -11 7", { w: 2.4 }),
-    fine("M282 204 c 7 -2 11 2 11 7", { w: 2.4 }),
+const frogArmsDown = [
+  line("M246 210 C 258 236, 264 260, 268 288", { w: 4.6 }),
+  fine("M268 288 l 17 2", { w: 2.4 }),
+  fine("M268 288 l 13 12", { w: 2.4 }),
+  fine("M268 288 l 3 16", { w: 2.4 }),
+  fine("M220 218 C 224 244, 224 266, 220 290", { w: 3.6 }),
+  fine("M220 290 l 10 8", { w: 2 }),
+  fine("M220 290 l -2 12", { w: 2 }),
+];
+
+// Shift a path drawn with absolute commands (M L C Q) and relative ones
+// (c l q a) by dx, dy, so parts can be reused in another pose.
+function shift(d, dx, dy) {
+  return d.replace(/([MLCQ])([^MLCQZmlcqaz]*)/g, (_, cmd, args) => {
+    const nums = args.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+    const moved = nums.map((n, i) => (i % 2 === 0 ? n + dx : n + dy));
+    return cmd + moved.join(" ") + " ";
+  });
+}
+const shiftStroke = (st, dx, dy) => ({ ...st, d: shift(st.d, dx, dy) });
+
+// standing up on its long hind legs, arms thrown up, laughing
+const HX = -22;
+const HY = -44;
+const frogBanzai = {
+  viewBox: [0, 0, 400, 400],
+  paper: [
+    ...frogHead.paper.map((d) => shift(d, HX, HY)),
+    "M168 76 C 136 110, 122 170, 130 226 C 136 268, 160 298, 198 302 C 236 298, 256 272, 262 236 C 270 200, 278 156, 294 118 L 230 132 Z",
+    "M230 284 C 268 290, 282 322, 266 352 L 246 356 C 242 332, 234 312, 216 300 Z",
+    "M170 286 C 146 306, 142 340, 156 362 L 176 360 C 166 338, 170 316, 186 300 Z",
   ],
-  fills: [],
+  wash: [
+    ellipse(158, 150, 18, 13),
+    ellipse(150, 204, 15, 11),
+    ellipse(170, 246, 12, 9),
+    "M150 120 C 136 166, 134 220, 148 262 C 160 270, 162 226, 162 190 C 162 156, 158 128, 150 120 Z",
+  ],
+  softInk: [],
+  strokes: [
+    // head: top line, eye bulges (laughing arcs instead of pupils), open mouth
+    shiftStroke(frogHead.strokes[0], HX, HY),
+    shiftStroke(frogHead.strokes[1], HX, HY),
+    shiftStroke(frogHead.strokes[2], HX, HY),
+    shiftStroke(frogHead.strokes[3], HX, HY),
+    shiftStroke(frogHead.strokes[5], HX, HY),
+    line(shift("M318 158 C 300 194, 262 204, 230 186 C 222 181, 214 174, 208 166", HX, HY), { w: 4.6 }),
+    fine("M204 66 C 210 55, 224 55, 230 66", { w: 3.6 }),
+    fine("M172 62 C 176 54, 186 54, 190 62", { w: 3 }),
+    // body
+    contour("M170 74 C 138 110, 122 168, 130 226", { w: 8, swell: 0.35 }),
+    contour("M130 224 C 136 268, 160 298, 198 302", { w: 7.2 }),
+    line(shift("M316 160 C 306 182, 288 194, 264 198", HX, HY), { w: 4.4 }),
+    contour("M244 156 C 252 180, 266 204, 262 238 C 256 274, 234 298, 198 302", { w: 7 }),
+    // arms up with spread fingers
+    line("M258 182 C 288 160, 308 112, 322 64", { w: 5 }),
+    fine("M322 64 l -6 -13", { w: 2.4 }),
+    fine("M322 64 l 5 -14", { w: 2.4 }),
+    fine("M322 64 l 13 -6", { w: 2.4 }),
+    line("M168 172 C 142 150, 122 110, 112 66", { w: 5 }),
+    fine("M112 66 l -12 -7", { w: 2.4 }),
+    fine("M112 66 l -4 -14", { w: 2.4 }),
+    fine("M112 66 l 6 -13", { w: 2.4 }),
+    // long hind legs
+    contour("M230 284 C 268 290, 282 322, 266 352 C 280 366, 304 372, 330 370", { w: 6.2 }),
+    fine("M330 370 l 18 -7", { w: 2.4 }),
+    fine("M330 370 l 19 5", { w: 2.4 }),
+    contour("M172 286 C 146 306, 142 340, 156 362 C 142 372, 118 376, 94 374", { w: 6.2 }),
+    fine("M94 374 l -18 -7", { w: 2.4 }),
+    fine("M94 374 l -19 5", { w: 2.4 }),
+    hair("M86 170 C 72 168, 60 166, 48 166", { w: 1.8 }),
+    hair("M340 170 C 354 168, 366 166, 378 166", { w: 1.8 }),
+  ],
+  fills: [
+    // the open, laughing mouth
+    shift("M320 154 C 300 170, 270 178, 234 174 C 222 173, 212 169, 208 166 C 226 186, 268 200, 318 158 Z", HX, HY),
+    "M150 144 c 8 -5 18 0 15 8 c -3 7 -15 7 -16 -1 z",
+    "M144 200 c 7 -4 15 1 13 7 c -3 6 -13 5 -13 -1 z",
+    "M166 242 c 6 -3 12 1 10 6 c -2 5 -10 4 -10 -1 z",
+  ],
+  accent: [],
 };
 
 const characters = {
@@ -315,52 +393,26 @@ const characters = {
   rabbit3: standingRabbit({ extra: scarf }),
   rabbit4: standingRabbit({ extra: elder, holdingStick: true }),
   rabbitJump,
-  frogSit: frog({ eyes: frogEyesOpen, mouth: smile, arms: frogFrontArmsDown }),
-  frogBanzai: frog({
-    viewBox: [0, -20, 400, 360],
-    eyes: {
-      strokes: [
-        line("M124 116 C 134 98, 164 96, 176 114", { w: 4.4 }),
-        line("M224 114 C 236 96, 266 98, 276 116", { w: 4.4 }),
-      ],
-      fills: [],
-    },
-    mouth: {
-      strokes: [line("M134 204 C 156 246, 244 246, 266 204", { w: 4 })],
-      fills: ["M134 204 C 156 246, 244 246, 266 204 C 236 216, 164 216, 134 204 Z"],
-    },
+  frogSit: sittingFrog({ arms: frogArmsDown }),
+  frogBanzai,
+  frogLetter: sittingFrog({
+    viewBox: [0, 0, 460, 340],
     arms: [
-      line("M112 236 C 88 204, 74 164, 70 116", { w: 4.8 }),
-      fine("M70 116 l -11 -10", { w: 2.4 }),
-      fine("M70 116 l -1 -15", { w: 2.4 }),
-      fine("M70 116 l 10 -11", { w: 2.4 }),
-      line("M288 236 C 312 204, 326 164, 330 116", { w: 4.8 }),
-      fine("M330 116 l 11 -10", { w: 2.4 }),
-      fine("M330 116 l 1 -15", { w: 2.4 }),
-      fine("M330 116 l -10 -11", { w: 2.4 }),
-    ],
-  }),
-  frogLetter: frog({
-    viewBox: [0, 0, 480, 340],
-    eyes: frogEyesOpen,
-    mouth: smile,
-    arms: [
-      line("M146 290 C 140 306, 130 318, 116 326", { w: 4.6 }),
-      fine("M116 326 l -15 -2", { w: 2.4 }),
-      fine("M116 326 l -11 9", { w: 2.4 }),
-      fine("M116 326 l -2 13", { w: 2.4 }),
-      line("M300 252 C 322 248, 340 240, 362 230", { w: 4.6 }),
-      fine("M362 228 l 6 -9", { w: 2.4 }),
-      fine("M362 228 l 10 -2", { w: 2.4 }),
+      line("M246 210 C 268 214, 292 206, 318 192", { w: 4.6 }),
+      fine("M318 192 l 6 -10", { w: 2.4 }),
+      fine("M318 192 l 11 -3", { w: 2.4 }),
+      fine("M220 218 C 224 244, 224 266, 220 290", { w: 3.6 }),
+      fine("M220 290 l 10 8", { w: 2 }),
+      fine("M220 290 l -2 12", { w: 2 }),
     ],
     extra: {
-      paper: ["M356 196 L 446 178 L 456 236 L 366 254 Z"],
-      wash: ["M362 238 L 452 220 L 455 234 L 366 252 Z"],
+      paper: ["M312 160 L 400 142 L 412 198 L 324 216 Z"],
+      wash: ["M318 200 L 408 182 L 411 196 L 324 214 Z"],
       strokes: [
-        line("M356 196 L 446 178 L 456 236 L 366 254 Z", { w: 3.4, taper: [0.02, 0.02], swell: 0, min: 0.7 }),
-        fine("M357 199 L 404 222 L 446 181", { w: 2.4 }),
+        line("M312 160 L 400 142 L 412 198 L 324 216 Z", { w: 3.4, taper: [0.02, 0.02], swell: 0, min: 0.7 }),
+        fine("M313 163 L 360 186 L 400 145", { w: 2.4 }),
       ],
-      accent: [ellipse(420, 226, 9, 9)],
+      accent: [ellipse(376, 190, 9, 9)],
     },
   }),
 };

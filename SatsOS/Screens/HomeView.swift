@@ -136,6 +136,7 @@ struct HomeView: View {
                         .accessibilityAddTraits(.isButton)
                         .accessibilityHint("うさぎが しゃべります")
                     CharacterView(art: .frogSit, height: 64)
+                        .scaleEffect(x: -1, y: 1)
                         .breathing(0.04, period: 1.2)
                         .hop(trigger: frogHop, height: 16)
                         .onTapGesture {
