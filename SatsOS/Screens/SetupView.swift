@@ -70,6 +70,7 @@ struct SetupView: View {
                     CharacterView(art: .rabbit1, height: 150)
                         .breathing()
                     CharacterView(art: .frogSit, height: 56)
+                        .scaleEffect(x: -1, y: 1)
                         .breathing(0.04, period: 1.3)
                         .padding(.bottom, 6)
                 }

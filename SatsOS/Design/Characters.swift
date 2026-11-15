@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The rabbit (主役) and the frog (相棒), drawn after the public-domain
 /// 鳥獣人物戯画 scrolls. Each pose is four template layers rendered by
@@ -7,17 +8,18 @@ enum CharacterArt: String, CaseIterable {
     case rabbit1, rabbit2, rabbit3, rabbit4, rabbitJump
     case frogSit, frogLetter, frogBanzai
 
-    /// Width / height of the drawing.
+    /// Width / height of the drawing, read from the ink layer so redrawn
+    /// or scanned art can change shape without code changes.
     var aspect: CGFloat {
-        switch self {
-        case .rabbit1, .rabbit2, .rabbit3, .rabbit4: return 200.0 / 240.0
-        case .rabbitJump: return 200.0 / 260.0
-        case .frogSit, .frogBanzai: return 160.0 / 140.0
-        case .frogLetter: return 220.0 / 140.0
+        if let size = UIImage(named: "char-\(rawValue)-ink")?.size, size.height > 0 {
+            return size.width / size.height
         }
+        return 200.0 / 240.0
     }
 
-    var hasAccent: Bool { self == .rabbit3 || self == .frogLetter }
+    func hasLayer(_ layer: String) -> Bool {
+        UIImage(named: "char-\(rawValue)-\(layer)") != nil
+    }
 
     var label: String {
         switch self {
@@ -38,10 +40,10 @@ struct CharacterView: View {
 
     var body: some View {
         ZStack {
-            layer("paper", faded ? Ink.bg : Ink.paper)
-            if !faded { layer("wash", Ink.wash) }
+            if art.hasLayer("paper") { layer("paper", faded ? Ink.bg : Ink.paper) }
+            if !faded && art.hasLayer("wash") { layer("wash", Ink.wash) }
             layer("ink", Ink.ink)
-            if art.hasAccent && !faded { layer("accent", Ink.orange) }
+            if !faded && art.hasLayer("accent") { layer("accent", Ink.orange) }
         }
         .frame(width: height * art.aspect, height: height)
         .opacity(faded ? 0.4 : 1)

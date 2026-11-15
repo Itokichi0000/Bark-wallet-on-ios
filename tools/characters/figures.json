@@ -1,0 +1,13 @@
+{
+  "_example": {
+    "source": "A-1530_E0107950.jpg",
+    "crop": [1200, 300, 900, 1100],
+    "flip": false,
+    "keep": [[100, 900, 200, 120]],
+    "cut": 0.18,
+    "gamma": 0.9,
+    "close": 5,
+    "accent_svg": "<path d='M300 420 C 360 460, 460 460, 520 400 L 430 520 Z' fill='black'/>",
+    "ink_svg": "<path d='M640 430 L 690 1060' stroke='black' stroke-width='14' stroke-linecap='round'/>"
+  }
+}
