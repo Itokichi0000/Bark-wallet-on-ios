@@ -26,7 +26,7 @@
 | `.github/workflows/testflight.yml` | main への push か手動実行で TestFlight にアップロード |
 | `scripts/testflight.sh` | アーカイブ → 署名 → アップロード |
 | `scripts/asc.py` | App Store Connect API（Bundle ID 登録、Team ID 取得、内部テスターに自分を追加） |
-| `tools/characters/render.mjs` | うさぎとかえるの絵（紙・薄墨・墨・オレンジのレイヤー）とアプリアイコンを書き出すスクリプト（`NODE_PATH=$(npm root -g) node tools/characters/render.mjs`） |
+| `tools/characters/render.mjs` | うさぎとかえるを筆の線（`brush.mjs`：入り・抜き・太さの揺らぎ）で描き、紙・薄墨・墨・オレンジのレイヤーとアプリアイコンを書き出す（`NODE_PATH=$(npm root -g) node tools/characters/render.mjs`、`--preview 出力.png` で一覧）。`extract.py` は原画スキャンから切り抜く場合の道具 |
 
 Bark SDK: `https://gitlab.com/ark-bitcoin/bark-ffi-bindings.git` を `0.27.0+bark-0.8.1` に固定しています。
 
