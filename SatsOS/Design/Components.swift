@@ -373,7 +373,7 @@ struct GroundLine: View {
     }
 }
 
-/// `●●●●●●○○○○` growth progress; the newest filled dot is orange.
+/// `●●●●●●○○○○` progress toward the next friend; the newest filled dot is orange.
 struct GrowthDots: View {
     var progress: Double
     var count = 10
@@ -409,19 +409,22 @@ struct SpeechBubble: View {
     }
 }
 
-/// `Lv.2 わかうさぎ` badge.
-struct LevelBadge: View {
-    var stage: RabbitStage
+/// `なかま 3/5` badge.
+struct FriendsBadge: View {
+    var count: Int
+    var total = Friend.allCases.count
     var body: some View {
         HStack(spacing: 6) {
-            Text("Lv.\(stage.rawValue)")
-            Text(stage.name)
+            Text("なかま")
+            Text("\(count)/\(total)")
+                .contentTransition(.numericText(value: Double(count)))
         }
         .font(Brush.bold(13))
         .foregroundStyle(Ink.paper)
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .background(Ink.ink, in: Capsule())
+        .accessibilityElement(children: .combine)
     }
 }
 

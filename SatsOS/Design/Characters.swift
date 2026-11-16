@@ -1,12 +1,13 @@
 import SwiftUI
 import UIKit
 
-/// The rabbit (主役) and the frog (相棒), drawn after the public-domain
+/// The rabbit (主役), the frog (相棒) and the friends who visit, drawn after the public-domain
 /// 鳥獣人物戯画 scrolls. Each pose is four template layers rendered by
 /// `tools/characters/render.mjs`, colored here so they follow light / dark.
 enum CharacterArt: String, CaseIterable {
-    case rabbit1, rabbit2, rabbit3, rabbit4, rabbitJump
+    case rabbit2, rabbitJump
     case frogSit, frogLetter, frogBanzai
+    case monkey, fox, cat, deer, pheasant
 
     /// Width / height of the drawing, read from the ink layer so redrawn
     /// or scanned art can change shape without code changes.
@@ -23,11 +24,16 @@ enum CharacterArt: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .rabbit1, .rabbit2, .rabbit3, .rabbit4: return "うさぎ"
+        case .rabbit2: return "うさぎ"
         case .rabbitJump: return "とびはねて よろこぶ うさぎ"
         case .frogSit: return "かえる"
         case .frogLetter: return "手紙をかかえた かえる"
         case .frogBanzai: return "ばんざいする かえる"
+        case .monkey: return "さる"
+        case .fox: return "きつね"
+        case .cat: return "ねこ"
+        case .deer: return "しか"
+        case .pheasant: return "きじ"
         }
     }
 }
@@ -35,7 +41,7 @@ enum CharacterArt: String, CaseIterable {
 struct CharacterView: View {
     var art: CharacterArt
     var height: CGFloat
-    /// Not reached yet (growth list): just the outline, faded.
+    /// Not arrived yet (friends list): just the outline, faded.
     var faded = false
 
     var body: some View {

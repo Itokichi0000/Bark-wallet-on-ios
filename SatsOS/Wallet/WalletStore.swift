@@ -76,9 +76,12 @@ final class WalletStore: ObservableObject {
     @Published private(set) var lastIncoming: IncomingPayment?
     /// The receive sheet is open and celebrates arrivals itself.
     var receiveOnScreen = false
-    /// Set when the rabbit reaches a new stage.
-    @Published private(set) var levelUp: RabbitStage?
-    private var knownStage: RabbitStage?
+    /// Highest balance this wallet has ever held on the current network.
+    /// Friends arrive as it grows and never leave.
+    @Published private(set) var highestBalance: UInt64 = 0
+    /// The friends who just arrived, for the home room and the celebration.
+    @Published private(set) var friendArrival: FriendArrival?
+    private var highestLoaded = false
 
     private var wallet: Wallet?
     private var notificationTask: Task<Void, Never>?
@@ -118,12 +121,7 @@ final class WalletStore: ObservableObject {
 
     var needsRefresh: UInt64 { balance?.needsRefreshSats ?? 0 }
 
-    /// Sends and receives that went through: the rabbit's food.
-    var growth: Growth { Growth(trades: movements.filter(\.countsForGrowth).count) }
-
-    func clearLevelUp() {
-        levelUp = nil
-    }
+    var friends: Friends { Friends(highest: highestBalance) }
 
     // MARK: - Boot
 
@@ -284,8 +282,9 @@ final class WalletStore: ObservableObject {
         blockHeight = nil
         announced = []
         settledInvoices = []
-        knownStage = nil
-        levelUp = nil
+        highestLoaded = false
+        highestBalance = 0
+        friendArrival = nil
     }
 
     func revealMnemonic() -> String? {
@@ -316,11 +315,50 @@ final class WalletStore: ObservableObject {
         }
         if let history = try? await wallet.history() {
             movements = history.sorted { $0.id > $1.id }
-            let stage = growth.stage
-            if let knownStage, stage > knownStage {
-                levelUp = stage
-            }
-            knownStage = stage
+        }
+        updateHighest()
+    }
+
+    // MARK: - Friends
+
+    private var highestKey: String { "highestBalance.\(network.rawValue)" }
+
+    /// Raises the highest balance from the current balance and from the
+    /// history (the running total at its peak), so friends also come for
+    /// highs reached on another device or before this version.
+    private func updateHighest() {
+        let hadRecord = UserDefaults.standard.object(forKey: highestKey) != nil
+        loadHighestIfNeeded()
+        var running: Int64 = 0
+        var peak: Int64 = 0
+        for movement in movements.reversed() where movement.isSuccessful {
+            running += Int64(movement.effectiveBalanceSats)
+            peak = max(peak, running)
+        }
+        let candidate = max(spendable, UInt64(peak))
+        // The first time on this network: remember quietly, no fanfare for
+        // friends who were "always" there.
+        raiseHighest(to: candidate, announce: hadRecord, force: !hadRecord)
+    }
+
+    private func loadHighestIfNeeded() {
+        guard !highestLoaded else { return }
+        highestLoaded = true
+        highestBalance = UInt64(max(UserDefaults.standard.integer(forKey: highestKey), 0))
+        #if DEBUG
+        if let seed = Autopilot.seedHighest { highestBalance = seed }
+        #endif
+    }
+
+    private func raiseHighest(to candidate: UInt64, announce: Bool, force: Bool = false) {
+        guard candidate > highestBalance || force else { return }
+        let before = Set(Friend.arrived(for: highestBalance))
+        let value = max(candidate, highestBalance)
+        highestBalance = value
+        UserDefaults.standard.set(Int(clamping: value), forKey: highestKey)
+        let fresh = Friend.arrived(for: value).filter { !before.contains($0) }
+        if announce, !fresh.isEmpty {
+            friendArrival = FriendArrival(friends: fresh)
         }
     }
 
@@ -495,6 +533,8 @@ final class WalletStore: ObservableObject {
     /// CI screenshots only: pretend an Ark payment just arrived.
     func simulateIncoming(_ amount: UInt64) {
         lastIncoming = IncomingPayment(amount: amount, rail: "Ark", paymentHash: nil)
+        loadHighestIfNeeded()
+        raiseHighest(to: highestBalance + amount, announce: true)
         celebrate()
         Chiptune.shared.play(.coin)
     }

@@ -8,7 +8,7 @@ enum MainTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "いえ"
         case .history: return "きろく"
-        case .growth: return "うさぎ"
+        case .growth: return "なかま"
         }
     }
 
@@ -26,7 +26,7 @@ enum MainSheet: String, Identifiable {
     var id: String { rawValue }
 }
 
-/// Home / history / rabbit tabs, the send / receive / settings sheets, and
+/// Home / history / friends tabs, the send / receive / settings sheets, and
 /// the "もらった！" celebration whenever sats arrive.
 struct MainView: View {
     @EnvironmentObject private var store: WalletStore
@@ -44,7 +44,7 @@ struct MainView: View {
                 case .history:
                     HistoryView()
                 case .growth:
-                    GrowthView()
+                    FriendsView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

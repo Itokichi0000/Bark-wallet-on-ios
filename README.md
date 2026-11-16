@@ -7,7 +7,7 @@
 - **おくる**：Ark アドレス / ライトニング（invoice・offer・アドレス・LNURL）/ `bitcoin:` URI / オンチェーンアドレス。QR 読み取り・貼り付け、手数料の見積もり、長押しで送金。かえるが手紙を届けます
 - **もらう**：Ark アドレス、ライトニングの請求書（QR）。着金するとうさぎが跳ねて「もらった！」
 - **きろく**：取引履歴（すべて / もらった / おくった）と詳細
-- **うさぎ**：取引の回数でうさぎが育つ（こうさぎ → わかうさぎ → おとなうさぎ → ちょうじゅうさぎ）
+- **なかま**：これまでの最高残高がのびると、なかまの動物があそびに来て、いえの部屋に住みつく（1,000 sats でさる → 1万できつね → 5万でねこ → 10万でしか → 50万できじ）。使っても帰らない
 - **せってい**：単位・音・振動、本番（MAINNET）⇄ テスト用（SIGNET）、シード表示（Face ID）、Ark サーバー情報、おさいふの削除
 - シードは iPhone のキーチェーン（この端末のみ）に保存
 
@@ -20,13 +20,13 @@
 |---|---|
 | `project.yml` | XcodeGen のプロジェクト定義（`xcodegen generate` で `SatsOS.xcodeproj` を作る） |
 | `SatsOS/Wallet/` | Bark SDK まわり（`WalletStore`：起動・同期・送金・受取・通知、キーチェーン、ネットワーク設定） |
-| `SatsOS/Design/` | 色・フォント・部品・キャラクター（うさぎ・かえる）の表示と動き・効果音 |
-| `SatsOS/Screens/` | 起動 / はじめて / いえ / おくる / もらう / きろく / うさぎ / せってい / QR スキャナ |
+| `SatsOS/Design/` | 色・フォント・部品・キャラクター（うさぎ・かえる・なかま）の表示と動き・効果音 |
+| `SatsOS/Screens/` | 起動 / はじめて / いえ / おくる / もらう / きろく / なかま / せってい / QR スキャナ |
 | `.github/workflows/ios-build.yml` | push のたびにシミュレータ向けにビルド（コンパイル確認） |
 | `.github/workflows/testflight.yml` | main への push か手動実行で TestFlight にアップロード |
 | `scripts/testflight.sh` | アーカイブ → 署名 → アップロード |
 | `scripts/asc.py` | App Store Connect API（Bundle ID 登録、Team ID 取得、内部テスターに自分を追加） |
-| `tools/characters/render.mjs` | うさぎとかえるを筆の線（`brush.mjs`：入り・抜き・太さの揺らぎ）で描き、紙・薄墨・墨・オレンジのレイヤーとアプリアイコンを書き出す（`NODE_PATH=$(npm root -g) node tools/characters/render.mjs`、`--preview 出力.png` で一覧）。`extract.py` は原画スキャンから切り抜く場合の道具 |
+| `tools/characters/render.mjs` | うさぎ・かえる・なかま（さる・きつね・ねこ・しか・きじ）を筆の線（`brush.mjs`：入り・抜き・太さの揺らぎ）で描き、紙・薄墨・墨・オレンジのレイヤーとアプリアイコンを書き出す（`NODE_PATH=$(npm root -g) node tools/characters/render.mjs`、`--preview 出力.png` で一覧）。`extract.py` は原画スキャンから切り抜く場合の道具 |
 
 Bark SDK: `https://gitlab.com/ark-bitcoin/bark-ffi-bindings.git` を `0.27.0+bark-0.8.1` に固定しています。
 
@@ -101,4 +101,4 @@ Bundle ID を変える場合は **Variables** に `BUNDLE_ID` を追加します
 
 - [Bark SDK](https://gitlab.com/ark-bitcoin/bark-ffi-bindings)（MIT）— Second
 - フォント：[Klee One](https://fonts.google.com/specimen/Klee+One)（SIL Open Font License 1.1、`licenses/`）
-- うさぎ・かえる：鳥獣人物戯画（高山寺蔵、パブリックドメイン）をもとに描き起こした絵
+- うさぎ・かえる・なかま：鳥獣人物戯画（高山寺蔵、パブリックドメイン）をもとに描き起こした絵

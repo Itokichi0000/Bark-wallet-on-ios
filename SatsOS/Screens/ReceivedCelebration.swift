@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// "もらった！": the rabbit jumps, the frog cheers, coins fly, the amount
-/// counts up and the growth card shows the step forward (or a new stage).
+/// counts up, and the friends card greets anyone the payment brought along
+/// (or shows how close the next friend is).
 struct ReceivedCelebration: View {
     @EnvironmentObject private var store: WalletStore
     @EnvironmentObject private var settings: AppSettings
@@ -13,8 +14,8 @@ struct ReceivedCelebration: View {
     @State private var line = RabbitLines.received.randomElement() ?? "やったね！"
 
     var body: some View {
-        let growth = store.growth
-        let leveledUp = store.levelUp
+        let friends = store.friends
+        let arrival = store.friendArrival.flatMap { $0.isRecent ? $0 : nil }
         ZStack {
             PaperBackground()
             ScrollView {
@@ -58,7 +59,7 @@ struct ReceivedCelebration: View {
                     SpeechBubble(text: line)
                         .padding(.top, 6)
 
-                    growthCard(growth, leveledUp: leveledUp)
+                    friendsCard(friends, arrival: arrival)
                         .padding(.top, 14)
                         .opacity(cardShown ? 1 : 0)
                         .offset(y: cardShown ? 0 : 12)
@@ -77,7 +78,7 @@ struct ReceivedCelebration: View {
             titleTick += 1
             try? await Task.sleep(nanoseconds: 700_000_000)
             withAnimation(.spring(duration: 0.5, bounce: 0.3)) { cardShown = true }
-            if store.levelUp != nil {
+            if store.friendArrival?.isRecent == true {
                 Chiptune.shared.play(.boot)
                 Haptics.heavy()
             }
@@ -106,38 +107,45 @@ struct ReceivedCelebration: View {
         .accessibilityHidden(true)
     }
 
-    private func growthCard(_ growth: Growth, leveledUp: RabbitStage?) -> some View {
+    private func friendsCard(_ friends: Friends, arrival: FriendArrival?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let leveledUp {
-                HStack(spacing: 12) {
-                    CharacterView(art: leveledUp.art, height: 64)
+            if let arrival {
+                HStack(alignment: .bottom, spacing: 8) {
+                    ForEach(arrival.friends) { friend in
+                        CharacterView(art: friend.art, height: 64)
+                            .jumpingForJoy(height: 8)
+                    }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("せいちょうした！")
+                        Text("なかまが ふえた！")
                             .font(Brush.bold(17))
                             .foregroundStyle(Ink.ink)
-                        Text("Lv.\(leveledUp.rawValue) \(leveledUp.name) に なったよ")
+                        Text(arrival.friends.map(\.name).joined(separator: "と") + "が あそびに きたよ")
                             .font(Brush.text(14))
                             .foregroundStyle(Ink.sub)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .padding(.leading, 4)
                 }
             } else {
                 HStack {
-                    Text("うさぎ")
+                    Text("なかま")
                         .font(Brush.text(14))
                         .foregroundStyle(Ink.sub)
                     Spacer()
-                    Text("Lv.\(growth.stage.rawValue) \(growth.stage.name)")
+                    Text("\(friends.arrived.count)/\(Friend.allCases.count)")
                         .font(Brush.text(14))
                         .foregroundStyle(Ink.ink)
                 }
             }
             HStack(spacing: 10) {
-                GrowthDots(progress: growth.progress)
-                Text(growth.remaining.map { "+1 ／ あと\($0)回で成長" } ?? "+1")
+                GrowthDots(progress: friends.progress)
+                Text(friends.remainingText)
                     .font(Brush.text(12))
                     .foregroundStyle(Ink.sub)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .inkCard(border: leveledUp == nil ? Ink.line : Ink.orange)
+        .inkCard(border: arrival == nil ? Ink.line : Ink.orange)
+        .animation(.spring(duration: 0.5, bounce: 0.3), value: arrival?.id)
     }
 }

@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var lineID = 0
     @State private var rabbitHop = 0
     @State private var frogHop = 0
+    @State private var friendHops: [Friend: Int] = [:]
     @State private var balanceTick = 0
     @State private var deltas: [BalanceDelta] = []
 
@@ -62,6 +63,14 @@ struct HomeView: View {
                 deltas.removeAll { $0.id == delta.id }
             }
         }
+        .onChange(of: store.friendArrival?.id) { _, _ in
+            guard let arrival = store.friendArrival, let newest = arrival.friends.last else { return }
+            Chiptune.shared.play(.boot)
+            Haptics.success()
+            for friend in arrival.friends { friendHops[friend, default: 0] += 1 }
+            rabbitHop += 1
+            say(newest.arrivalLine)
+        }
         .task {
             // little signs of life
             while !Task.isCancelled {
@@ -105,14 +114,14 @@ struct HomeView: View {
     // MARK: room
 
     private var room: some View {
-        let growth = store.growth
+        let friends = store.friends
         return ZStack {
             // bush clover, pampas grass, misty hills and the moon
             SceneView(name: "home")
 
             VStack {
                 HStack(alignment: .top) {
-                    LevelBadge(stage: growth.stage)
+                    FriendsBadge(count: friends.arrived.count)
                     Spacer()
                 }
                 Spacer()
@@ -125,11 +134,17 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(.leading, 140)
                 .padding(.top, 22)
+                .zIndex(2)
 
             VStack(spacing: 0) {
                 Spacer()
                 ZStack(alignment: .bottom) {
-                    CharacterView(art: growth.stage.art, height: 190)
+                    // far ones first, so the near ones stand in front
+                    friend(.deer, friends)
+                    friend(.pheasant, friends)
+                    friend(.fox, friends)
+                    friend(.monkey, friends)
+                    CharacterView(art: .rabbit2, height: 180)
                         .breathing()
                         .hop(trigger: rabbitHop)
                         .onTapGesture {
@@ -140,6 +155,7 @@ struct HomeView: View {
                         }
                         .accessibilityAddTraits(.isButton)
                         .accessibilityHint("うさぎが しゃべります")
+                    friend(.cat, friends)
                     CharacterView(art: .frogSit, height: 64)
                         .scaleEffect(x: -1, y: 1)
                         .breathing(0.04, period: 1.2)
@@ -149,17 +165,20 @@ struct HomeView: View {
                             Haptics.tap()
                             frogHop += 1
                         }
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.trailing, 16)
+                        .offset(x: 128)
                 }
+                .frame(maxWidth: .infinity)
+                .animation(.spring(duration: 0.6, bounce: 0.4), value: friends.arrived.count)
                 // the scene draws the ground; keep the characters standing on it
                 Color.clear
                     .frame(height: 20)
                 HStack(spacing: 10) {
-                    GrowthDots(progress: growth.progress)
-                    Text(growth.remainingText)
+                    GrowthDots(progress: friends.progress)
+                    Text(friends.remainingText)
                         .font(Brush.text(12))
                         .foregroundStyle(Ink.sub)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 16)
@@ -171,6 +190,34 @@ struct HomeView: View {
         .background(Ink.paper, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(BrushFrame(color: Ink.ink))
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+    }
+
+    /// Where each friend settles in the room: offset from the middle, how far
+    /// above the rabbit's feet (the far ones sit up on the hill), and size.
+    private static let spots: [Friend: (x: CGFloat, lift: CGFloat, height: CGFloat)] = [
+        .monkey: (-132, -2, 80),
+        .cat: (-60, -6, 46),
+        .fox: (80, 2, 84),
+        .deer: (134, 54, 70),
+        .pheasant: (80, 76, 36),
+    ]
+
+    @ViewBuilder
+    private func friend(_ friend: Friend, _ friends: Friends) -> some View {
+        if friends.has(friend), let spot = Self.spots[friend] {
+            CharacterView(art: friend.art, height: spot.height)
+                .breathing(0.03, period: 1.6 + Double(spot.height.truncatingRemainder(dividingBy: 7)) / 10)
+                .hop(trigger: friendHops[friend, default: 0], height: 14)
+                .onTapGesture {
+                    Chiptune.shared.play(.click)
+                    Haptics.tap()
+                    friendHops[friend, default: 0] += 1
+                    say(friend.voice)
+                }
+                .accessibilityAddTraits(.isButton)
+                .offset(x: spot.x, y: -spot.lift)
+                .transition(.scale(scale: 0.2, anchor: .bottom).combined(with: .opacity))
+        }
     }
 
     private func say(_ text: String) {

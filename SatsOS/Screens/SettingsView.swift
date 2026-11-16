@@ -23,7 +23,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     // the wise old rabbit keeps the settings
                     HStack(alignment: .bottom, spacing: 10) {
-                        CharacterView(art: .rabbit4, height: 104)
+                        CharacterView(art: .rabbit2, height: 104)
                             .breathing(0.02, period: 2.2)
                         SpeechBubble(text: "なんでも きいておくれ")
                             .padding(.bottom, 56)
