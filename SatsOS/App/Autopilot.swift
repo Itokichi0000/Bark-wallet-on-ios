@@ -41,6 +41,16 @@ enum Autopilot {
         }
     }
 
+    /// Highest balance to pretend for screenshots: most friends at home,
+    /// none before a faked payment so it can bring the first ones.
+    static var seedHighest: UInt64? {
+        switch mode {
+        case nil: return nil
+        case "receive-incoming": return 0
+        default: return 120_000
+        }
+    }
+
     /// Open the receive sheet and fake an incoming payment.
     static var fakeIncoming: Bool { mode == "receive-incoming" }
 }

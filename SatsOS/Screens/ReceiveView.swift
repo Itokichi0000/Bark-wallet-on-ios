@@ -64,12 +64,12 @@ struct ReceiveView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
-            .background(Ink.bg)
+            .background(PaperBackground())
 
             if let arrival {
                 ReceivedCelebration(payment: arrival) {
                     withAnimation(.easeOut(duration: 0.2)) { self.arrival = nil }
-                    store.clearLevelUp()
+                    store.clearFriendArrival()
                 }
                 .transition(.opacity)
                 .zIndex(3)

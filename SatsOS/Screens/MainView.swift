@@ -8,7 +8,7 @@ enum MainTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "いえ"
         case .history: return "きろく"
-        case .growth: return "うさぎ"
+        case .growth: return "なかま"
         }
     }
 
@@ -26,7 +26,7 @@ enum MainSheet: String, Identifiable {
     var id: String { rawValue }
 }
 
-/// Home / history / rabbit tabs, the send / receive / settings sheets, and
+/// Home / history / friends tabs, the send / receive / settings sheets, and
 /// the "もらった！" celebration whenever sats arrive.
 struct MainView: View {
     @EnvironmentObject private var store: WalletStore
@@ -44,7 +44,7 @@ struct MainView: View {
                 case .history:
                     HistoryView()
                 case .growth:
-                    GrowthView()
+                    FriendsView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -52,12 +52,12 @@ struct MainView: View {
 
             tabBar
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
         .overlay {
             if let celebration {
                 ReceivedCelebration(payment: celebration) {
                     withAnimation(.easeOut(duration: 0.2)) { self.celebration = nil }
-                    store.clearLevelUp()
+                    store.clearFriendArrival()
                 }
                 .transition(.opacity)
                 .zIndex(5)
@@ -71,7 +71,7 @@ struct MainView: View {
                 case .settings: SettingsView { self.sheet = nil }
                 }
             }
-            .presentationBackground(Ink.bg)
+            .presentationBackground { PaperBackground() }
             .presentationCornerRadius(28)
         }
         .onChange(of: store.lastIncoming) { _, incoming in
@@ -119,9 +119,10 @@ struct MainView: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 6)
-        .background(Ink.bg)
+        .background(PaperBackground())
         .overlay(alignment: .top) {
-            Rectangle().fill(Ink.line).frame(height: 1.5)
+            DashedDivider(color: Ink.ink.opacity(0.35))
+                .offset(y: -3)
         }
     }
 }

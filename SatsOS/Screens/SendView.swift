@@ -67,7 +67,7 @@ struct SendView: View {
                 }
             }
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
         .interactiveDismissDisabled(stage == .sending)
         .fullScreenCover(isPresented: $showScanner) {
             ScannerScreen { code in
@@ -166,6 +166,16 @@ struct SendView: View {
 
     private var inputStage: some View {
         VStack(spacing: 18) {
+            HStack(alignment: .bottom, spacing: 8) {
+                CharacterView(art: .frogSit, height: 62)
+                    .breathing(0.04, period: 1.3)
+                SpeechBubble(text: "どこへ とどける？")
+                    .padding(.bottom, 36)
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, -10)
+            .appearIn()
+
             VStack(alignment: .leading, spacing: 12) {
                 SectionLabel(text: "あて先")
                 ZStack(alignment: .topLeading) {
@@ -238,12 +248,15 @@ struct SendView: View {
     private var reviewStage: some View {
         if let selected {
             VStack(spacing: 16) {
-                VStack(spacing: 4) {
-                    CharacterView(art: .frogLetter, height: 96)
-                        .breathing(0.03, period: 1.3)
-                    Text("かえるが とどけます")
+                VStack(spacing: 0) {
+                    onTheBank(height: 104) {
+                        CharacterView(art: .frogLetter, height: 96)
+                            .breathing(0.03, period: 1.3)
+                    }
+                    Text("かえるが 川ぞいに とどけます")
                         .font(Brush.text(13))
                         .foregroundStyle(Ink.sub)
+                        .padding(.top, -6)
                 }
 
                 amountSection
@@ -378,13 +391,10 @@ struct SendView: View {
 
     private var sendingStage: some View {
         VStack(spacing: 24) {
-            VStack(spacing: 0) {
+            onTheBank(height: 130) {
                 DeliveringFrog(height: 100)
-                    .frame(height: 130)
-                    .clipped()
-                GroundLine()
             }
-            .padding(.top, 30)
+            .padding(.top, 20)
 
             if let sentAmount {
                 AmountText(sats: sentAmount, unit: settings.unit, size: 40)
@@ -416,23 +426,17 @@ struct SendView: View {
 
     private var doneStage: some View {
         VStack(spacing: 18) {
-            VStack(spacing: 0) {
-                Group {
-                    if lightning == .routing {
-                        DeliveringFrog(height: 96)
-                    } else if lightningFailed {
-                        CharacterView(art: .frogSit, height: 96)
-                    } else {
-                        CharacterView(art: .frogBanzai, height: 110)
-                            .jumpingForJoy(height: 16)
-                    }
+            onTheBank(height: 130) {
+                if lightning == .routing {
+                    DeliveringFrog(height: 96)
+                } else if lightningFailed {
+                    CharacterView(art: .frogSit, height: 96)
+                } else {
+                    CharacterView(art: .frogBanzai, height: 110)
+                        .jumpingForJoy(height: 16)
                 }
-                .frame(height: 130, alignment: .bottom)
-                .clipped()
-                GroundLine()
-                    .frame(width: 240)
             }
-            .padding(.top, 14)
+            .padding(.top, 8)
 
             Text(doneTitle)
                 .font(Brush.bold(30, relativeTo: .title))
@@ -477,11 +481,10 @@ struct SendView: View {
 
     private func failedStage(_ message: String) -> some View {
         VStack(spacing: 18) {
-            VStack(spacing: 0) {
+            onTheBank(height: 110) {
                 CharacterView(art: .frogSit, height: 90)
-                GroundLine().frame(width: 220)
             }
-            .padding(.top, 20)
+            .padding(.top, 12)
             Text("おくれませんでした")
                 .font(Brush.bold(26, relativeTo: .title))
                 .foregroundStyle(Ink.alert)
@@ -497,6 +500,22 @@ struct SendView: View {
             .inkCard()
             InkButton("やりなおす") { go(.review, forward: false) }
             InkButton("さいしょから", kind: .secondary) { reset() }
+        }
+    }
+
+    /// A character standing on the stream bank (the bank is 46 pt down
+    /// the 130 pt scene, which runs edge to edge under the sheet's padding).
+    private func onTheBank<Content: View>(height: CGFloat, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            content()
+                .frame(height: height, alignment: .bottom)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .zIndex(1)
+            SceneView(name: "stream")
+                .frame(height: 130)
+                .padding(.top, -46)
+                .padding(.horizontal, -18)
         }
     }
 

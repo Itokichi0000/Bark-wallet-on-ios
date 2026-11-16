@@ -1,98 +1,123 @@
 import Bark
 import Foundation
 
-/// The rabbit grows with every send or receive that went through.
-enum RabbitStage: Int, CaseIterable, Identifiable, Comparable {
-    case kousagi = 1, waka, otona, choju
+/// Friends who come to live with the rabbit and the frog. Each one arrives
+/// the first time the wallet has held a little more, and stays for good:
+/// what counts is the highest balance ever, so spending never sends anyone away.
+enum Friend: String, CaseIterable, Identifiable {
+    case monkey, fox, cat, deer, pheasant
 
-    var id: Int { rawValue }
+    var id: String { rawValue }
 
-    static func < (lhs: RabbitStage, rhs: RabbitStage) -> Bool { lhs.rawValue < rhs.rawValue }
+    /// Highest balance (sats) at which this friend arrives.
+    var threshold: UInt64 {
+        switch self {
+        case .monkey: return 1_000
+        case .fox: return 10_000
+        case .cat: return 50_000
+        case .deer: return 100_000
+        case .pheasant: return 500_000
+        }
+    }
 
     var name: String {
         switch self {
-        case .kousagi: return "こうさぎ"
-        case .waka: return "わかうさぎ"
-        case .otona: return "おとなうさぎ"
-        case .choju: return "ちょうじゅうさぎ"
+        case .monkey: return "さる"
+        case .fox: return "きつね"
+        case .cat: return "ねこ"
+        case .deer: return "しか"
+        case .pheasant: return "きじ"
         }
     }
 
     var blurb: String {
         switch self {
-        case .kousagi: return "うまれたて。まだ ぴょんと跳べない"
-        case .waka: return "元気いっぱい"
-        case .otona: return "オレンジの えりまきが 似合う"
-        case .choju: return "長生きの ものしり。杖をついて ゆったり"
+        case .monkey: return "お坊さんの まねが とくい。ちょっと いたずらずき"
+        case .fox: return "しっぽの 先に あかりを ともして 夜みちを てらす"
+        case .cat: return "ひなたぼっこが だいすき。いつのまにか ひざの上"
+        case .deer: return "やさしい力もち。うさぎを せなかに のせてくれる"
+        case .pheasant: return "長い しっぽの おしゃれさん。山の たよりを はこぶ"
         }
     }
 
-    /// Trades needed to reach this stage.
-    var minTrades: Int {
+    /// What the rabbit says when this friend shows up.
+    var arrivalLine: String {
         switch self {
-        case .kousagi: return 0
-        case .waka: return 10
-        case .otona: return 30
-        case .choju: return 100
+        case .monkey: return "さるが あそびに きたよ！"
+        case .fox: return "きつねが きてくれた！"
+        case .cat: return "ねこが すみついたみたい"
+        case .deer: return "しかが 山から おりてきた！"
+        case .pheasant: return "きじも きて みんな そろった"
         }
     }
 
-    var next: RabbitStage? { RabbitStage(rawValue: rawValue + 1) }
-
-    var rangeLabel: String {
-        if let next { return "\(minTrades)〜\(next.minTrades - 1)回" }
-        return "\(minTrades)回〜"
+    /// Said when tapped at home.
+    var voice: String {
+        switch self {
+        case .monkey: return "さる「キキッ」"
+        case .fox: return "きつね「コン」"
+        case .cat: return "ねこ「にゃあ」"
+        case .deer: return "しか「ピャッ」"
+        case .pheasant: return "きじ「ケーン」"
+        }
     }
 
     var art: CharacterArt {
         switch self {
-        case .kousagi: return .rabbit1
-        case .waka: return .rabbit2
-        case .otona: return .rabbit3
-        case .choju: return .rabbit4
+        case .monkey: return .monkey
+        case .fox: return .fox
+        case .cat: return .cat
+        case .deer: return .deer
+        case .pheasant: return .pheasant
         }
     }
 
-    static func stage(for trades: Int) -> RabbitStage {
-        allCases.last { trades >= $0.minTrades } ?? .kousagi
+    var thresholdLabel: String { "\(SatFormat.sats(threshold)) sats" }
+
+    static func arrived(for highest: UInt64) -> [Friend] {
+        allCases.filter { highest >= $0.threshold }
     }
 }
 
-struct Growth: Equatable {
-    let trades: Int
+struct Friends: Equatable {
+    /// Highest balance the wallet has ever held, in sats.
+    let highest: UInt64
 
-    var stage: RabbitStage { .stage(for: trades) }
+    var arrived: [Friend] { Friend.arrived(for: highest) }
 
-    /// Trades left until the next stage, nil at the last one.
-    var remaining: Int? {
-        guard let next = stage.next else { return nil }
-        return next.minTrades - trades
-    }
+    func has(_ friend: Friend) -> Bool { highest >= friend.threshold }
 
-    /// 0...1 within the current stage.
+    var next: Friend? { Friend.allCases.first { highest < $0.threshold } }
+
+    /// Sats still missing from the highest balance before the next friend comes.
+    var remaining: UInt64? { next.map { $0.threshold - highest } }
+
+    /// 0...1 between the previous friend and the next one.
     var progress: Double {
-        guard let next = stage.next else { return 1 }
-        let span = Double(next.minTrades - stage.minTrades)
-        return min(max(Double(trades - stage.minTrades) / span, 0), 1)
+        guard let next else { return 1 }
+        let previous = Friend.allCases.last { highest >= $0.threshold }?.threshold ?? 0
+        let span = Double(next.threshold - previous)
+        return min(max(Double(highest - previous) / span, 0), 1)
     }
 
     var remainingText: String {
-        guard let remaining else { return "いちばん 大きくなったよ" }
-        return "つぎの成長まで あと\(remaining)回"
+        guard let next, let remaining else { return "みんな そろったよ" }
+        return "あと \(SatFormat.sats(remaining)) sats で \(next.name)が きそう"
     }
 }
 
-extension Movement {
-    /// Sends and receives that went through make the rabbit grow;
-    /// refreshes, boards and exits don't.
-    var countsForGrowth: Bool {
-        guard isSuccessful else { return false }
-        switch kind {
-        case .arkSend, .arkReceive, .lightningSend, .lightningReceive, .onchainSend: return true
-        default: return false
-        }
-    }
+/// Friends who just came, kept for a little while so both the home room
+/// and the "もらった！" screen can greet them.
+struct FriendArrival: Equatable, Identifiable {
+    let id = UUID()
+    let friends: [Friend]
+    let date = Date()
 
+    /// Still worth a fanfare.
+    var isRecent: Bool { Date().timeIntervalSince(date) < 90 }
+}
+
+extension Movement {
     var isIncoming: Bool { effectiveBalanceSats > 0 }
 
     /// もらった / おくった / …

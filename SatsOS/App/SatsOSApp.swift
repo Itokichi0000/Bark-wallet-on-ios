@@ -23,7 +23,7 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            Ink.bg.ignoresSafeArea()
+            PaperBackground()
 
             Group {
                 switch store.phase {

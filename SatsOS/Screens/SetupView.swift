@@ -37,7 +37,7 @@ struct SetupView: View {
             .frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Ink.bg)
+        .background(PaperBackground())
     }
 
     private var stepKey: String {
@@ -67,7 +67,7 @@ struct SetupView: View {
         VStack(spacing: 22) {
             VStack(spacing: 0) {
                 HStack(alignment: .bottom, spacing: 0) {
-                    CharacterView(art: .rabbit1, height: 150)
+                    CharacterView(art: .rabbit2, height: 150)
                         .breathing()
                     CharacterView(art: .frogSit, height: 56)
                         .scaleEffect(x: -1, y: 1)
@@ -150,7 +150,7 @@ struct SetupView: View {
             header("シードフレーズ") { go(.welcome, forward: false) }
 
             HStack(alignment: .bottom, spacing: 12) {
-                CharacterView(art: .rabbit1, height: 80)
+                CharacterView(art: .rabbit2, height: 80)
                 SpeechBubble(text: "この \(words.count) 個の ことばが 鍵だよ")
                     .padding(.bottom, 40)
                 Spacer(minLength: 0)

@@ -400,12 +400,216 @@ const frogBanzai = {
   accent: [],
 };
 
+// ------------------------------------------------------------ the friends
+// The other animals of the scroll, who come to visit as the savings grow.
+// All face right and stand on y = ground (the bottom of their viewBox).
+
+const friendMonkey = {
+  viewBox: [0, 0, 400, 400],
+  paper: [
+    "M244 76 C 216 76, 198 98, 200 124 C 202 152, 220 170, 244 174 C 270 176, 296 166, 304 144 C 310 124, 304 96, 284 84 C 272 78, 258 76, 244 76 Z",
+    "M224 162 C 186 196, 168 250, 176 312 C 182 346, 196 368, 220 378 L 300 380 C 306 350, 300 320, 288 296 C 282 260, 280 214, 268 172 Z",
+  ],
+  wash: [
+    // the bare face, a shade darker than the fur
+    "M262 100 C 276 96, 292 104, 298 118 C 304 132, 302 150, 290 160 C 280 168, 264 168, 256 160 C 250 152, 250 140, 254 130 C 256 120, 256 108, 262 100 Z",
+    "M222 168 C 192 200, 178 250, 184 306 C 188 334, 196 352, 208 362 C 200 330, 198 280, 208 236 C 212 206, 218 184, 228 170 Z",
+  ],
+  softInk: [],
+  strokes: [
+    // furry head
+    sumi("M244 76 C 216 76, 198 98, 200 124 C 202 150, 218 168, 240 174", { w: 5.2 }),
+    sumi("M250 76 C 276 74, 298 90, 304 116", { w: 4.6 }),
+    line("M304 120 C 308 140, 300 160, 284 168 C 272 174, 258 176, 246 174", { w: 3.8 }),
+    hair("M224 84 l -5 -8 M238 78 l -2 -9 M254 76 l 2 -9 M270 80 l 5 -8 M208 100 l -8 -4 M202 124 l -9 0 M206 148 l -8 5", { w: 1.5 }),
+    // bare face: outline, brow ridge, eye, nose, mouth
+    fine("M262 100 C 276 96, 292 104, 298 118 C 304 132, 302 150, 290 160 C 280 168, 264 168, 256 160", { w: 2.4 }),
+    fine("M262 100 C 256 110, 256 122, 254 132", { w: 2 }),
+    line("M262 114 C 272 108, 286 110, 294 118", { w: 3.2 }),
+    fine("M294 136 l 2 2 M288 138 l 2 2", { w: 2.4 }),
+    fine("M296 150 C 290 155, 282 156, 274 153", { w: 2.2 }),
+    // ear on the side of the head
+    line("M222 114 c -12 -2 -16 14 -4 20 c 6 3 10 -1 10 -6", { w: 3 }),
+    // hunched back and belly
+    sumi("M226 168 C 190 200, 172 252, 178 310", { w: 6, swell: 0.45 }),
+    sumi("M178 308 C 182 342, 196 366, 220 378", { w: 5.2 }),
+    line("M268 174 C 280 210, 284 250, 286 290", { w: 4.4 }),
+    // knee up, foot on the ground, long arm resting on the knee
+    sumi("M220 300 C 248 282, 284 284, 298 304 C 306 318, 304 340, 300 360", { w: 5 }),
+    sumi("M220 378 C 250 382, 280 382, 312 380", { w: 4.2, taper: [0.1, 0.5] }),
+    line("M252 196 C 268 232, 284 262, 300 290", { w: 4.2 }),
+    line("M236 204 C 248 236, 262 262, 280 286", { w: 2.6, taper: [0.3, 0.5] }),
+    fine("M300 290 l 10 2", { w: 2 }),
+    fine("M300 290 l 8 9", { w: 2 }),
+    fine("M300 290 l 2 12", { w: 2 }),
+    line("M184 352 c -14 2 -18 -12 -8 -18", { w: 3 }),
+    fine("M200 230 q -4 10 -2 20", { w: 1.8 }),
+    fine("M196 270 q -4 10 -2 20", { w: 1.8 }),
+  ],
+  fills: [ellipse(280, 124, 3.4, 3.4)],
+  accent: [],
+};
+
+const friendFox = {
+  viewBox: [0, 0, 400, 420],
+  paper: [
+    "M232 136 C 236 100, 246 76, 254 58 C 264 80, 268 100, 270 112 C 276 92, 282 72, 284 56 C 296 86, 300 110, 298 124 C 310 130, 322 136, 330 144 C 318 158, 300 166, 284 168 C 286 200, 292 236, 290 270 L 292 398 L 214 398 C 196 380, 192 340, 200 300 C 196 250, 208 190, 232 150 Z",
+    "M206 380 C 160 380, 120 386, 120 398 C 150 410, 260 412, 340 404 C 300 396, 250 390, 214 386 Z",
+  ],
+  wash: [
+    "M226 160 C 206 200, 196 250, 200 300 C 202 330, 206 352, 214 366 C 210 330, 210 280, 216 240 C 220 206, 226 182, 234 162 Z",
+    "M130 394 C 170 388, 240 390, 320 400 C 260 404, 170 404, 130 398 Z",
+  ],
+  softInk: [
+    { d: "M254 58 C 258 70, 262 82, 264 92 C 258 84, 254 72, 254 58 Z", a: 0.9 },
+    { d: "M284 56 C 288 68, 290 80, 290 92 C 284 84, 282 70, 284 56 Z", a: 0.9 },
+    { d: "M330 404 C 344 402, 352 398, 356 392 C 350 404, 340 408, 330 404 Z", a: 0.9 },
+  ],
+  strokes: [
+    // pointed ears, long snout
+    sumi("M234 140 C 238 104, 246 78, 254 58", { w: 4.4, taper: [0.1, 0.5] }),
+    line("M254 58 C 262 78, 268 98, 270 112", { w: 3.4, taper: [0.5, 0.3] }),
+    sumi("M272 112 C 278 92, 282 72, 284 56", { w: 4, taper: [0.1, 0.5] }),
+    line("M284 56 C 296 84, 300 108, 298 124", { w: 3.4, taper: [0.5, 0.3] }),
+    sumi("M298 124 C 312 130, 324 138, 332 144", { w: 4.6, taper: [0.1, 0.3] }),
+    line("M332 146 C 318 158, 302 166, 286 168", { w: 3.8 }),
+    fine("M282 130 q 6 -4 12 0", { w: 2.6 }),
+    hair("M318 146 C 330 146, 340 144, 350 140", { w: 1.2 }),
+    hair("M318 150 C 330 152, 340 154, 350 156", { w: 1.2 }),
+    // chest ruff and front legs
+    sumi("M286 168 C 290 200, 294 236, 290 270", { w: 5 }),
+    hair("M286 190 l 8 4 M288 210 l 8 4 M288 230 l 7 5", { w: 1.4 }),
+    line("M286 270 C 288 310, 290 350, 292 396", { w: 3.8 }),
+    line("M270 276 C 272 316, 272 356, 272 396", { w: 3.4 }),
+    // back and haunch
+    sumi("M234 148 C 210 190, 196 250, 200 300", { w: 6, swell: 0.45 }),
+    sumi("M200 298 C 196 340, 200 372, 214 390", { w: 5 }),
+    line("M206 320 C 226 300, 252 306, 258 334 C 262 356, 256 380, 250 396", { w: 4 }),
+    // the bushy tail sweeping along the ground
+    sumi("M206 384 C 160 380, 122 386, 118 396 C 150 410, 260 412, 340 404 C 350 402, 356 398, 358 392", { w: 4.6, taper: [0.1, 0.2] }),
+    hair("M160 394 l 10 -3 M190 398 l 10 -3 M220 400 l 10 -3 M250 402 l 10 -3", { w: 1.3 }),
+  ],
+  fills: [ellipse(326, 143, 3.2, 3)],
+  accent: [],
+};
+
+const friendCat = {
+  viewBox: [0, 0, 400, 400],
+  paper: [
+    "M226 132 C 228 112, 234 96, 240 86 C 250 96, 256 106, 258 112 C 266 106, 276 98, 284 94 C 288 106, 290 120, 288 134 C 298 148, 300 170, 290 184 C 300 220, 300 270, 286 310 L 284 384 L 214 384 C 196 370, 190 340, 196 300 C 196 250, 206 206, 226 182 C 216 168, 216 146, 226 132 Z",
+  ],
+  wash: [
+    ellipse(236, 238, 18, 24),
+    ellipse(214, 312, 14, 20),
+    "M240 92 C 246 100, 252 108, 256 116 C 246 114, 240 104, 240 92 Z",
+    "M236 130 C 240 140, 250 146, 262 146 C 250 152, 238 150, 232 140 Z",
+  ],
+  softInk: [],
+  strokes: [
+    // round head with ears
+    sumi("M228 134 C 228 112, 234 96, 240 86 C 250 96, 256 106, 258 112", { w: 4.4, taper: [0.1, 0.2] }),
+    sumi("M258 112 C 266 106, 276 98, 284 94 C 288 108, 290 122, 288 136", { w: 4.2, taper: [0.2, 0.2] }),
+    line("M288 136 C 298 150, 300 170, 290 184 C 282 192, 266 196, 252 194", { w: 4 }),
+    line("M228 134 C 216 150, 216 170, 228 184", { w: 4.4 }),
+    fine("M262 146 q 5 -4 10 0", { w: 2.6 }),
+    fine("M282 164 q -3 4 -8 4", { w: 2 }),
+    hair("M276 166 C 290 164, 302 160, 312 154", { w: 1.2 }),
+    hair("M276 170 C 290 172, 302 174, 312 178", { w: 1.2 }),
+    // sitting body
+    sumi("M228 184 C 206 210, 196 254, 198 300", { w: 5.8, swell: 0.45 }),
+    sumi("M198 298 C 194 336, 200 364, 214 382", { w: 5 }),
+    line("M290 186 C 300 222, 300 268, 288 306", { w: 4.6 }),
+    line("M284 300 C 284 330, 286 356, 288 382", { w: 3.6 }),
+    line("M268 306 C 268 334, 270 358, 270 382", { w: 3.2 }),
+    // tail curled round the feet
+    sumi("M214 382 C 180 388, 152 382, 146 360 C 142 344, 150 334, 160 332", { w: 4.2, taper: [0.1, 0.5] }),
+    sumi("M214 384 C 240 386, 266 386, 296 384", { w: 3.8, taper: [0.1, 0.5] }),
+  ],
+  fills: [ellipse(268, 147, 3.2, 3.8)],
+  accent: [],
+};
+
+const friendDeer = {
+  viewBox: [0, 0, 440, 440],
+  paper: [
+    "M296 128 C 304 112, 320 104, 336 108 C 352 112, 368 126, 380 140 C 370 150, 356 154, 342 152 C 332 166, 322 188, 312 206 C 300 230, 286 254, 272 266 C 230 276, 180 276, 150 268 C 128 258, 124 232, 136 214 C 160 196, 220 192, 270 196 C 282 176, 290 150, 296 128 Z",
+  ],
+  wash: [
+    ellipse(180, 222, 6, 4), ellipse(204, 216, 5, 4), ellipse(228, 222, 6, 4), ellipse(194, 240, 5, 4), ellipse(220, 240, 6, 4), ellipse(246, 232, 5, 4),
+    "M140 220 C 130 240, 136 258, 154 266 C 146 250, 146 234, 152 222 Z",
+  ],
+  softInk: [],
+  strokes: [
+    // head, long face, ear, antlers
+    sumi("M298 128 C 306 112, 320 104, 336 108 C 352 112, 368 126, 380 140", { w: 4.6 }),
+    line("M380 142 C 370 150, 356 154, 342 152", { w: 3.6 }),
+    fine("M330 122 q 5 -4 10 0", { w: 2.6 }),
+    line("M304 112 C 296 102, 286 98, 276 100 C 286 108, 294 114, 302 118", { w: 3 }),
+    line("M318 106 C 314 80, 306 56, 296 34", { w: 3.6, taper: [0.1, 0.5] }),
+    fine("M310 74 C 300 66, 290 62, 278 62", { w: 2.6 }),
+    fine("M304 52 C 312 44, 318 36, 322 26", { w: 2.4 }),
+    line("M328 106 C 332 82, 338 62, 348 44", { w: 3.2, taper: [0.1, 0.5] }),
+    fine("M336 70 C 346 66, 354 60, 360 52", { w: 2.4 }),
+    // neck, back, belly
+    sumi("M296 132 C 290 158, 282 180, 270 196", { w: 4.8 }),
+    line("M342 154 C 330 172, 320 192, 310 210 C 298 234, 286 254, 272 266", { w: 4.2 }),
+    sumi("M270 196 C 220 192, 160 196, 136 214 C 124 232, 128 258, 150 268", { w: 5.6, swell: 0.4 }),
+    line("M150 268 C 190 276, 236 276, 272 266", { w: 4 }),
+    fine("M136 214 c -8 -6 -12 -2 -12 4", { w: 2.4 }),
+    // four slender legs
+    line("M266 268 C 270 320, 272 370, 276 424", { w: 3.4 }),
+    line("M248 272 C 246 324, 242 372, 240 424", { w: 3 }),
+    line("M168 272 C 160 320, 164 350, 158 424", { w: 3.4 }),
+    line("M150 266 C 140 312, 146 344, 132 424", { w: 3 }),
+    fine("M276 424 l 8 0 M240 424 l 8 0 M158 424 l 8 0 M132 424 l 8 0", { w: 2.6 }),
+  ],
+  fills: [ellipse(336, 123, 3, 3.4)],
+  accent: [],
+};
+
+const friendPheasant = {
+  viewBox: [0, 0, 440, 320],
+  paper: [
+    "M300 96 C 310 90, 322 92, 328 100 L 346 106 L 330 112 C 330 128, 322 144, 310 156 C 296 200, 250 222, 210 220 C 180 218, 160 206, 150 190 C 196 186, 240 170, 270 150 C 284 132, 292 108, 300 96 Z",
+  ],
+  wash: [
+    "M210 180 C 236 172, 262 160, 282 146 C 278 172, 252 196, 216 200 Z",
+    "M60 170 C 100 172, 140 176, 160 186 C 120 190, 90 182, 60 176 Z",
+  ],
+  softInk: [],
+  strokes: [
+    // head and beak
+    line("M300 96 C 310 90, 322 92, 328 100", { w: 3.6 }),
+    fine("M328 100 L 346 106 L 330 112", { w: 2.4 }),
+    line("M300 96 C 292 108, 286 128, 274 148", { w: 4 }),
+    line("M330 112 C 330 128, 322 144, 310 156", { w: 4 }),
+    // plump body and wing
+    sumi("M274 148 C 244 170, 200 186, 150 190", { w: 5 }),
+    sumi("M310 156 C 296 200, 250 222, 210 220 C 180 218, 160 206, 150 190", { w: 5.4, swell: 0.4 }),
+    line("M200 196 C 226 192, 256 178, 278 160", { w: 3 }),
+    fine("M210 206 C 236 202, 262 188, 280 172", { w: 2 }),
+    // the long barred tail
+    sumi("M154 188 C 120 180, 70 168, 18 160", { w: 4.4, taper: [0.1, 0.6] }),
+    line("M152 194 C 116 190, 70 182, 26 176", { w: 3.2, taper: [0.1, 0.6] }),
+    fine("M120 180 l -4 10 M96 176 l -4 10 M72 172 l -4 10 M48 168 l -4 10", { w: 1.8 }),
+    // legs
+    line("M240 220 C 242 250, 238 276, 236 300", { w: 3 }),
+    line("M222 218 C 220 248, 222 274, 216 300", { w: 2.8 }),
+    fine("M236 300 l 12 0 M236 300 l 8 6 M216 300 l 12 0 M216 300 l 8 6", { w: 2 }),
+  ],
+  fills: [ellipse(314, 100, 3, 3)],
+  // the red face patch, in the app's orange
+  accent: [ellipse(320, 108, 7, 6)],
+};
+
 const characters = {
-  rabbit1: { ...standingRabbit({ eyes: rabbitEyeOpen(true) }), transform: "translate(230 452) scale(0.74) translate(-230 -452)" },
   rabbit2: standingRabbit(),
-  rabbit3: standingRabbit({ extra: scarf }),
-  rabbit4: standingRabbit({ extra: elder, holdingStick: true }),
   rabbitJump,
+  monkey: friendMonkey,
+  fox: friendFox,
+  cat: friendCat,
+  deer: friendDeer,
+  pheasant: friendPheasant,
   frogSit: sittingFrog({ arms: frogArmsDown }),
   frogBanzai,
   frogLetter: sittingFrog({
@@ -428,6 +632,243 @@ const characters = {
       accent: [ellipse(376, 190, 9, 9)],
     },
   }),
+};
+
+// ------------------------------------------------------------ the home scene
+// Behind the rabbit's room: autumn bush clover (萩, as next to the famous
+// sumo match), pampas grass, misty hills in wash, a brushed ground with
+// tufts, two small birds and an orange moon. Drawn 540 wide so the card
+// can crop it on any phone; the 360-wide middle (x 90..450) is what a
+// phone shows. The ground sits at y 268, where the characters stand.
+
+const bez = (p0, p1, p2, p3, t) => {
+  const u = 1 - t;
+  return [
+    u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+    u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+  ];
+};
+
+// a small pointed leaf as a filled polygon
+function leaf(cx, cy, angle, len = 8, wid = 3.2) {
+  const pts = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const x = Math.cos(a) * len / 2;
+    const y = Math.sin(a) * wid / 2 * (1 - 0.35 * Math.cos(a));
+    pts.push([cx + x * Math.cos(angle) - y * Math.sin(angle), cy + x * Math.sin(angle) + y * Math.cos(angle)]);
+  }
+  return "M" + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L") + " Z";
+}
+
+// one arching bush-clover branch with leaves along it
+function hagiBranch(p0, p1, p2, p3, { w = 2, leaves = 7, start = 0.3, seed = 1 } = {}) {
+  const d = `M${p0} C ${p1}, ${p2}, ${p3}`;
+  const fills = [];
+  for (let i = 0; i < leaves; i++) {
+    const t = start + (i / Math.max(leaves - 1, 1)) * (0.98 - start);
+    const [x, y] = bez(p0, p1, p2, p3, t);
+    const [x2, y2] = bez(p0, p1, p2, p3, Math.min(t + 0.01, 1));
+    const tangent = Math.atan2(y2 - y, x2 - x);
+    const side = (i + seed) % 2 === 0 ? 1 : -1;
+    const ang = tangent + side * 0.75;
+    const off = 4.2;
+    fills.push(leaf(x + Math.cos(ang) * off, y + Math.sin(ang) * off, ang, 8.5 - i * 0.4, 3.4));
+  }
+  return { stroke: fine(d, { w, taper: [0.08, 0.6], swell: 0.1 }), fills };
+}
+
+const sceneHome = (() => {
+  const branches = [
+    hagiBranch([108, 268], [112, 222], [134, 184], [176, 156], { w: 2.4, leaves: 9, seed: 0 }),
+    hagiBranch([114, 268], [124, 232], [150, 206], [196, 192], { w: 2.1, leaves: 8, seed: 1 }),
+    hagiBranch([102, 268], [96, 230], [102, 196], [120, 170], { w: 1.9, leaves: 7, seed: 0 }),
+    hagiBranch([118, 268], [136, 248], [162, 238], [198, 236], { w: 1.8, leaves: 6, seed: 1, start: 0.4 }),
+    hagiBranch([466, 268], [470, 238], [488, 214], [520, 198], { w: 1.8, leaves: 6, seed: 0 }),
+  ];
+  const flowers = [[176, 154], [181, 160], [196, 190], [201, 195], [120, 168], [198, 234], [519, 196]].map(([x, y]) =>
+    ellipse(x, y, 2, 1.6));
+  const tuft = (x, y, s = 1) => [
+    fine(`M${x} ${y} q ${-3 * s} ${-10 * s} ${-9 * s} ${-16 * s}`, { w: 1.6 }),
+    fine(`M${x + 2} ${y} q 0 ${-12 * s} ${2 * s} ${-20 * s}`, { w: 1.6 }),
+    fine(`M${x + 4} ${y} q ${4 * s} ${-9 * s} ${10 * s} ${-13 * s}`, { w: 1.6 }),
+  ];
+  return {
+    viewBox: [0, 0, 540, 310],
+    paper: [],
+    wash: [
+      // misty hills: only the ridges, fading downwards
+      { d: "M60 200 C 92 180, 128 170, 166 180 C 184 186, 194 192, 204 198 C 170 194, 130 190, 96 196 C 84 198, 72 200, 60 204 Z", a: 0.75 },
+      { d: "M300 192 C 334 172, 376 164, 418 176 C 436 182, 452 188, 470 192 C 440 188, 410 184, 380 186 C 350 188, 324 190, 300 196 Z", a: 0.75 },
+      { d: "M380 208 C 400 200, 430 196, 460 202 C 432 204, 404 206, 380 212 Z", a: 0.5 },
+      // soft ground shadow
+      "M20 272 C 160 266, 380 270, 520 268 C 400 280, 160 282, 20 278 Z",
+    ],
+    softInk: [],
+    strokes: [
+      // brushed ground, lifted once in the middle
+      { d: "M0 268 C 70 263, 140 272, 220 266", w: 3.2, taper: [0.05, 0.4], swell: 0.2, min: 0.15 },
+      { d: "M236 266 C 320 261, 420 271, 540 265", w: 3.2, taper: [0.3, 0.05], swell: 0.2, min: 0.15 },
+      fine("M120 284 C 160 281, 200 285, 230 283", { w: 1.6 }),
+      fine("M310 286 C 350 283, 390 287, 426 284", { w: 1.6 }),
+      // tufts along the ground
+      ...tuft(70, 268), ...tuft(232, 267, 0.8), ...tuft(300, 266, 0.9), ...tuft(500, 267),
+      // bush clover
+      ...branches.map((b) => b.stroke),
+      // pampas grass at the right edge
+      fine("M436 268 C 434 226, 428 192, 414 160", { w: 1.8, taper: [0.05, 0.7] }),
+      fine("M442 268 C 442 232, 446 204, 456 176", { w: 1.6, taper: [0.05, 0.7] }),
+      fine("M430 268 C 422 240, 410 222, 396 210", { w: 1.5, taper: [0.05, 0.7] }),
+      hair("M414 160 C 410 170, 406 176, 400 180", { w: 1.4 }),
+      hair("M416 164 C 416 176, 412 184, 408 190", { w: 1.4 }),
+      hair("M415 162 C 422 172, 424 180, 422 188", { w: 1.4 }),
+      hair("M456 176 C 452 186, 448 192, 442 196", { w: 1.3 }),
+      hair("M456 178 C 460 188, 462 194, 460 202", { w: 1.3 }),
+      // a far ridge line, stopping short of the grass
+      hair("M300 192 C 334 172, 372 164, 400 170", { w: 1.2 }),
+      // two small birds
+      fine("M350 70 q 6 -6 12 0 q 6 -6 12 0", { w: 1.7, taper: [0.2, 0.2] }),
+      fine("M374 92 q 4 -4 8 0 q 4 -4 8 0", { w: 1.4, taper: [0.2, 0.2] }),
+    ],
+    fills: [...branches.flatMap((b) => b.fills), ...flowers],
+    accent: [ellipse(414, 52, 17, 17)],
+  };
+})();
+
+// ------------------------------------------------------------ brush UI
+// Small brushed pieces the whole app uses: a hand-drawn card frame and an
+// ink-painted button (both 9-slice), a divider, the ground under the
+// characters, a washi paper texture and a low strip of the scene.
+
+let seedState = 7;
+const rnd = () => {
+  seedState = (seedState * 16807) % 2147483647;
+  return (seedState - 1) / 2147483646;
+};
+
+const uiPieces = {
+  // 120 x 120, corner radius ~22; app slices it with 26 pt caps
+  "ui-frame": {
+    viewBox: [0, 0, 120, 120],
+    strokes: [
+      { d: "M24 3.6 L 96 3 C 108 3.2, 116.6 12, 116.8 25", w: 2.6, taper: [0.04, 0.12], swell: 0.1, min: 0.5, wobble: 0.05 },
+      { d: "M116.9 24 L 116.5 96 C 116.4 108, 108 116.6, 95 116.8", w: 2.4, taper: [0.04, 0.12], swell: 0.1, min: 0.5, wobble: 0.05 },
+      { d: "M96 116.9 L 24 116.4 C 12.5 116.4, 3.4 108, 3.2 95", w: 2.8, taper: [0.04, 0.12], swell: 0.1, min: 0.5, wobble: 0.05 },
+      { d: "M3.1 96 L 3.5 24 C 3.6 12.5, 12 3.5, 25 3.4", w: 2.5, taper: [0.04, 0.12], swell: 0.1, min: 0.5, wobble: 0.05 },
+    ],
+  },
+  // a rounded block painted with a broad brush
+  "ui-ink-button": {
+    viewBox: [0, 0, 120, 120],
+    solid: ["M22 2.5 L 98 2 C 110 2.2, 118 10, 118 22 L 117.6 98 C 117.6 110, 110 118, 98 118 L 22 117.8 C 10 117.8, 2.2 110, 2.4 98 L 2.6 22 C 2.6 10, 10 2.6, 22 2.5 Z"],
+  },
+  "ui-divider": {
+    viewBox: [0, 0, 300, 8],
+    strokes: [{ d: "M2 4.2 C 80 3.2, 170 5, 298 3.8", w: 2.2, taper: [0.05, 0.45], swell: 0.25, min: 0.2 }],
+  },
+  "ui-ground": {
+    viewBox: [0, 0, 300, 24],
+    strokes: [
+      { d: "M4 12 C 60 8, 120 15, 180 11 C 230 8, 270 13, 296 11", w: 2.6, taper: [0.04, 0.3], swell: 0.25, min: 0.2 },
+      fine("M40 19 C 60 18, 80 20, 100 19", { w: 1.2 }),
+      fine("M190 20 C 210 19, 230 21, 252 20", { w: 1.2 }),
+      fine("M120 12 q -2 -6 -6 -9", { w: 1.2 }),
+      fine("M122 12 q 0 -7 2 -11", { w: 1.2 }),
+      fine("M124 12 q 3 -5 7 -7", { w: 1.2 }),
+    ],
+  },
+};
+
+// washi fibres: a 200 x 200 tile of faint threads and specks
+uiPieces["ui-paper"] = (() => {
+  const strokes = [];
+  const fills = [];
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * 200;
+    const y = rnd() * 200;
+    const len = 6 + rnd() * 18;
+    const a = rnd() * Math.PI * 2;
+    const bend = (rnd() - 0.5) * 8;
+    const x2 = x + Math.cos(a) * len;
+    const y2 = y + Math.sin(a) * len;
+    const mx = (x + x2) / 2 - Math.sin(a) * bend;
+    const my = (y + y2) / 2 + Math.cos(a) * bend;
+    strokes.push(hair(`M${x.toFixed(1)} ${y.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`, { w: 0.5 + rnd() * 0.6, seed: i + 3 }));
+  }
+  for (let i = 0; i < 50; i++) fills.push(ellipse(rnd() * 200, rnd() * 200, 0.4 + rnd() * 0.8, 0.4 + rnd() * 0.6));
+  return { viewBox: [0, 0, 200, 200], strokes, fills, plain: true };
+})();
+
+// a low strip of the landscape for the foot of long screens
+const sceneStrip = (() => {
+  const branches = [
+    hagiBranch([108, 72], [110, 50], [124, 34], [150, 22], { w: 1.8, leaves: 6, seed: 0 }),
+    hagiBranch([114, 72], [124, 56], [140, 46], [170, 40], { w: 1.6, leaves: 5, seed: 1 }),
+    hagiBranch([104, 72], [100, 54], [104, 40], [116, 28], { w: 1.5, leaves: 4, seed: 0 }),
+  ];
+  return {
+    viewBox: [0, 0, 540, 90],
+    paper: [],
+    wash: [
+      { d: "M280 64 C 320 50, 370 46, 420 54 C 440 58, 456 62, 470 66 C 420 62, 340 62, 280 68 Z", a: 0.7 },
+      "M20 75 C 160 70, 380 73, 520 71 C 400 82, 160 84, 20 80 Z",
+    ],
+    softInk: [],
+    strokes: [
+      { d: "M0 72 C 70 67, 140 76, 220 70", w: 2.8, taper: [0.05, 0.4], swell: 0.2, min: 0.15 },
+      { d: "M236 70 C 320 65, 420 75, 540 69", w: 2.8, taper: [0.3, 0.05], swell: 0.2, min: 0.15 },
+      ...branches.map((b) => b.stroke),
+      fine("M436 72 C 434 56, 428 44, 418 34", { w: 1.5, taper: [0.05, 0.7] }),
+      fine("M442 72 C 442 58, 446 48, 454 38", { w: 1.4, taper: [0.05, 0.7] }),
+      hair("M418 34 C 414 40, 410 44, 404 46", { w: 1.2 }),
+      hair("M419 36 C 422 42, 424 46, 422 52", { w: 1.2 }),
+      fine("M240 72 q -3 -8 -8 -12", { w: 1.4 }),
+      fine("M242 72 q 0 -9 2 -15", { w: 1.4 }),
+      fine("M244 72 q 3 -7 8 -10", { w: 1.4 }),
+      fine("M330 71 q -3 -7 -7 -10", { w: 1.3 }),
+      fine("M332 71 q 0 -8 2 -13", { w: 1.3 }),
+    ],
+    fills: branches.flatMap((b) => b.fills),
+    accent: [],
+  };
+})();
+
+// ------------------------------------------------------------ the stream
+// For the send screen: the frog carries the letter along a stream bank,
+// like the scroll's bathing scene. Bank (where characters stand) at y 46.
+const sceneStream = {
+  viewBox: [0, 0, 540, 130],
+  paper: [],
+  wash: [
+    { d: "M0 54 C 180 50, 360 58, 540 52 L 540 110 C 360 116, 180 108, 0 112 Z", a: 0.35 },
+    { d: "M384 98 C 386 86, 398 82, 410 86 C 418 90, 420 96, 416 102 Z", a: 0.9 },
+    "M20 49 C 160 45, 380 48, 520 46 C 400 56, 160 58, 20 54 Z",
+  ],
+  softInk: [],
+  strokes: [
+    // the near bank, lifted once
+    { d: "M0 46 C 80 42, 160 50, 250 45", w: 3, taper: [0.05, 0.4], swell: 0.2, min: 0.15 },
+    { d: "M266 45 C 350 41, 440 49, 540 44", w: 3, taper: [0.3, 0.05], swell: 0.2, min: 0.15 },
+    // tufts and reeds on the bank
+    fine("M120 46 q -3 -9 -8 -14", { w: 1.5 }), fine("M122 46 q 0 -11 2 -18", { w: 1.5 }), fine("M124 46 q 4 -8 9 -12", { w: 1.5 }),
+    fine("M300 45 q -3 -8 -7 -12", { w: 1.4 }), fine("M302 45 q 0 -10 2 -16", { w: 1.4 }),
+    fine("M462 45 C 460 30, 456 16, 448 4", { w: 1.6, taper: [0.05, 0.7] }),
+    fine("M468 45 C 470 28, 474 16, 482 6", { w: 1.5, taper: [0.05, 0.7] }),
+    fine("M456 45 C 450 34, 442 26, 432 22", { w: 1.4, taper: [0.05, 0.7] }),
+    // flowing water lines with a curl or two
+    fine("M10 64 C 70 60, 120 68, 180 63 C 230 59, 270 66, 320 62", { w: 1.6, taper: [0.2, 0.4] }),
+    fine("M200 74 C 260 70, 320 78, 380 72 C 420 68, 470 75, 530 70", { w: 1.6, taper: [0.2, 0.4] }),
+    fine("M40 86 C 100 82, 160 90, 220 85 C 260 82, 300 88, 336 84 C 348 82, 352 74, 344 72 C 338 71, 336 76, 340 78", { w: 1.6, taper: [0.15, 0.3] }),
+    fine("M300 98 C 340 95, 360 100, 380 98", { w: 1.4, taper: [0.2, 0.4] }),
+    fine("M424 99 C 450 95, 480 102, 520 96", { w: 1.4, taper: [0.2, 0.4] }),
+    fine("M20 104 C 80 100, 140 107, 190 102 C 210 100, 222 94, 214 90", { w: 1.4, taper: [0.2, 0.3] }),
+    // a stone in the water
+    line("M384 98 C 386 86, 398 82, 410 86 C 418 90, 420 96, 416 102", { w: 2.6 }),
+    // the far bank
+    { d: "M0 118 C 100 114, 200 121, 320 116 C 420 112, 480 119, 540 115", w: 2.4, taper: [0.1, 0.1], swell: 0.2, min: 0.2 },
+  ],
+  fills: [ellipse(482, 5, 3, 5)],
+  accent: [],
 };
 
 // ------------------------------------------------------------ rendering
@@ -465,7 +906,9 @@ async function rawLayerMarkup(page, char, layer, color) {
     case "paper":
       return `<g filter="url(#paper)" fill="${color}">${char.paper.map((d) => `<path d="${d}"/>`).join("")}</g>`;
     case "wash":
-      return `<g filter="url(#wash)" fill="${color}">${char.wash.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+      return `<g filter="url(#wash)" fill="${color}">${char.wash
+        .map((w) => (typeof w === "string" ? `<path d="${w}"/>` : `<path d="${w.d}" fill-opacity="${w.a}"/>`))
+        .join("")}</g>`;
     case "accent":
       return char.accent.length
         ? `<g filter="url(#paper)" fill="${color}">${char.accent.map((d) => `<path d="${d}"/>`).join("")}</g>`
@@ -521,6 +964,26 @@ const browser = await chromium.launch();
 const page = await browser.newPage();
 const previewIndex = process.argv.indexOf("--preview");
 
+const scenePreview = process.argv.indexOf("--scene");
+if (scenePreview > 0) {
+  // the scene with the characters standing in it, as on the home card
+  const [, , w, h] = sceneHome.viewBox;
+  const sceneColors = { wash: "rgba(21,21,21,0.2)", ink: "rgba(21,21,21,0.55)", accent: "#F7931A" };
+  let body = "";
+  for (const layer of ["wash", "ink", "accent"]) body += await layerMarkup(page, sceneHome, layer, sceneColors[layer]);
+  const rabbit = (await composite(page, characters.rabbit2, 1)).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+  const frog = (await composite(page, characters.frogSit, 1)).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+  const doc = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w * 2}" height="${h * 2}">
+    <rect width="${w}" height="${h}" fill="#FFFFFF"/><defs>${filters(1)}</defs>${body}
+    <svg x="190" y="80" width="158" height="190" viewBox="0 0 400 480">${rabbit}</svg>
+    <g transform="translate(442 0) scale(-1 1)"><svg x="0" y="196" width="75" height="64" viewBox="0 0 400 340">${frog}</svg></g>
+    <rect x="90" y="0" width="360" height="${h}" fill="none" stroke="#c00" stroke-dasharray="4 4"/>
+  </svg>`;
+  writeFileSync(process.argv[scenePreview + 1], await shoot(page, doc, w * 2, h * 2, false));
+  await browser.close();
+  process.exit(0);
+}
+
 if (previewIndex > 0) {
   // one sheet with every character on paper, for checking the drawing
   let x = 0;
@@ -550,6 +1013,45 @@ for (const [name, char] of Object.entries(characters)) {
     writeImageSet(`char-${name}-${layer}`, await shoot(page, svgDoc(char, markup), w * PX, h * PX));
     console.log(`char-${name}-${layer}`);
   }
+}
+
+// The home scene, rendered sharper for a full-width card.
+for (const layer of ["wash", "ink", "accent"]) {
+  const markup = await layerMarkup(page, sceneHome, layer);
+  const [, , w, h] = sceneHome.viewBox;
+  writeImageSet(`scene-home-${layer}`, await shoot(page, svgDoc(sceneHome, markup, 3), w * 3, h * 3));
+  console.log(`scene-home-${layer}`);
+}
+
+// The stream for the send screen.
+for (const layer of ["wash", "ink"]) {
+  const markup = await layerMarkup(page, sceneStream, layer);
+  const [, , w, h] = sceneStream.viewBox;
+  writeImageSet(`scene-stream-${layer}`, await shoot(page, svgDoc(sceneStream, markup, 3), w * 3, h * 3));
+  console.log(`scene-stream-${layer}`);
+}
+
+// The low scene strip.
+for (const layer of ["wash", "ink"]) {
+  const markup = await layerMarkup(page, sceneStrip, layer);
+  const [, , w, h] = sceneStrip.viewBox;
+  writeImageSet(`scene-strip-${layer}`, await shoot(page, svgDoc(sceneStrip, markup, 3), w * 3, h * 3));
+  console.log(`scene-strip-${layer}`);
+}
+
+// Brushed UI pieces (one template layer each).
+for (const [name, piece] of Object.entries(uiPieces)) {
+  const [, , w, h] = piece.viewBox;
+  let body = "";
+  if (piece.strokes) {
+    const shapes = await strokesToPaths(page, piece.strokes);
+    body += `<g filter="url(#${piece.plain ? "paper" : "ink"})" fill="#000">${shapes.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+  }
+  if (piece.fills) body += `<g fill="#000">${piece.fills.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+  if (piece.solid) body += `<g filter="url(#paper)" fill="#000">${piece.solid.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+  const doc = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w * 3}" height="${h * 3}"><defs>${filters(3)}</defs>${body}</svg>`;
+  writeImageSet(name, await shoot(page, doc, w * 3, h * 3));
+  console.log(name);
 }
 
 // App icon: the rabbit on paper with an orange coin.
