@@ -69,16 +69,21 @@ struct SceneView: View {
     var name: String
 
     var body: some View {
-        ZStack {
-            layer("wash", Ink.wash)
-            layer("ink", Ink.ink.opacity(0.55))
-            if UIImage(named: "scene-\(name)-accent") != nil {
-                layer("accent", Ink.orange)
+        // The flexible clear base takes whatever size it is offered; the
+        // wider-than-the-phone drawing hangs in an overlay so it can never
+        // push the screen's layout wider than the screen.
+        Color.clear
+            .overlay {
+                ZStack {
+                    layer("wash", Ink.wash)
+                    layer("ink", Ink.ink.opacity(0.55))
+                    if UIImage(named: "scene-\(name)-accent") != nil {
+                        layer("accent", Ink.orange)
+                    }
+                }
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
-        .accessibilityHidden(true)
+            .clipped()
+            .accessibilityHidden(true)
     }
 
     private func layer(_ layer: String, _ color: Color) -> some View {
