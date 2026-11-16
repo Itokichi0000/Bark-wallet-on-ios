@@ -629,6 +629,44 @@ const sceneStrip = (() => {
   };
 })();
 
+// ------------------------------------------------------------ the stream
+// For the send screen: the frog carries the letter along a stream bank,
+// like the scroll's bathing scene. Bank (where characters stand) at y 46.
+const sceneStream = {
+  viewBox: [0, 0, 540, 130],
+  paper: [],
+  wash: [
+    { d: "M0 54 C 180 50, 360 58, 540 52 L 540 110 C 360 116, 180 108, 0 112 Z", a: 0.35 },
+    { d: "M384 98 C 386 86, 398 82, 410 86 C 418 90, 420 96, 416 102 Z", a: 0.9 },
+    "M20 49 C 160 45, 380 48, 520 46 C 400 56, 160 58, 20 54 Z",
+  ],
+  softInk: [],
+  strokes: [
+    // the near bank, lifted once
+    { d: "M0 46 C 80 42, 160 50, 250 45", w: 3, taper: [0.05, 0.4], swell: 0.2, min: 0.15 },
+    { d: "M266 45 C 350 41, 440 49, 540 44", w: 3, taper: [0.3, 0.05], swell: 0.2, min: 0.15 },
+    // tufts and reeds on the bank
+    fine("M120 46 q -3 -9 -8 -14", { w: 1.5 }), fine("M122 46 q 0 -11 2 -18", { w: 1.5 }), fine("M124 46 q 4 -8 9 -12", { w: 1.5 }),
+    fine("M300 45 q -3 -8 -7 -12", { w: 1.4 }), fine("M302 45 q 0 -10 2 -16", { w: 1.4 }),
+    fine("M462 45 C 460 30, 456 16, 448 4", { w: 1.6, taper: [0.05, 0.7] }),
+    fine("M468 45 C 470 28, 474 16, 482 6", { w: 1.5, taper: [0.05, 0.7] }),
+    fine("M456 45 C 450 34, 442 26, 432 22", { w: 1.4, taper: [0.05, 0.7] }),
+    // flowing water lines with a curl or two
+    fine("M10 64 C 70 60, 120 68, 180 63 C 230 59, 270 66, 320 62", { w: 1.6, taper: [0.2, 0.4] }),
+    fine("M200 74 C 260 70, 320 78, 380 72 C 420 68, 470 75, 530 70", { w: 1.6, taper: [0.2, 0.4] }),
+    fine("M40 86 C 100 82, 160 90, 220 85 C 260 82, 300 88, 336 84 C 348 82, 352 74, 344 72 C 338 71, 336 76, 340 78", { w: 1.6, taper: [0.15, 0.3] }),
+    fine("M300 98 C 340 95, 360 100, 380 98", { w: 1.4, taper: [0.2, 0.4] }),
+    fine("M424 99 C 450 95, 480 102, 520 96", { w: 1.4, taper: [0.2, 0.4] }),
+    fine("M20 104 C 80 100, 140 107, 190 102 C 210 100, 222 94, 214 90", { w: 1.4, taper: [0.2, 0.3] }),
+    // a stone in the water
+    line("M384 98 C 386 86, 398 82, 410 86 C 418 90, 420 96, 416 102", { w: 2.6 }),
+    // the far bank
+    { d: "M0 118 C 100 114, 200 121, 320 116 C 420 112, 480 119, 540 115", w: 2.4, taper: [0.1, 0.1], swell: 0.2, min: 0.2 },
+  ],
+  fills: [ellipse(482, 5, 3, 5)],
+  accent: [],
+};
+
 // ------------------------------------------------------------ rendering
 
 const filters = (px) => `
@@ -779,6 +817,14 @@ for (const layer of ["wash", "ink", "accent"]) {
   const [, , w, h] = sceneHome.viewBox;
   writeImageSet(`scene-home-${layer}`, await shoot(page, svgDoc(sceneHome, markup, 3), w * 3, h * 3));
   console.log(`scene-home-${layer}`);
+}
+
+// The stream for the send screen.
+for (const layer of ["wash", "ink"]) {
+  const markup = await layerMarkup(page, sceneStream, layer);
+  const [, , w, h] = sceneStream.viewBox;
+  writeImageSet(`scene-stream-${layer}`, await shoot(page, svgDoc(sceneStream, markup, 3), w * 3, h * 3));
+  console.log(`scene-stream-${layer}`);
 }
 
 // The low scene strip.
