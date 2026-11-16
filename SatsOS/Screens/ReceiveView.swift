@@ -69,7 +69,7 @@ struct ReceiveView: View {
             if let arrival {
                 ReceivedCelebration(payment: arrival) {
                     withAnimation(.easeOut(duration: 0.2)) { self.arrival = nil }
-                    store.clearLevelUp()
+                    store.clearFriendArrival()
                 }
                 .transition(.opacity)
                 .zIndex(3)

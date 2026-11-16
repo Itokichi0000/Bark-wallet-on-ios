@@ -57,7 +57,7 @@ struct MainView: View {
             if let celebration {
                 ReceivedCelebration(payment: celebration) {
                     withAnimation(.easeOut(duration: 0.2)) { self.celebration = nil }
-                    store.clearLevelUp()
+                    store.clearFriendArrival()
                 }
                 .transition(.opacity)
                 .zIndex(5)

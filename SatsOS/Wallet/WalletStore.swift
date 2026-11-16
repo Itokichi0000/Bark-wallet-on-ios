@@ -123,6 +123,11 @@ final class WalletStore: ObservableObject {
 
     var friends: Friends { Friends(highest: highestBalance) }
 
+    /// The celebration has greeted them; don't greet them again.
+    func clearFriendArrival() {
+        friendArrival = nil
+    }
+
     // MARK: - Boot
 
     func boot() async {
