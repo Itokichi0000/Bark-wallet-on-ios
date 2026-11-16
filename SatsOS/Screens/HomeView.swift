@@ -77,7 +77,7 @@ struct HomeView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: UInt64.random(in: 7_000_000_000...12_000_000_000))
                 guard !Task.isCancelled else { return }
-                if Bool.random() { frogHop += 1 } else { rabbitHop += 1 }
+                rabbitHop += 1
             }
         }
     }
@@ -157,16 +157,23 @@ struct HomeView: View {
                         .accessibilityAddTraits(.isButton)
                         .accessibilityHint("うさぎが しゃべります")
                     friend(.cat, friends)
-                    CharacterView(art: .frogSit, height: 64)
-                        .scaleEffect(x: -1, y: 1)
-                        .breathing(0.04, period: 1.2)
-                        .hop(trigger: frogHop, height: 16)
-                        .onTapGesture {
-                            Chiptune.shared.play(.click)
-                            Haptics.tap()
-                            frogHop += 1
-                        }
-                        .offset(x: 128)
+                    FriendActor(
+                        critter: .frog,
+                        height: 64,
+                        range: -22...0,
+                        poke: frogHop,
+                        cheer: cheerTick,
+                        cheerDelay: 0.05,
+                        baseFacing: -1
+                    )
+                    .onTapGesture {
+                        Chiptune.shared.play(.click)
+                        Haptics.tap()
+                        frogHop += 1
+                    }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("かえるが うごきます")
+                    .offset(x: 128)
                 }
                 .frame(maxWidth: .infinity)
                 .animation(.spring(duration: 0.6, bounce: 0.4), value: friends.arrived.count)
@@ -209,7 +216,7 @@ struct HomeView: View {
         if friends.has(friend), let spot = Self.spots[friend] {
             let order = Double(Friend.allCases.firstIndex(of: friend) ?? 0)
             FriendActor(
-                friend: friend,
+                critter: .friend(friend),
                 height: spot.height,
                 range: spot.range,
                 poke: friendPokes[friend, default: 0],
