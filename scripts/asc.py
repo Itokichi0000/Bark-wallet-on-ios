@@ -197,6 +197,39 @@ def cmd_prepare(client: Client, args) -> int:
     return 0
 
 
+def cmd_cleanup_certs(client: Client, args) -> int:
+    """Revoke development certificates that earlier CI runs created.
+
+    Every run starts on a fresh runner, so Xcode's automatic signing makes a new
+    "Apple Development" certificate whose private key is thrown away with the
+    runner. Those pile up until Apple refuses to make more ("Your account has
+    reached the maximum number of certificates"). Only development certificates
+    named "Created via API" (the ones an API key made) are revoked; distribution
+    certificates and anything made on a Mac are left alone.
+    """
+    data = client.expect("GET", "/v1/certificates", {
+        "filter[certificateType]": "DEVELOPMENT,IOS_DEVELOPMENT",
+        "limit": 200,
+    })
+    stale = [
+        item for item in data.get("data", [])
+        if "Created via API" in item.get("attributes", {}).get("name", "")
+    ]
+    if not stale:
+        log("[ OK ] no leftover CI development certificates")
+        return 0
+    revoked = 0
+    for item in stale:
+        name = item.get("attributes", {}).get("name", "")
+        status, body = client.call("DELETE", f"/v1/certificates/{item['id']}")
+        if status in (200, 204):
+            revoked += 1
+        else:
+            log(f"::warning::could not revoke {name}: HTTP {status}: {errors(body)}")
+    log(f"[ OK ] revoked {revoked} leftover CI development certificate(s)")
+    return 0
+
+
 def cmd_testers(client: Client, args) -> int:
     app = find_app(client, args.bundle_id)
     if not app:
@@ -251,7 +284,7 @@ def cmd_testers(client: Client, args) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["prepare", "testers"])
+    parser.add_argument("command", choices=["prepare", "testers", "cleanup-certs"])
     parser.add_argument("--key", required=True, help="path to AuthKey_XXXX.p8")
     parser.add_argument("--bundle-id", required=True)
     parser.add_argument("--name", default="SatsOS", help="bundle ID description (letters, digits, spaces)")
@@ -265,7 +298,8 @@ def main() -> int:
         return 2
     client = Client(make_token(key_id, issuer_id, args.key))
     try:
-        return cmd_prepare(client, args) if args.command == "prepare" else cmd_testers(client, args)
+        commands = {"prepare": cmd_prepare, "testers": cmd_testers, "cleanup-certs": cmd_cleanup_certs}
+        return commands[args.command](client, args)
     except RuntimeError as error:
         log(f"::error::{error}")
         return 1
