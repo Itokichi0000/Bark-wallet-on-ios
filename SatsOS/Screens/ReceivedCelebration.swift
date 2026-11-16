@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// "もらった！": the rabbit jumps, the frog cheers, coins fly, the amount
-/// counts up, and the friends card greets anyone the payment brought along
+/// "もらった！": the title cheers letter by letter, the rabbit jumps (and
+/// somersaults), the frog cheers, coins flip in the air and bounce on the
+/// ground, the friends hop in a row, the amount counts up and a 寿 seal
+/// stamps it, and the friends card greets anyone the payment brought along
 /// (or shows how close the next friend is).
 struct ReceivedCelebration: View {
     @EnvironmentObject private var store: WalletStore
@@ -11,6 +13,7 @@ struct ReceivedCelebration: View {
 
     @State private var titleTick = 0
     @State private var cardShown = false
+    @State private var stamped = false
     @State private var line = RabbitLines.received.randomElement() ?? "やったね！"
 
     var body: some View {
@@ -24,19 +27,17 @@ struct ReceivedCelebration: View {
                         .font(Brush.text(15))
                         .foregroundStyle(Ink.sub)
                         .padding(.top, 48)
-                    Text("もらった！")
-                        .font(Brush.bold(40, relativeTo: .largeTitle))
+                    WavyTitle(text: "もらった！", font: Brush.bold(40, relativeTo: .largeTitle))
                         .foregroundStyle(Ink.ink)
                         .pop(trigger: titleTick, from: 0.6)
 
                     ZStack(alignment: .bottom) {
-                        sparkles
+                        JoyField()
                         HStack(alignment: .bottom, spacing: 0) {
                             CharacterView(art: .frogBanzai, height: 74)
                                 .jumpingForJoy(height: 14)
                                 .padding(.bottom, 4)
-                            CharacterView(art: .rabbitJump, height: 220)
-                                .jumpingForJoy(height: 30)
+                            CelebratingRabbit(height: 220)
                         }
                         .padding(.trailing, 40)
                     }
@@ -44,6 +45,13 @@ struct ReceivedCelebration: View {
 
                     GroundLine()
                         .frame(width: 240)
+
+                    if !friends.arrived.isEmpty {
+                        FriendParade(friends: friends.arrived, newcomers: arrival?.friends ?? [])
+                            .padding(.top, 10)
+                        GroundLine()
+                            .frame(width: 280)
+                    }
 
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         CountUpText(value: payment.amount, duration: 0.9) { "+" + SatFormat.sats($0) }
@@ -54,6 +62,14 @@ struct ReceivedCelebration: View {
                     .foregroundStyle(Ink.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
+                    .overlay(alignment: .trailing) {
+                        SealStamp(text: "寿", size: 34)
+                            .scaleEffect(stamped ? 1 : 2.6)
+                            .rotationEffect(.degrees(stamped ? -10 : -32))
+                            .opacity(stamped ? 1 : 0)
+                            .offset(x: 46, y: -6)
+                            .accessibilityHidden(true)
+                    }
                     .padding(.top, 6)
 
                     SpeechBubble(text: line)
@@ -76,35 +92,17 @@ struct ReceivedCelebration: View {
         }
         .task {
             titleTick += 1
-            try? await Task.sleep(nanoseconds: 700_000_000)
+            // the seal lands just as the count-up finishes
+            try? await Task.sleep(nanoseconds: 950_000_000)
+            withAnimation(.spring(duration: 0.3, bounce: 0.35)) { stamped = true }
+            Haptics.heavy()
+            try? await Task.sleep(nanoseconds: 250_000_000)
             withAnimation(.spring(duration: 0.5, bounce: 0.3)) { cardShown = true }
             if store.friendArrival?.isRecent == true {
                 Chiptune.shared.play(.boot)
                 Haptics.heavy()
             }
         }
-    }
-
-    private var sparkles: some View {
-        Canvas { gc, size in
-            let coins: [(CGFloat, CGFloat, CGFloat)] = [
-                (0.16, 0.22, 11), (0.84, 0.16, 9), (0.24, 0.6, 7), (0.8, 0.56, 12), (0.66, 0.08, 6),
-            ]
-            for (x, y, r) in coins {
-                gc.fill(Path(ellipseIn: CGRect(x: x * size.width - r, y: y * size.height - r, width: r * 2, height: r * 2)),
-                        with: .color(Ink.orange))
-            }
-            let crosses: [(CGFloat, CGFloat)] = [(0.08, 0.42), (0.9, 0.38), (0.3, 0.1)]
-            for (x, y) in crosses {
-                var path = Path()
-                path.move(to: CGPoint(x: x * size.width - 5, y: y * size.height))
-                path.addLine(to: CGPoint(x: x * size.width + 5, y: y * size.height))
-                path.move(to: CGPoint(x: x * size.width, y: y * size.height - 5))
-                path.addLine(to: CGPoint(x: x * size.width, y: y * size.height + 5))
-                gc.stroke(path, with: .color(Ink.ink), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-            }
-        }
-        .accessibilityHidden(true)
     }
 
     private func friendsCard(_ friends: Friends, arrival: FriendArrival?) -> some View {
