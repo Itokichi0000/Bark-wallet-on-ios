@@ -40,6 +40,8 @@ struct SendView: View {
     @State private var result: PaymentResult?
     @State private var sentAmount: UInt64?
     @State private var lightning: LightningProgress?
+    @State private var holdingSend = false
+    @State private var inputFrogPoke = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -167,9 +169,18 @@ struct SendView: View {
     private var inputStage: some View {
         VStack(spacing: 18) {
             HStack(alignment: .bottom, spacing: 8) {
-                CharacterView(art: .frogSit, height: 62)
-                    .breathing(0.04, period: 1.3)
-                SpeechBubble(text: "どこへ とどける？")
+                FriendActor(critter: .frog, height: 62, range: 0...0, poke: inputFrogPoke, cheer: 0, cheerDelay: 0)
+                    .onTapGesture {
+                        Chiptune.shared.play(.click)
+                        Haptics.tap()
+                        inputFrogPoke += 1
+                    }
+                    .accessibilityAddTraits(.isButton)
+                    // an address pasted or scanned in: the frog is on it
+                    .onChange(of: input.isEmpty) { _, empty in
+                        if !empty { inputFrogPoke += 1 }
+                    }
+                SpeechBubble(text: input.isEmpty ? "どこへ とどける？" : "まかせて！")
                     .padding(.bottom, 36)
                 Spacer(minLength: 0)
             }
@@ -250,10 +261,9 @@ struct SendView: View {
             VStack(spacing: 16) {
                 VStack(spacing: 0) {
                     onTheBank(height: 104) {
-                        CharacterView(art: .frogLetter, height: 96)
-                            .breathing(0.03, period: 1.3)
+                        ReadyFrog(height: 96, holding: holdingSend)
                     }
-                    Text("かえるが 川ぞいに とどけます")
+                    Text(holdingSend ? "いくよ… そのまま そのまま" : "かえるが 川ぞいに とどけます")
                         .font(Brush.text(13))
                         .foregroundStyle(Ink.sub)
                         .padding(.top, -6)
@@ -308,7 +318,8 @@ struct SendView: View {
                 .animation(.easeOut(duration: 0.15), value: insufficient)
 
                 VStack(spacing: 8) {
-                    HoldToSendButton(title: "ながおしで おくる", holdingTitle: "そのまま…") {
+                    HoldToSendButton(title: "ながおしで おくる", holdingTitle: "そのまま…",
+                                     onHoldChange: { holdingSend = $0 }) {
                         Task { await send() }
                     }
                     .disabled(!canSend)
@@ -419,6 +430,11 @@ struct SendView: View {
         }
     }
 
+    /// Went through: not still routing over Lightning and not failed.
+    private var delivered: Bool {
+        lightning != .routing && !lightningFailed
+    }
+
     private var lightningFailed: Bool {
         if case .failed = lightning { return true }
         return false
@@ -438,11 +454,20 @@ struct SendView: View {
             }
             .padding(.top, 8)
 
-            Text(doneTitle)
-                .font(Brush.bold(30, relativeTo: .title))
-                .foregroundStyle(lightningFailed ? Ink.alert : Ink.ink)
-                .contentTransition(.opacity)
-                .animation(.easeOut(duration: 0.2), value: doneTitle)
+            Group {
+                if delivered {
+                    WavyTitle(text: doneTitle, font: Brush.bold(30, relativeTo: .title))
+                } else {
+                    Text(doneTitle)
+                        .font(Brush.bold(30, relativeTo: .title))
+                }
+            }
+            .foregroundStyle(lightningFailed ? Ink.alert : Ink.ink)
+            .overlay(alignment: .trailing) {
+                SlamSeal(text: "届", active: delivered)
+                    .offset(x: 44)
+            }
+            .animation(.easeOut(duration: 0.2), value: doneTitle)
 
             if let sentAmount {
                 CountUpText(value: sentAmount) { "-" + SatFormat.amount($0, unit: settings.unit) }
@@ -482,7 +507,7 @@ struct SendView: View {
     private func failedStage(_ message: String) -> some View {
         VStack(spacing: 18) {
             onTheBank(height: 110) {
-                CharacterView(art: .frogSit, height: 90)
+                DroopyFrog(height: 90)
             }
             .padding(.top, 12)
             Text("おくれませんでした")
@@ -513,6 +538,7 @@ struct SendView: View {
                 .clipped()
                 .zIndex(1)
             SceneView(name: "stream")
+                .overlay(StreamRipples())
                 .frame(height: 130)
                 .padding(.top, -46)
                 .padding(.horizontal, -18)
