@@ -241,6 +241,8 @@ struct HoldToSendButton: View {
     var title: String
     var holdingTitle: String
     var duration: Double = 0.9
+    /// Told when a hold starts (true) and when it ends or fires (false).
+    var onHoldChange: ((Bool) -> Void)? = nil
     var action: () -> Void
 
     @State private var progress: Double = 0
@@ -282,6 +284,7 @@ struct HoldToSendButton: View {
     private func begin() {
         guard isEnabled, !holding, !fired else { return }
         holding = true
+        onHoldChange?(true)
         Haptics.tap()
         chargeTask?.cancel()
         chargeTask = Task { @MainActor in
@@ -308,6 +311,7 @@ struct HoldToSendButton: View {
         guard !fired else { return }
         chargeTask?.cancel()
         holding = false
+        onHoldChange?(false)
         withAnimation(.easeOut(duration: 0.2)) { progress = 0 }
     }
 
@@ -315,6 +319,7 @@ struct HoldToSendButton: View {
         guard !fired else { return }
         fired = true
         holding = false
+        onHoldChange?(false)
         progress = 1
         chargeTask?.cancel()
         Chiptune.shared.play(.send)

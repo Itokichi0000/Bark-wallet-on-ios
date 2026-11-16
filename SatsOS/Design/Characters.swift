@@ -204,44 +204,6 @@ private struct JumpLoopModifier: ViewModifier {
     }
 }
 
-/// The frog hopping off to the right with a letter, over and over.
-struct DeliveringFrog: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var height: CGFloat = 96
-
-    private struct Trip {
-        var x: CGFloat = -60
-        var y: CGFloat = 0
-        var opacity: Double = 0
-    }
-
-    var body: some View {
-        CharacterView(art: .frogLetter, height: height)
-            .keyframeAnimator(initialValue: Trip(), repeating: !reduceMotion) { view, trip in
-                view
-                    .offset(x: reduceMotion ? 0 : trip.x, y: reduceMotion ? 0 : trip.y)
-                    .opacity(reduceMotion ? 1 : trip.opacity)
-            } keyframes: { _ in
-                KeyframeTrack(\.x) {
-                    LinearKeyframe(-60, duration: 0.01)
-                    LinearKeyframe(60, duration: 1.8)
-                }
-                KeyframeTrack(\.y) {
-                    CubicKeyframe(-18, duration: 0.3)
-                    CubicKeyframe(0, duration: 0.3)
-                    CubicKeyframe(-18, duration: 0.3)
-                    CubicKeyframe(0, duration: 0.3)
-                    CubicKeyframe(-18, duration: 0.3)
-                    CubicKeyframe(0, duration: 0.3)
-                }
-                KeyframeTrack(\.opacity) {
-                    LinearKeyframe(1, duration: 0.25)
-                    LinearKeyframe(1, duration: 1.25)
-                    LinearKeyframe(0, duration: 0.3)
-                }
-            }
-    }
-}
 
 // MARK: - What they say
 
