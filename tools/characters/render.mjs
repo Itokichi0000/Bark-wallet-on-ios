@@ -430,6 +430,107 @@ const characters = {
   }),
 };
 
+// ------------------------------------------------------------ the home scene
+// Behind the rabbit's room: autumn bush clover (萩, as next to the famous
+// sumo match), pampas grass, misty hills in wash, a brushed ground with
+// tufts, two small birds and an orange moon. Drawn 540 wide so the card
+// can crop it on any phone; the 360-wide middle (x 90..450) is what a
+// phone shows. The ground sits at y 268, where the characters stand.
+
+const bez = (p0, p1, p2, p3, t) => {
+  const u = 1 - t;
+  return [
+    u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+    u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+  ];
+};
+
+// a small pointed leaf as a filled polygon
+function leaf(cx, cy, angle, len = 8, wid = 3.2) {
+  const pts = [];
+  for (let i = 0; i <= 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const x = Math.cos(a) * len / 2;
+    const y = Math.sin(a) * wid / 2 * (1 - 0.35 * Math.cos(a));
+    pts.push([cx + x * Math.cos(angle) - y * Math.sin(angle), cy + x * Math.sin(angle) + y * Math.cos(angle)]);
+  }
+  return "M" + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L") + " Z";
+}
+
+// one arching bush-clover branch with leaves along it
+function hagiBranch(p0, p1, p2, p3, { w = 2, leaves = 7, start = 0.3, seed = 1 } = {}) {
+  const d = `M${p0} C ${p1}, ${p2}, ${p3}`;
+  const fills = [];
+  for (let i = 0; i < leaves; i++) {
+    const t = start + (i / Math.max(leaves - 1, 1)) * (0.98 - start);
+    const [x, y] = bez(p0, p1, p2, p3, t);
+    const [x2, y2] = bez(p0, p1, p2, p3, Math.min(t + 0.01, 1));
+    const tangent = Math.atan2(y2 - y, x2 - x);
+    const side = (i + seed) % 2 === 0 ? 1 : -1;
+    const ang = tangent + side * 0.75;
+    const off = 4.2;
+    fills.push(leaf(x + Math.cos(ang) * off, y + Math.sin(ang) * off, ang, 8.5 - i * 0.4, 3.4));
+  }
+  return { stroke: fine(d, { w, taper: [0.08, 0.6], swell: 0.1 }), fills };
+}
+
+const sceneHome = (() => {
+  const branches = [
+    hagiBranch([108, 268], [112, 222], [134, 184], [176, 156], { w: 2.4, leaves: 9, seed: 0 }),
+    hagiBranch([114, 268], [124, 232], [150, 206], [196, 192], { w: 2.1, leaves: 8, seed: 1 }),
+    hagiBranch([102, 268], [96, 230], [102, 196], [120, 170], { w: 1.9, leaves: 7, seed: 0 }),
+    hagiBranch([118, 268], [136, 248], [162, 238], [198, 236], { w: 1.8, leaves: 6, seed: 1, start: 0.4 }),
+    hagiBranch([466, 268], [470, 238], [488, 214], [520, 198], { w: 1.8, leaves: 6, seed: 0 }),
+  ];
+  const flowers = [[176, 154], [181, 160], [196, 190], [201, 195], [120, 168], [198, 234], [519, 196]].map(([x, y]) =>
+    ellipse(x, y, 2, 1.6));
+  const tuft = (x, y, s = 1) => [
+    fine(`M${x} ${y} q ${-3 * s} ${-10 * s} ${-9 * s} ${-16 * s}`, { w: 1.6 }),
+    fine(`M${x + 2} ${y} q 0 ${-12 * s} ${2 * s} ${-20 * s}`, { w: 1.6 }),
+    fine(`M${x + 4} ${y} q ${4 * s} ${-9 * s} ${10 * s} ${-13 * s}`, { w: 1.6 }),
+  ];
+  return {
+    viewBox: [0, 0, 540, 310],
+    paper: [],
+    wash: [
+      // misty hills: only the ridges, fading downwards
+      { d: "M60 200 C 92 180, 128 170, 166 180 C 184 186, 194 192, 204 198 C 170 194, 130 190, 96 196 C 84 198, 72 200, 60 204 Z", a: 0.75 },
+      { d: "M300 192 C 334 172, 376 164, 418 176 C 436 182, 452 188, 470 192 C 440 188, 410 184, 380 186 C 350 188, 324 190, 300 196 Z", a: 0.75 },
+      { d: "M380 208 C 400 200, 430 196, 460 202 C 432 204, 404 206, 380 212 Z", a: 0.5 },
+      // soft ground shadow
+      "M20 272 C 160 266, 380 270, 520 268 C 400 280, 160 282, 20 278 Z",
+    ],
+    softInk: [],
+    strokes: [
+      // brushed ground, lifted once in the middle
+      { d: "M0 268 C 70 263, 140 272, 220 266", w: 3.2, taper: [0.05, 0.4], swell: 0.2, min: 0.15 },
+      { d: "M236 266 C 320 261, 420 271, 540 265", w: 3.2, taper: [0.3, 0.05], swell: 0.2, min: 0.15 },
+      fine("M120 284 C 160 281, 200 285, 230 283", { w: 1.6 }),
+      fine("M310 286 C 350 283, 390 287, 426 284", { w: 1.6 }),
+      // tufts along the ground
+      ...tuft(70, 268), ...tuft(232, 267, 0.8), ...tuft(300, 266, 0.9), ...tuft(500, 267),
+      // bush clover
+      ...branches.map((b) => b.stroke),
+      // pampas grass at the right edge
+      fine("M436 268 C 434 226, 428 192, 414 160", { w: 1.8, taper: [0.05, 0.7] }),
+      fine("M442 268 C 442 232, 446 204, 456 176", { w: 1.6, taper: [0.05, 0.7] }),
+      fine("M430 268 C 422 240, 410 222, 396 210", { w: 1.5, taper: [0.05, 0.7] }),
+      hair("M414 160 C 410 170, 406 176, 400 180", { w: 1.4 }),
+      hair("M416 164 C 416 176, 412 184, 408 190", { w: 1.4 }),
+      hair("M415 162 C 422 172, 424 180, 422 188", { w: 1.4 }),
+      hair("M456 176 C 452 186, 448 192, 442 196", { w: 1.3 }),
+      hair("M456 178 C 460 188, 462 194, 460 202", { w: 1.3 }),
+      // a far ridge line, stopping short of the grass
+      hair("M300 192 C 334 172, 372 164, 400 170", { w: 1.2 }),
+      // two small birds
+      fine("M350 70 q 6 -6 12 0 q 6 -6 12 0", { w: 1.7, taper: [0.2, 0.2] }),
+      fine("M374 92 q 4 -4 8 0 q 4 -4 8 0", { w: 1.4, taper: [0.2, 0.2] }),
+    ],
+    fills: [...branches.flatMap((b) => b.fills), ...flowers],
+    accent: [ellipse(414, 52, 17, 17)],
+  };
+})();
+
 // ------------------------------------------------------------ rendering
 
 const filters = (px) => `
@@ -465,7 +566,9 @@ async function rawLayerMarkup(page, char, layer, color) {
     case "paper":
       return `<g filter="url(#paper)" fill="${color}">${char.paper.map((d) => `<path d="${d}"/>`).join("")}</g>`;
     case "wash":
-      return `<g filter="url(#wash)" fill="${color}">${char.wash.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+      return `<g filter="url(#wash)" fill="${color}">${char.wash
+        .map((w) => (typeof w === "string" ? `<path d="${w}"/>` : `<path d="${w.d}" fill-opacity="${w.a}"/>`))
+        .join("")}</g>`;
     case "accent":
       return char.accent.length
         ? `<g filter="url(#paper)" fill="${color}">${char.accent.map((d) => `<path d="${d}"/>`).join("")}</g>`
@@ -521,6 +624,26 @@ const browser = await chromium.launch();
 const page = await browser.newPage();
 const previewIndex = process.argv.indexOf("--preview");
 
+const scenePreview = process.argv.indexOf("--scene");
+if (scenePreview > 0) {
+  // the scene with the characters standing in it, as on the home card
+  const [, , w, h] = sceneHome.viewBox;
+  const sceneColors = { wash: "rgba(21,21,21,0.2)", ink: "rgba(21,21,21,0.55)", accent: "#F7931A" };
+  let body = "";
+  for (const layer of ["wash", "ink", "accent"]) body += await layerMarkup(page, sceneHome, layer, sceneColors[layer]);
+  const rabbit = (await composite(page, characters.rabbit2, 1)).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+  const frog = (await composite(page, characters.frogSit, 1)).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+  const doc = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w * 2}" height="${h * 2}">
+    <rect width="${w}" height="${h}" fill="#FFFFFF"/><defs>${filters(1)}</defs>${body}
+    <svg x="190" y="80" width="158" height="190" viewBox="0 0 400 480">${rabbit}</svg>
+    <g transform="translate(442 0) scale(-1 1)"><svg x="0" y="196" width="75" height="64" viewBox="0 0 400 340">${frog}</svg></g>
+    <rect x="90" y="0" width="360" height="${h}" fill="none" stroke="#c00" stroke-dasharray="4 4"/>
+  </svg>`;
+  writeFileSync(process.argv[scenePreview + 1], await shoot(page, doc, w * 2, h * 2, false));
+  await browser.close();
+  process.exit(0);
+}
+
 if (previewIndex > 0) {
   // one sheet with every character on paper, for checking the drawing
   let x = 0;
@@ -550,6 +673,14 @@ for (const [name, char] of Object.entries(characters)) {
     writeImageSet(`char-${name}-${layer}`, await shoot(page, svgDoc(char, markup), w * PX, h * PX));
     console.log(`char-${name}-${layer}`);
   }
+}
+
+// The home scene, rendered sharper for a full-width card.
+for (const layer of ["wash", "ink", "accent"]) {
+  const markup = await layerMarkup(page, sceneHome, layer);
+  const [, , w, h] = sceneHome.viewBox;
+  writeImageSet(`scene-home-${layer}`, await shoot(page, svgDoc(sceneHome, markup, 3), w * 3, h * 3));
+  console.log(`scene-home-${layer}`);
 }
 
 // App icon: the rabbit on paper with an orange coin.

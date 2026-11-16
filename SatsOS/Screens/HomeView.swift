@@ -105,6 +105,9 @@ struct HomeView: View {
     private var room: some View {
         let growth = store.growth
         return ZStack {
+            // bush clover, pampas grass, misty hills and the moon
+            SceneView(name: "home")
+
             VStack {
                 HStack(alignment: .top) {
                     LevelBadge(stage: growth.stage)
@@ -147,8 +150,9 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.trailing, 16)
                 }
-                GroundLine()
-                    .padding(.horizontal, 4)
+                // the scene draws the ground; keep the characters standing on it
+                Color.clear
+                    .frame(height: 20)
                 HStack(spacing: 10) {
                     GrowthDots(progress: growth.progress)
                     Text(growth.remainingText)

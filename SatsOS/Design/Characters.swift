@@ -60,6 +60,34 @@ struct CharacterView: View {
     }
 }
 
+// MARK: - Scenes
+
+/// A brushed landscape behind the characters (`scene-<name>-*` layers from
+/// render.mjs). Drawn wider than a phone so it can be cropped from the
+/// middle; the ink is kept faint so the characters stay in front.
+struct SceneView: View {
+    var name: String
+
+    var body: some View {
+        ZStack {
+            layer("wash", Ink.wash)
+            layer("ink", Ink.ink.opacity(0.55))
+            layer("accent", Ink.orange)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .accessibilityHidden(true)
+    }
+
+    private func layer(_ layer: String, _ color: Color) -> some View {
+        Image("scene-\(name)-\(layer)")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFill()
+            .foregroundStyle(color)
+    }
+}
+
 // MARK: - Motion for characters
 
 extension View {
