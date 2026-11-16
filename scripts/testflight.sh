@@ -60,6 +60,11 @@ SETTINGS=(
   CURRENT_PROJECT_VERSION="${BUILD_NUMBER}"
 )
 
+# Development certificates made by earlier runs are useless (their keys left
+# with the runner) and count toward Apple's limit; clear them first.
+python3 scripts/asc.py cleanup-certs --key "${KEY_PATH}" --bundle-id "${BUNDLE_ID}" \
+  || echo "::warning::古い CI 用の開発証明書を整理できませんでした。"
+
 echo "==> Archiving ${BUNDLE_ID} build ${BUILD_NUMBER}"
 if ! xcodebuild archive "${COMMON[@]}" "${AUTH[@]}" "${SETTINGS[@]}" \
       CODE_SIGN_STYLE=Automatic > build/archive.log 2>&1; then
