@@ -11,7 +11,8 @@ struct HomeView: View {
     @State private var lineID = 0
     @State private var rabbitHop = 0
     @State private var frogHop = 0
-    @State private var friendHops: [Friend: Int] = [:]
+    @State private var friendPokes: [Friend: Int] = [:]
+    @State private var cheerTick = 0
     @State private var balanceTick = 0
     @State private var deltas: [BalanceDelta] = []
 
@@ -56,6 +57,7 @@ struct HomeView: View {
             deltas.append(delta)
             if new > old {
                 rabbitHop += 1
+                cheerTick += 1
                 say(RabbitLines.received.randomElement() ?? "やったね！")
             }
             Task {
@@ -67,7 +69,6 @@ struct HomeView: View {
             guard let arrival = store.friendArrival, let newest = arrival.friends.last else { return }
             Chiptune.shared.play(.boot)
             Haptics.success()
-            for friend in arrival.friends { friendHops[friend, default: 0] += 1 }
             rabbitHop += 1
             say(newest.arrivalLine)
         }
@@ -193,31 +194,46 @@ struct HomeView: View {
     }
 
     /// Where each friend settles in the room: offset from the middle, how far
-    /// above the rabbit's feet (the far ones sit up on the hill), and size.
-    private static let spots: [Friend: (x: CGFloat, lift: CGFloat, height: CGFloat)] = [
-        .monkey: (-132, -2, 80),
-        .cat: (-60, -6, 46),
-        .fox: (80, 2, 84),
-        .deer: (134, 54, 70),
-        .pheasant: (80, 76, 36),
+    /// above the rabbit's feet (the far ones sit up on the hill), size, and
+    /// how far it may wander from there.
+    private static let spots: [Friend: (x: CGFloat, lift: CGFloat, height: CGFloat, range: ClosedRange<CGFloat>)] = [
+        .monkey: (-132, -2, 80, -6...6),
+        .cat: (-60, -6, 46, 0...0),
+        .fox: (80, 2, 84, 0...14),
+        .deer: (134, 54, 70, -34...12),
+        .pheasant: (80, 76, 36, -16...14),
     ]
 
     @ViewBuilder
     private func friend(_ friend: Friend, _ friends: Friends) -> some View {
         if friends.has(friend), let spot = Self.spots[friend] {
-            CharacterView(art: friend.art, height: spot.height)
-                .breathing(0.03, period: 1.6 + Double(spot.height.truncatingRemainder(dividingBy: 7)) / 10)
-                .hop(trigger: friendHops[friend, default: 0], height: 14)
-                .onTapGesture {
-                    Chiptune.shared.play(.click)
-                    Haptics.tap()
-                    friendHops[friend, default: 0] += 1
-                    say(friend.voice)
-                }
-                .accessibilityAddTraits(.isButton)
-                .offset(x: spot.x, y: -spot.lift)
-                .transition(.scale(scale: 0.2, anchor: .bottom).combined(with: .opacity))
+            let order = Double(Friend.allCases.firstIndex(of: friend) ?? 0)
+            FriendActor(
+                friend: friend,
+                height: spot.height,
+                range: spot.range,
+                poke: friendPokes[friend, default: 0],
+                cheer: cheerTick,
+                cheerDelay: 0.12 + order * 0.09,
+                enterFrom: justArrived(friend) ? (spot.x < 0 ? -220 : 220) : nil
+            )
+            .onTapGesture {
+                Chiptune.shared.play(.click)
+                Haptics.tap()
+                friendPokes[friend, default: 0] += 1
+                say(friend.voice)
+            }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("\(friend.name)が うごきます")
+            .offset(x: spot.x, y: -spot.lift)
+            .transition(.opacity)
         }
+    }
+
+    /// Walks in from the side instead of just being there.
+    private func justArrived(_ friend: Friend) -> Bool {
+        guard let arrival = store.friendArrival, arrival.isRecent else { return false }
+        return arrival.friends.contains(friend)
     }
 
     private func say(_ text: String) {
