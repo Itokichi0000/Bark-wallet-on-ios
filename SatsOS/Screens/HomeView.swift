@@ -56,7 +56,6 @@ struct HomeView: View {
             let delta = BalanceDelta(amount: Int64(new) - Int64(old))
             deltas.append(delta)
             if new > old {
-                rabbitHop += 1
                 cheerTick += 1
                 say(RabbitLines.received.randomElement() ?? "やったね！")
             }
@@ -71,14 +70,6 @@ struct HomeView: View {
             Haptics.success()
             rabbitHop += 1
             say(newest.arrivalLine)
-        }
-        .task {
-            // little signs of life
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: UInt64.random(in: 7_000_000_000...12_000_000_000))
-                guard !Task.isCancelled else { return }
-                rabbitHop += 1
-            }
         }
     }
 
@@ -145,17 +136,23 @@ struct HomeView: View {
                     friend(.pheasant, friends)
                     friend(.fox, friends)
                     friend(.monkey, friends)
-                    CharacterView(art: .rabbit2, height: 180)
-                        .breathing()
-                        .hop(trigger: rabbitHop)
-                        .onTapGesture {
-                            Chiptune.shared.play(.select)
-                            Haptics.tap()
-                            rabbitHop += 1
-                            say(RabbitLines.random())
-                        }
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityHint("うさぎが しゃべります")
+                    FriendActor(
+                        critter: .rabbit,
+                        height: 180,
+                        range: -26...22,
+                        poke: rabbitHop,
+                        cheer: cheerTick,
+                        cheerDelay: 0,
+                        onSay: { say($0) }
+                    )
+                    .onTapGesture {
+                        Chiptune.shared.play(.select)
+                        Haptics.tap()
+                        rabbitHop += 1
+                        say(RabbitLines.random())
+                    }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("うさぎが しゃべります")
                     friend(.cat, friends)
                     FriendActor(
                         critter: .frog,

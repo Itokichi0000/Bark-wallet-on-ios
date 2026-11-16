@@ -2,19 +2,22 @@ import SwiftUI
 
 /// Who lives in the home room besides the rabbit.
 enum Critter: Equatable {
+    case rabbit
     case frog
     case friend(Friend)
 
     var art: CharacterArt {
         switch self {
+        case .rabbit: return .rabbit2
         case .frog: return .frogSit
         case .friend(let friend): return friend.art
         }
     }
 }
 
-/// A frog or friend in the home room who gets up to little things on its own:
-/// the frog croaks, snaps at flies and hops about, the monkey fidgets and
+/// The rabbit, the frog or a friend in the home room, getting up to little
+/// things on its own: the rabbit strolls, bows, stretches up, gazes at the
+/// moon and dozes off; the frog croaks, snaps at flies and hops about, the monkey fidgets and
 /// looks around, the fox sniffs and pounces, the cat stretches, washes and
 /// naps, the deer wanders the hill and grazes, the pheasant pecks and struts.
 /// Tapping plays its signature move.
@@ -45,12 +48,16 @@ struct FriendActor: View {
     private let enterFrom: CGFloat?
     /// -1 when the drawing is mirrored where it sits (the frog faces the rabbit).
     private let baseFacing: CGFloat
+    /// Lets the rabbit mutter something in the room's speech bubble.
+    private let onSay: ((String) -> Void)?
 
     /// `enterFrom`: walk in from this far to the side (a friend who just arrived).
     init(critter: Critter, height: CGFloat, range: ClosedRange<CGFloat>, poke: Int, cheer: Int,
-         cheerDelay: Double, enterFrom: CGFloat? = nil, baseFacing: CGFloat = 1) {
+         cheerDelay: Double, enterFrom: CGFloat? = nil, baseFacing: CGFloat = 1,
+         onSay: ((String) -> Void)? = nil) {
         self.critter = critter
         self.baseFacing = baseFacing
+        self.onSay = onSay
         self.height = height
         self.range = range
         self.poke = poke
@@ -89,7 +96,7 @@ struct FriendActor: View {
                 guard !reduceMotion else { return }
                 perform(interrupting: true) {
                     await pause(cheerDelay)
-                    await jump(14)
+                    await jump(critter == .rabbit ? 24 : 14)
                 }
             }
             .task { await life() }
@@ -144,6 +151,15 @@ struct FriendActor: View {
 
     private func idle() async {
         switch critter {
+        case .rabbit:
+            switch Int.random(in: 0..<7) {
+            case 0, 1: await stroll()
+            case 2: await lookAround()
+            case 3: await bow()
+            case 4: await reachUp()
+            case 5: await gazeAtMoon()
+            default: await doze()
+            }
         case .frog:
             switch Int.random(in: 0..<4) {
             case 0, 1: await croak()
@@ -179,10 +195,19 @@ struct FriendActor: View {
     }
 
     private func signature() async {
-        guard case .friend(let friend) = critter else {
+        let friend: Friend
+        switch critter {
+        case .rabbit:
+            await jump(26)
+            await move(0.16) { facing = -facing }
+            await move(0.16) { facing = -facing }
+            return
+        case .frog:
             await jump(18)
             await croak()
             return
+        case .friend(let which):
+            friend = which
         }
         switch friend {
         case .monkey:
@@ -313,6 +338,51 @@ struct FriendActor: View {
             await move(0.14, .easeOut(duration: 0.14)) { angle = 0 }
             await pause(0.12)
         }
+    }
+
+    /// A few steps to one side, a look around, and sometimes back again.
+    private func stroll() async {
+        await walk(to: CGFloat.random(in: range))
+        await pause(Double.random(in: 0.8...1.6))
+        if Bool.random() {
+            await walk(to: 0)
+        }
+        await face(1)
+    }
+
+    private func bow() async {
+        onSay?("ぺこり")
+        await move(0.5) { angle = 12 }
+        await pause(0.8)
+        await move(0.5) { angle = 0 }
+    }
+
+    private func reachUp() async {
+        onSay?(["うーん", "のびー"].randomElement() ?? "のびー")
+        await move(0.5) { sy = 1.07; sx = 0.95 }
+        await pause(0.8)
+        await move(0.4) { sy = 1; sx = 1 }
+    }
+
+    /// The moon hangs top right: lean back and look up at it.
+    private func gazeAtMoon() async {
+        await face(1)
+        await move(0.6) { angle = -6 }
+        onSay?(["おつきさま きれい", "いい月だねえ"].randomElement() ?? "おつきさま きれい")
+        await pause(1.8)
+        await move(0.5) { angle = 0 }
+    }
+
+    /// Nods off where it stands, swaying, until it wakes with a start.
+    private func doze() async {
+        await move(0.4) { napping = true }
+        for _ in 0..<3 {
+            await move(0.9) { angle = 3 }
+            await move(0.9) { angle = -2 }
+        }
+        await move(0.2) { angle = 0; napping = false }
+        await jump(8)
+        onSay?("はっ")
     }
 
     private func croak() async {
