@@ -52,7 +52,7 @@ struct MainView: View {
 
             tabBar
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
         .overlay {
             if let celebration {
                 ReceivedCelebration(payment: celebration) {
@@ -71,7 +71,7 @@ struct MainView: View {
                 case .settings: SettingsView { self.sheet = nil }
                 }
             }
-            .presentationBackground(Ink.bg)
+            .presentationBackground { PaperBackground() }
             .presentationCornerRadius(28)
         }
         .onChange(of: store.lastIncoming) { _, incoming in
@@ -119,9 +119,10 @@ struct MainView: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 6)
-        .background(Ink.bg)
+        .background(PaperBackground())
         .overlay(alignment: .top) {
-            Rectangle().fill(Ink.line).frame(height: 1.5)
+            DashedDivider(color: Ink.ink.opacity(0.35))
+                .offset(y: -3)
         }
     }
 }

@@ -261,7 +261,7 @@ struct HoldToSendButton: View {
                     .frame(maxHeight: .infinity, alignment: .bottom)
             }
         }
-        .background(Ink.ink)
+        .background(InkBlock(color: Ink.ink))
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .scaleEffect(holding ? 0.97 : 1)
         .animation(.spring(duration: 0.25), value: holding)

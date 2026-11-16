@@ -64,7 +64,7 @@ struct ReceiveView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
-            .background(Ink.bg)
+            .background(PaperBackground())
 
             if let arrival {
                 ReceivedCelebration(payment: arrival) {

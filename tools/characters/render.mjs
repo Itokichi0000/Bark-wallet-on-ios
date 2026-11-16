@@ -531,6 +531,104 @@ const sceneHome = (() => {
   };
 })();
 
+// ------------------------------------------------------------ brush UI
+// Small brushed pieces the whole app uses: a hand-drawn card frame and an
+// ink-painted button (both 9-slice), a divider, the ground under the
+// characters, a washi paper texture and a low strip of the scene.
+
+let seedState = 7;
+const rnd = () => {
+  seedState = (seedState * 16807) % 2147483647;
+  return (seedState - 1) / 2147483646;
+};
+
+const uiPieces = {
+  // 120 x 120, corner radius ~22; app slices it with 26 pt caps
+  "ui-frame": {
+    viewBox: [0, 0, 120, 120],
+    strokes: [
+      { d: "M24 3.6 L 96 3 C 108 3.2, 116.6 12, 116.8 25", w: 2.6, taper: [0.04, 0.12], swell: 0.1, min: 0.5, wobble: 0.05 },
+      { d: "M116.9 24 L 116.5 96 C 116.4 108, 108 116.6, 95 116.8", w: 2.4, taper: [0.04, 0.12], swell: 0.1, min: 0.5, wobble: 0.05 },
+      { d: "M96 116.9 L 24 116.4 C 12.5 116.4, 3.4 108, 3.2 95", w: 2.8, taper: [0.04, 0.12], swell: 0.1, min: 0.5, wobble: 0.05 },
+      { d: "M3.1 96 L 3.5 24 C 3.6 12.5, 12 3.5, 25 3.4", w: 2.5, taper: [0.04, 0.12], swell: 0.1, min: 0.5, wobble: 0.05 },
+    ],
+  },
+  // a rounded block painted with a broad brush
+  "ui-ink-button": {
+    viewBox: [0, 0, 120, 120],
+    solid: ["M22 2.5 L 98 2 C 110 2.2, 118 10, 118 22 L 117.6 98 C 117.6 110, 110 118, 98 118 L 22 117.8 C 10 117.8, 2.2 110, 2.4 98 L 2.6 22 C 2.6 10, 10 2.6, 22 2.5 Z"],
+  },
+  "ui-divider": {
+    viewBox: [0, 0, 300, 8],
+    strokes: [{ d: "M2 4.2 C 80 3.2, 170 5, 298 3.8", w: 2.2, taper: [0.05, 0.45], swell: 0.25, min: 0.2 }],
+  },
+  "ui-ground": {
+    viewBox: [0, 0, 300, 24],
+    strokes: [
+      { d: "M4 12 C 60 8, 120 15, 180 11 C 230 8, 270 13, 296 11", w: 2.6, taper: [0.04, 0.3], swell: 0.25, min: 0.2 },
+      fine("M40 19 C 60 18, 80 20, 100 19", { w: 1.2 }),
+      fine("M190 20 C 210 19, 230 21, 252 20", { w: 1.2 }),
+      fine("M120 12 q -2 -6 -6 -9", { w: 1.2 }),
+      fine("M122 12 q 0 -7 2 -11", { w: 1.2 }),
+      fine("M124 12 q 3 -5 7 -7", { w: 1.2 }),
+    ],
+  },
+};
+
+// washi fibres: a 200 x 200 tile of faint threads and specks
+uiPieces["ui-paper"] = (() => {
+  const strokes = [];
+  const fills = [];
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * 200;
+    const y = rnd() * 200;
+    const len = 6 + rnd() * 18;
+    const a = rnd() * Math.PI * 2;
+    const bend = (rnd() - 0.5) * 8;
+    const x2 = x + Math.cos(a) * len;
+    const y2 = y + Math.sin(a) * len;
+    const mx = (x + x2) / 2 - Math.sin(a) * bend;
+    const my = (y + y2) / 2 + Math.cos(a) * bend;
+    strokes.push(hair(`M${x.toFixed(1)} ${y.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`, { w: 0.5 + rnd() * 0.6, seed: i + 3 }));
+  }
+  for (let i = 0; i < 50; i++) fills.push(ellipse(rnd() * 200, rnd() * 200, 0.4 + rnd() * 0.8, 0.4 + rnd() * 0.6));
+  return { viewBox: [0, 0, 200, 200], strokes, fills, plain: true };
+})();
+
+// a low strip of the landscape for the foot of long screens
+const sceneStrip = (() => {
+  const branches = [
+    hagiBranch([108, 72], [110, 50], [124, 34], [150, 22], { w: 1.8, leaves: 6, seed: 0 }),
+    hagiBranch([114, 72], [124, 56], [140, 46], [170, 40], { w: 1.6, leaves: 5, seed: 1 }),
+    hagiBranch([104, 72], [100, 54], [104, 40], [116, 28], { w: 1.5, leaves: 4, seed: 0 }),
+  ];
+  return {
+    viewBox: [0, 0, 540, 90],
+    paper: [],
+    wash: [
+      { d: "M280 64 C 320 50, 370 46, 420 54 C 440 58, 456 62, 470 66 C 420 62, 340 62, 280 68 Z", a: 0.7 },
+      "M20 75 C 160 70, 380 73, 520 71 C 400 82, 160 84, 20 80 Z",
+    ],
+    softInk: [],
+    strokes: [
+      { d: "M0 72 C 70 67, 140 76, 220 70", w: 2.8, taper: [0.05, 0.4], swell: 0.2, min: 0.15 },
+      { d: "M236 70 C 320 65, 420 75, 540 69", w: 2.8, taper: [0.3, 0.05], swell: 0.2, min: 0.15 },
+      ...branches.map((b) => b.stroke),
+      fine("M436 72 C 434 56, 428 44, 418 34", { w: 1.5, taper: [0.05, 0.7] }),
+      fine("M442 72 C 442 58, 446 48, 454 38", { w: 1.4, taper: [0.05, 0.7] }),
+      hair("M418 34 C 414 40, 410 44, 404 46", { w: 1.2 }),
+      hair("M419 36 C 422 42, 424 46, 422 52", { w: 1.2 }),
+      fine("M240 72 q -3 -8 -8 -12", { w: 1.4 }),
+      fine("M242 72 q 0 -9 2 -15", { w: 1.4 }),
+      fine("M244 72 q 3 -7 8 -10", { w: 1.4 }),
+      fine("M330 71 q -3 -7 -7 -10", { w: 1.3 }),
+      fine("M332 71 q 0 -8 2 -13", { w: 1.3 }),
+    ],
+    fills: branches.flatMap((b) => b.fills),
+    accent: [],
+  };
+})();
+
 // ------------------------------------------------------------ rendering
 
 const filters = (px) => `
@@ -681,6 +779,29 @@ for (const layer of ["wash", "ink", "accent"]) {
   const [, , w, h] = sceneHome.viewBox;
   writeImageSet(`scene-home-${layer}`, await shoot(page, svgDoc(sceneHome, markup, 3), w * 3, h * 3));
   console.log(`scene-home-${layer}`);
+}
+
+// The low scene strip.
+for (const layer of ["wash", "ink"]) {
+  const markup = await layerMarkup(page, sceneStrip, layer);
+  const [, , w, h] = sceneStrip.viewBox;
+  writeImageSet(`scene-strip-${layer}`, await shoot(page, svgDoc(sceneStrip, markup, 3), w * 3, h * 3));
+  console.log(`scene-strip-${layer}`);
+}
+
+// Brushed UI pieces (one template layer each).
+for (const [name, piece] of Object.entries(uiPieces)) {
+  const [, , w, h] = piece.viewBox;
+  let body = "";
+  if (piece.strokes) {
+    const shapes = await strokesToPaths(page, piece.strokes);
+    body += `<g filter="url(#${piece.plain ? "paper" : "ink"})" fill="#000">${shapes.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+  }
+  if (piece.fills) body += `<g fill="#000">${piece.fills.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+  if (piece.solid) body += `<g filter="url(#paper)" fill="#000">${piece.solid.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+  const doc = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w * 3}" height="${h * 3}"><defs>${filters(3)}</defs>${body}</svg>`;
+  writeImageSet(name, await shoot(page, doc, w * 3, h * 3));
+  console.log(name);
 }
 
 // App icon: the rabbit on paper with an orange coin.

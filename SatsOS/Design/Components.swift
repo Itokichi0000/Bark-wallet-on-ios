@@ -11,14 +11,11 @@ struct InkButtonStyle: ButtonStyle {
     var height: CGFloat = 56
 
     func makeBody(configuration: Configuration) -> some View {
-        let fill: Color
         let text: Color
-        let border: Color
         switch kind {
-        case .primary: fill = Ink.ink; text = Ink.paper; border = Ink.ink
-        case .secondary: fill = Ink.paper; text = Ink.ink; border = Ink.ink
-        case .quiet: fill = .clear; text = Ink.ink; border = Ink.line
-        case .danger: fill = Ink.paper; text = Ink.alert; border = Ink.alert
+        case .primary: text = Ink.paper
+        case .secondary, .quiet: text = Ink.ink
+        case .danger: text = Ink.alert
         }
         return configuration.label
             .font(Brush.bold(17))
@@ -27,10 +24,27 @@ struct InkButtonStyle: ButtonStyle {
             .minimumScaleFactor(0.7)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: height)
-            .background(fill, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(border, lineWidth: 1.5))
+            .background { backdrop }
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.2), value: configuration.isPressed)
+    }
+
+    /// Primary buttons are painted with a broad brush; the others are
+    /// paper with a brushed outline.
+    @ViewBuilder
+    private var backdrop: some View {
+        switch kind {
+        case .primary:
+            InkBlock(color: Ink.ink)
+        case .secondary:
+            BrushFrame(color: Ink.ink)
+                .background(Ink.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        case .quiet:
+            BrushFrame(color: Ink.ink.opacity(0.35))
+        case .danger:
+            BrushFrame(color: Ink.alert)
+                .background(Ink.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
     }
 }
 
@@ -220,13 +234,79 @@ struct InkIcon: View {
 // MARK: - Cards & rows
 
 extension View {
-    /// White card with a hairline border.
-    func inkCard(padding: CGFloat = 16, radius: CGFloat = 22, border: Color = Ink.line) -> some View {
+    /// A sheet of paper with a hand-brushed outline.
+    func inkCard(padding: CGFloat = 16, radius: CGFloat = 22, border: Color = Ink.ink.opacity(0.4)) -> some View {
         self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Ink.paper, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(border, lineWidth: 1.5))
+            .overlay(BrushFrame(color: border))
+    }
+}
+
+// MARK: - Brushed pieces (render.mjs: ui-*)
+
+/// A rounded outline drawn with a brush; stretches to any size.
+struct BrushFrame: View {
+    var color: Color = Ink.ink
+
+    var body: some View {
+        Image("ui-frame")
+            .renderingMode(.template)
+            .resizable(capInsets: EdgeInsets(top: 26, leading: 26, bottom: 26, trailing: 26), resizingMode: .stretch)
+            .foregroundStyle(color)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A rounded block painted in ink with a broad brush.
+struct InkBlock: View {
+    var color: Color = Ink.ink
+
+    var body: some View {
+        Image("ui-ink-button")
+            .renderingMode(.template)
+            .resizable(capInsets: EdgeInsets(top: 24, leading: 24, bottom: 24, trailing: 24), resizingMode: .stretch)
+            .foregroundStyle(color)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Warm paper with faint washi fibres, behind every screen.
+struct PaperBackground: View {
+    var body: some View {
+        ZStack {
+            Ink.bg
+            Image("ui-paper")
+                .renderingMode(.template)
+                .resizable(resizingMode: .tile)
+                .foregroundStyle(Ink.ink.opacity(0.07))
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
+/// An orange seal stamp (落款), like the red seals on scrolls.
+struct SealStamp: View {
+    var text: String
+    var size: CGFloat = 24
+
+    var body: some View {
+        Text(text)
+            .font(Brush.bold(size * 0.62))
+            .foregroundStyle(Color.white)
+            .frame(width: size, height: size)
+            .background(Ink.orange, in: RoundedRectangle(cornerRadius: size * 0.18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: size * 0.12, style: .continuous)
+                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                    .padding(2.5)
+            )
+            .rotationEffect(.degrees(-4))
+            .accessibilityHidden(true)
     }
 }
 
@@ -267,47 +347,29 @@ struct InfoRow: View {
     }
 }
 
+/// A light brush stroke between rows.
 struct DashedDivider: View {
-    var body: some View {
-        Line()
-            .stroke(Ink.line, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-            .frame(height: 1)
-            .accessibilityHidden(true)
-    }
+    var color: Color = Ink.ink.opacity(0.28)
 
-    private struct Line: Shape {
-        func path(in rect: CGRect) -> Path {
-            var path = Path()
-            path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-            return path
-        }
+    var body: some View {
+        Image("ui-divider")
+            .renderingMode(.template)
+            .resizable()
+            .foregroundStyle(color)
+            .frame(height: 6)
+            .accessibilityHidden(true)
     }
 }
 
-/// A wobbly brush line for the ground under the characters.
+/// The brushed ground under the characters, with a tuft of grass.
 struct GroundLine: View {
     var body: some View {
-        Canvas { gc, size in
-            var main = Path()
-            main.move(to: CGPoint(x: 8, y: size.height * 0.55))
-            main.addCurve(to: CGPoint(x: size.width * 0.54, y: size.height * 0.5),
-                          control1: CGPoint(x: size.width * 0.2, y: size.height * 0.25),
-                          control2: CGPoint(x: size.width * 0.34, y: size.height * 0.8))
-            main.addCurve(to: CGPoint(x: size.width - 8, y: size.height * 0.52),
-                          control1: CGPoint(x: size.width * 0.72, y: size.height * 0.3),
-                          control2: CGPoint(x: size.width * 0.86, y: size.height * 0.4))
-            gc.stroke(main, with: .color(Ink.ink), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-            for (from, to) in [(0.12, 0.28), (0.66, 0.84)] {
-                var tuft = Path()
-                tuft.move(to: CGPoint(x: size.width * from, y: size.height * 0.85))
-                tuft.addQuadCurve(to: CGPoint(x: size.width * to, y: size.height * 0.85),
-                                  control: CGPoint(x: size.width * (from + to) / 2, y: size.height * 0.95))
-                gc.stroke(tuft, with: .color(Ink.sub), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
-            }
-        }
-        .frame(height: 20)
-        .accessibilityHidden(true)
+        Image("ui-ground")
+            .renderingMode(.template)
+            .resizable()
+            .foregroundStyle(Ink.ink)
+            .frame(height: 20)
+            .accessibilityHidden(true)
     }
 }
 
@@ -537,7 +599,7 @@ struct ToastView: View {
         }
         .padding(14)
         .background(Ink.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
+        .overlay(BrushFrame(color: Ink.ink))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         .padding(.horizontal, 16)
         .accessibilityElement(children: .combine)
@@ -576,7 +638,7 @@ struct QRCodeView: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
+        .overlay(BrushFrame(color: Ink.ink))
         .task(id: content) {
             image = Self.render(content)
         }

@@ -46,7 +46,7 @@ struct SplashView: View {
             .frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Ink.bg)
+        .background(PaperBackground())
         .confirmationDialog(
             "この端末のデータを消して、シードから もどしますか？",
             isPresented: $confirmReset,

@@ -48,13 +48,17 @@ struct GrowthView: View {
                 }
                 .padding(.top, 8)
                 .appearIn(delay: 0.35)
+
+                SceneView(name: "strip")
+                    .frame(height: 90)
+                    .padding(.horizontal, -18)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 24)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
     }
 
     private func stageCard(_ stage: RabbitStage, growth: Growth) -> some View {

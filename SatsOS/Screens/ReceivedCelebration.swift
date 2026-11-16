@@ -16,7 +16,7 @@ struct ReceivedCelebration: View {
         let growth = store.growth
         let leveledUp = store.levelUp
         ZStack {
-            Ink.bg.ignoresSafeArea()
+            PaperBackground()
             ScrollView {
                 VStack(spacing: 6) {
                     Text("\(payment.rail)で とどいたよ")

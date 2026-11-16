@@ -95,6 +95,10 @@ struct HistoryView: View {
                     .id(filter)
                     .transition(.opacity)
                 }
+
+                SceneView(name: "strip")
+                    .frame(height: 90)
+                    .padding(.horizontal, -18)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 24)
@@ -104,11 +108,11 @@ struct HistoryView: View {
         .refreshable {
             await store.sync()
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
         .sheet(item: $detail) { movement in
             MovementDetailView(movement: movement)
                 .presentationDetents([.medium, .large])
-                .presentationBackground(Ink.bg)
+                .presentationBackground { PaperBackground() }
                 .presentationCornerRadius(28)
         }
     }
@@ -178,7 +182,7 @@ struct MovementDetailView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 30)
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
     }
 }
 

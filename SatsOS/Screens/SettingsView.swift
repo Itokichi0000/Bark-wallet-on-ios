@@ -21,12 +21,27 @@ struct SettingsView: View {
             SheetHeader(title: "せってい", onClose: { close() })
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    // the wise old rabbit keeps the settings
+                    HStack(alignment: .bottom, spacing: 10) {
+                        CharacterView(art: .rabbit4, height: 104)
+                            .breathing(0.02, period: 2.2)
+                        SpeechBubble(text: "なんでも きいておくれ")
+                            .padding(.bottom, 56)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.bottom, -8)
+                    .appearIn()
+                    GroundLine()
+                        .padding(.top, -20)
                     displaySection.appearIn(delay: 0)
                     networkSection.appearIn(delay: 0.05)
                     walletSection.appearIn(delay: 0.1)
                     serverSection.appearIn(delay: 0.15)
                     aboutSection.appearIn(delay: 0.2)
                     dangerSection.appearIn(delay: 0.25)
+                    SceneView(name: "strip")
+                        .frame(height: 90)
+                        .padding(.horizontal, -18)
                 }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 12)
@@ -35,7 +50,7 @@ struct SettingsView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
         .alert(
             pendingNetwork == .mainnet ? "本番（MAINNET）に切りかえますか？" : "テスト用（SIGNET）に切りかえますか？",
             isPresented: Binding(get: { pendingNetwork != nil }, set: { if !$0 { pendingNetwork = nil } })

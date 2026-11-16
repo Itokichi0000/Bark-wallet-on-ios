@@ -67,7 +67,7 @@ struct SendView: View {
                 }
             }
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
         .interactiveDismissDisabled(stage == .sending)
         .fullScreenCover(isPresented: $showScanner) {
             ScannerScreen { code in

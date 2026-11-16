@@ -37,7 +37,7 @@ struct SetupView: View {
             .frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Ink.bg)
+        .background(PaperBackground())
     }
 
     private var stepKey: String {

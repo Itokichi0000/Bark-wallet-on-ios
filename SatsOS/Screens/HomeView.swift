@@ -47,7 +47,7 @@ struct HomeView: View {
         .refreshable {
             await store.sync()
         }
-        .background(Ink.bg)
+        .background(PaperBackground())
         .onChange(of: store.spendable) { old, new in
             guard old != new else { return }
             balanceTick += 1
@@ -80,6 +80,8 @@ struct HomeView: View {
                 Text("ちょうじゅ")
                     .font(Brush.bold(26, relativeTo: .title))
                     .foregroundStyle(Ink.ink)
+                SealStamp(text: "寿", size: 22)
+                    .alignmentGuide(.firstTextBaseline) { d in d[.bottom] - 4 }
                 Text("Choju")
                     .font(Brush.text(12))
                     .foregroundStyle(Ink.sub)
@@ -167,7 +169,7 @@ struct HomeView: View {
         }
         .frame(height: 310)
         .background(Ink.paper, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
+        .overlay(BrushFrame(color: Ink.ink))
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 

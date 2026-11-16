@@ -72,7 +72,9 @@ struct SceneView: View {
         ZStack {
             layer("wash", Ink.wash)
             layer("ink", Ink.ink.opacity(0.55))
-            layer("accent", Ink.orange)
+            if UIImage(named: "scene-\(name)-accent") != nil {
+                layer("accent", Ink.orange)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
