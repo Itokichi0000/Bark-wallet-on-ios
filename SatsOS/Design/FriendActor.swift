@@ -31,6 +31,8 @@ struct FriendActor: View {
     /// Bumped when sats arrive: everyone hops, one after another.
     var cheer: Int
     var cheerDelay: Double
+    /// Turned its back (the rabbit, politely, while the seed phrase is shown).
+    var turnedAway = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dx: CGFloat
@@ -54,8 +56,9 @@ struct FriendActor: View {
     /// `enterFrom`: walk in from this far to the side (a friend who just arrived).
     init(critter: Critter, height: CGFloat, range: ClosedRange<CGFloat>, poke: Int, cheer: Int,
          cheerDelay: Double, enterFrom: CGFloat? = nil, baseFacing: CGFloat = 1,
-         onSay: ((String) -> Void)? = nil) {
+         turnedAway: Bool = false, onSay: ((String) -> Void)? = nil) {
         self.critter = critter
+        self.turnedAway = turnedAway
         self.baseFacing = baseFacing
         self.onSay = onSay
         self.height = height
@@ -92,6 +95,10 @@ struct FriendActor: View {
                 guard !reduceMotion else { return }
                 perform(interrupting: true) { await signature() }
             }
+            .onChange(of: turnedAway) { _, away in
+                guard !reduceMotion else { facing = away ? -1 : 1; return }
+                perform(interrupting: true) { await turn(to: away ? -1 : 1) }
+            }
             .onChange(of: cheer) { _, _ in
                 guard !reduceMotion else { return }
                 perform(interrupting: true) {
@@ -119,7 +126,7 @@ struct FriendActor: View {
         }
         await pause(Double.random(in: 1.5...5))
         while !Task.isCancelled {
-            if action == nil {
+            if action == nil, !turnedAway {
                 perform { await idle() }
             }
             await pause(Double.random(in: 4...9))
