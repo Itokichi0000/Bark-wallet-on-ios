@@ -65,6 +65,7 @@ enum ArkNetwork: String, CaseIterable, Identifiable {
             bitcoindPass: nil,
             vtxoRefreshExpiryThreshold: nil,
             vtxoExitMargin: nil,
+            boardLifetime: nil,
             htlcRecvClaimDelta: nil,
             fallbackFeeRate: nil,
             roundTxRequiredConfirmations: nil,
@@ -101,5 +102,5 @@ enum AppInfo {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
     }
 
-    static let barkSDKVersion = "0.27.0 (bark 0.8.1)"
+    static let barkSDKVersion = "0.28.0 (bark 0.9.0)"
 }
