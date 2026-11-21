@@ -39,6 +39,8 @@ run 06-history history 15
 run 07-growth growth 15
 run 08-settings settings 20
 run 09-receive-incoming receive-incoming 30
+run 10-aquarium aquarium 25
+run 11-guide guide 20
 
 # keep the app's own log lines (wallet open errors etc.) for debugging
 xcrun simctl spawn "${UDID}" log show --last 6m --style compact \

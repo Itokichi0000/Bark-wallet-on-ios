@@ -83,6 +83,19 @@ final class WalletStore: ObservableObject {
     @Published private(set) var friendArrival: FriendArrival?
     private var highestLoaded = false
 
+    // すいそう (Aquarium.swift): one fish per VTXO.
+    @Published private(set) var vtxos: [Vtxo] = []
+    /// The VTXOs bark itself says should be refreshed soon.
+    @Published private(set) var refreshIDs: Set<String> = []
+    /// Fish that just left the tank, so it can show them swimming away.
+    @Published private(set) var fishGhosts: [FishGhost] = []
+    /// When each fish that is new since the last look arrived.
+    @Published private(set) var fishArrivals: [String: Date] = [:]
+    /// The fish waiting for a round to be swapped for new ones.
+    @Published private(set) var refreshingIDs: Set<String> = []
+    var isRefreshingFish: Bool { !refreshingIDs.isEmpty }
+    private var vtxosLoaded = false
+
     private var wallet: Wallet?
     private var notificationTask: Task<Void, Never>?
     private var heightTask: Task<Void, Never>?
@@ -290,6 +303,12 @@ final class WalletStore: ObservableObject {
         highestLoaded = false
         highestBalance = 0
         friendArrival = nil
+        vtxos = []
+        refreshIDs = []
+        fishGhosts = []
+        fishArrivals = [:]
+        vtxosLoaded = false
+        refreshingIDs = []
     }
 
     func revealMnemonic() -> String? {
@@ -321,7 +340,85 @@ final class WalletStore: ObservableObject {
         if let history = try? await wallet.history() {
             movements = history.sorted { $0.id > $1.id }
         }
+        if let fresh = try? await wallet.vtxos() {
+            updateFish(fresh)
+        }
+        if let due = try? await wallet.getVtxosToRefresh() {
+            refreshIDs = Set(due.map(\.id))
+        }
         updateHighest()
+    }
+
+    // MARK: - Aquarium
+
+    var school: [Fish] {
+        Fish.school(from: vtxos, height: blockHeight, lifetime: arkInfo?.vtxoLifetime,
+                    refreshIDs: refreshIDs, netted: refreshingIDs)
+    }
+
+    /// Fish that want fresh water: bark says refresh, about a day left, or expired.
+    var fishNeedingCare: [Fish] {
+        school.filter { $0.needsCare && !$0.isBusy }
+    }
+
+    /// Notes which fish left and which arrived since the last look, so the
+    /// tank can show a payment as fish swimming out and change swimming in.
+    private func updateFish(_ fresh: [Vtxo]) {
+        let live = fresh.filter { vtxo in
+            switch vtxo.state {
+            case .spendable, .locked: return true
+            case .spent, .exited: return false
+            }
+        }
+        defer {
+            vtxos = live
+            vtxosLoaded = true
+        }
+        // the first look after boot: every fish was already there
+        guard vtxosLoaded else { return }
+        let now = Date()
+        let newIDs = Set(live.map(\.id))
+        let oldIDs = Set(vtxos.map(\.id))
+        let gone = vtxos.filter { !newIDs.contains($0.id) }
+            .map { FishGhost(id: $0.id, amount: $0.amountSats, at: now) }
+        let cutoff = now.addingTimeInterval(-90)
+        fishGhosts = (fishGhosts.filter { $0.at > cutoff } + gone)
+        var arrivals = fishArrivals.filter { $0.value > cutoff }
+        for vtxo in live where !oldIDs.contains(vtxo.id) {
+            arrivals[vtxo.id] = now
+        }
+        fishArrivals = arrivals
+    }
+
+    /// The tank has played these; forget them.
+    func clearFishEvents() {
+        fishGhosts = []
+        fishArrivals = [:]
+    }
+
+    func refreshFee(ids: [String]) async throws -> FeeEstimate {
+        try await requireWallet().estimateRefreshFee(vtxoIds: ids)
+    }
+
+    /// みずかえ: trades the given VTXOs in the next round for new ones with a
+    /// fresh expiry. Waits for the round, so this can take a while.
+    func refreshFish(ids: [String]) async {
+        guard let wallet, !isRefreshingFish, !ids.isEmpty else { return }
+        // the tank shows them caught in the net while they wait for the round
+        refreshingIDs = Set(ids)
+        defer { refreshingIDs = [] }
+        do {
+            _ = try await wallet.refreshVtxos(vtxoIds: ids)
+            await refreshData()
+            showToast(.info, "みずかえ できた", "\(ids.count)ぴき が 新しい さかなに なったよ")
+            Chiptune.shared.play(.coin)
+            Haptics.success()
+        } catch {
+            await refreshData()
+            showToast(.error, "みずかえ できませんでした", error.barkMessage)
+            Chiptune.shared.play(.error)
+            Haptics.error()
+        }
     }
 
     // MARK: - Friends

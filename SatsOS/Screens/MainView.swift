@@ -1,12 +1,13 @@
 import SwiftUI
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case home, history, growth
+    case home, aquarium, history, growth
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .home: return "いえ"
+        case .aquarium: return "すいそう"
         case .history: return "きろく"
         case .growth: return "なかま"
         }
@@ -15,6 +16,7 @@ enum MainTab: String, CaseIterable, Identifiable {
     var icon: InkIcon.Kind {
         switch self {
         case .home: return .home
+        case .aquarium: return .fish
         case .history: return .record
         case .growth: return .rabbit
         }
@@ -40,7 +42,9 @@ struct MainView: View {
             ZStack {
                 switch tab {
                 case .home:
-                    HomeView(open: open, showHistory: { select(.history) })
+                    HomeView(open: open, showHistory: { select(.history) }, showAquarium: { select(.aquarium) })
+                case .aquarium:
+                    AquariumView()
                 case .history:
                     HistoryView()
                 case .growth:
@@ -106,6 +110,16 @@ struct MainView: View {
                     VStack(spacing: 3) {
                         InkIcon(kind: item.icon, size: 24, color: selected ? Ink.ink : Ink.sub)
                             .pop(trigger: selected ? 1 : 0, from: 0.8)
+                            .overlay(alignment: .topTrailing) {
+                                // fish that want fresh water
+                                if item == .aquarium, !store.fishNeedingCare.isEmpty {
+                                    Circle()
+                                        .fill(Ink.alert)
+                                        .frame(width: 9, height: 9)
+                                        .offset(x: 4, y: -2)
+                                        .transition(.scale)
+                                }
+                            }
                         Text(item.title)
                             .font(selected ? Brush.bold(12) : Brush.text(12))
                             .foregroundStyle(selected ? Ink.ink : Ink.sub)

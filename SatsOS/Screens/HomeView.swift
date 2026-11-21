@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject private var settings: AppSettings
     var open: (MainSheet) -> Void
     var showHistory: () -> Void
+    var showAquarium: () -> Void
 
     @State private var line = RabbitLines.greeting()
     @State private var lineID = 0
@@ -37,6 +38,12 @@ struct HomeView: View {
                     .padding(.horizontal, 18)
                     .padding(.top, 12)
                     .appearIn(delay: 0.14)
+                if !store.fishNeedingCare.isEmpty {
+                    tankNotice
+                        .padding(.horizontal, 18)
+                        .padding(.top, 14)
+                        .transition(.opacity)
+                }
                 recent
                     .padding(.horizontal, 22)
                     .padding(.top, 24)
@@ -295,6 +302,34 @@ struct HomeView: View {
             InkButton("おくる", icon: .send, height: 58, sound: .select) { open(.send) }
             InkButton("もらう", icon: .receive, kind: .secondary, height: 58, sound: .select) { open(.receive) }
         }
+    }
+
+    // MARK: tank notice
+
+    /// A nudge to the aquarium when VTXOs near their expiry.
+    private var tankNotice: some View {
+        Button {
+            Chiptune.shared.play(.select)
+            Haptics.tap()
+            showAquarium()
+        } label: {
+            HStack(spacing: 10) {
+                InkIcon(kind: .fish, size: 22, color: Ink.alert)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("すいそうの みずが にごってきた")
+                        .font(Brush.bold(14))
+                        .foregroundStyle(Ink.alert)
+                    Text("\(store.fishNeedingCare.count)ひき が みずかえ（Refresh）時です")
+                        .font(Brush.text(12))
+                        .foregroundStyle(Ink.sub)
+                }
+                Spacer(minLength: 6)
+                InkIcon(kind: .back, size: 14, lineWidth: 2, color: Ink.sub)
+                    .rotationEffect(.degrees(180))
+            }
+            .inkCard(padding: 12, radius: 18, border: Ink.alert)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: recent

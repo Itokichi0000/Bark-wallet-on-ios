@@ -148,6 +148,7 @@ struct CircleIconButton: View {
 struct InkIcon: View {
     enum Kind {
         case send, receive, gear, close, back, home, record, rabbit, scan, paste, copy, share, check, alert, refresh
+        case fish, book
     }
 
     var kind: Kind
@@ -222,6 +223,16 @@ struct InkIcon: View {
                 path.addArc(center: p(12, 12), radius: 7 * s, startAngle: .degrees(-60), endAngle: .degrees(240), clockwise: false)
                 path.move(to: p(15.5, 5.9)); path.addLine(to: p(16, 2.5))
                 path.move(to: p(15.5, 5.9)); path.addLine(to: p(19, 6.5))
+            case .fish:
+                path.move(to: p(3.5, 12)); path.addQuadCurve(to: p(17, 12), control: p(10, 3.5))
+                path.addQuadCurve(to: p(3.5, 12), control: p(10, 20.5))
+                path.move(to: p(17, 12)); path.addLine(to: p(21, 8)); path.addLine(to: p(21, 16)); path.closeSubpath()
+                path.move(to: p(7.6, 10.6)); path.addLine(to: p(7.7, 10.7))
+            case .book:
+                path.move(to: p(12, 6)); path.addQuadCurve(to: p(3, 5), control: p(7, 3.5))
+                path.addLine(to: p(3, 19)); path.addQuadCurve(to: p(12, 20), control: p(7, 17.5)); path.closeSubpath()
+                path.move(to: p(12, 6)); path.addQuadCurve(to: p(21, 5), control: p(17, 3.5))
+                path.addLine(to: p(21, 19)); path.addQuadCurve(to: p(12, 20), control: p(17, 17.5)); path.closeSubpath()
             }
             gc.stroke(path, with: .color(color ?? Ink.ink),
                       style: StrokeStyle(lineWidth: lineWidth * s, lineCap: .round, lineJoin: .round))

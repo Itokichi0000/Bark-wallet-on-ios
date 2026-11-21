@@ -5,7 +5,7 @@ import Foundation
 /// can be captured without UI automation.
 ///
 /// Modes: `setup`, `boot`, `home`, `send`, `receive`, `receive-incoming`,
-/// `history`, `growth`, `settings`.
+/// `history`, `growth`, `settings`, `aquarium`, `guide`.
 /// Release builds always return nil.
 enum Autopilot {
     static var mode: String? {
@@ -27,6 +27,7 @@ enum Autopilot {
     static var tab: MainTab? {
         switch mode {
         case "history": return .history
+        case "aquarium", "guide": return .aquarium
         case "growth": return .growth
         default: return mode == nil ? nil : .home
         }
@@ -53,4 +54,10 @@ enum Autopilot {
 
     /// Open the receive sheet and fake an incoming payment.
     static var fakeIncoming: Bool { mode == "receive-incoming" }
+
+    /// Fill an empty aquarium with pretend fish (Aquarium.swift `DemoFish`).
+    static var demoAquarium: Bool { mode == "aquarium" || mode == "guide" }
+
+    /// Open the しくみ図鑑 over the aquarium.
+    static var openGuide: Bool { mode == "guide" }
 }
