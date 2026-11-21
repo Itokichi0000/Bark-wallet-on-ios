@@ -15,7 +15,7 @@ extension View {
     }
 
     /// Rise and fade in once, `delay` seconds after first appearing.
-    func appearIn(delay: Double = 0, distance: CGFloat = 14) -> some View {
+    func appearIn(delay: Double = 0, distance: CGFloat = 22) -> some View {
         modifier(AppearInModifier(delay: delay, distance: distance))
     }
 }
@@ -73,10 +73,11 @@ private struct AppearInModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(shown || reduceMotion ? 1 : 0)
+            .scaleEffect(shown || reduceMotion ? 1 : 0.94)
             .offset(y: shown || reduceMotion ? 0 : distance)
             .onAppear {
                 guard !shown, !reduceMotion else { return }
-                withAnimation(.spring(duration: 0.5, bounce: 0.25).delay(delay)) { shown = true }
+                withAnimation(Motion.bounce.delay(delay)) { shown = true }
             }
     }
 }
@@ -86,11 +87,11 @@ private struct AppearInModifier: ViewModifier {
 /// Three ink dots bobbing in turn.
 struct InkDots: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var color: Color = Ink.ink
+    var color: Color = Ink.server
     var size: CGFloat = 7
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+        TimelineView(.animation(paused: reduceMotion)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
             HStack(spacing: size * 0.7) {
                 ForEach(0..<3, id: \.self) { index in
@@ -214,14 +215,16 @@ struct HoldToSendButton: View {
             }
             Text(holding ? holdingTitle : title)
                 .font(Brush.bold(16))
-                .foregroundStyle(Ink.paper)
+                .foregroundStyle(Ink.onColor)
                 .frame(maxWidth: .infinity, minHeight: 52)
         }
-        .background(InkBlock(color: Ink.ink))
+        .background(LinearGradient(colors: [Ink.server, Ink.serverDeep], startPoint: .top, endPoint: .bottom))
         .clipShape(RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
-        .scaleEffect(holding ? 0.985 : 1)
-        .animation(.spring(duration: 0.25), value: holding)
-        .opacity(isEnabled ? 1 : 0.35)
+        .shadow(color: Ink.server.opacity(holding ? 0.5 : 0.25), radius: holding ? 18 : 8, y: 5)
+        .scaleEffect(holding ? 0.97 : 1)
+        .animation(Motion.press, value: holding)
+        .saturation(isEnabled ? 1 : 0.2)
+        .opacity(isEnabled ? 1 : 0.45)
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -279,5 +282,87 @@ struct HoldToSendButton: View {
         Chiptune.shared.play(.send)
         Haptics.heavy()
         action()
+    }
+}
+
+// MARK: - Always moving
+
+extension View {
+    /// Bobs gently up and down for as long as it is on screen.
+    func floating(_ distance: CGFloat = 5, period: Double = 2.6) -> some View {
+        modifier(FloatingModifier(distance: distance, period: period))
+    }
+}
+
+private struct FloatingModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var distance: CGFloat
+    var period: Double
+    @State private var up = false
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: up ? -distance : distance)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: period / 2).repeatForever(autoreverses: true)) { up = true }
+            }
+    }
+}
+
+/// Liquid: two soft waves rolling across the bottom of whatever it sits in.
+/// `level` is how full it is (0...1 of the height).
+struct LiquidWave: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var color: Color = .white
+    var level: Double = 0.3
+
+    var body: some View {
+        TimelineView(.animation(paused: reduceMotion)) { context in
+            let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+            Canvas { gc, size in
+                let w = Double(size.width), h = Double(size.height)
+                let base = h * (1 - level)
+                for layer in 0..<2 {
+                    let speed = layer == 0 ? 0.9 : -0.6
+                    let length = layer == 0 ? 150.0 : 210.0
+                    let height = layer == 0 ? 7.0 : 10.0
+                    var path = Path()
+                    path.move(to: CGPoint(x: 0, y: h))
+                    path.addLine(to: CGPoint(x: 0, y: base))
+                    for x in stride(from: 0.0, through: w + 6, by: 6) {
+                        let y = base + sin(x / length * 2 * .pi + t * speed + Double(layer) * 1.7) * height
+                            + sin(x / (length * 0.37) + t * speed * 1.6) * height * 0.25
+                        path.addLine(to: CGPoint(x: x, y: y))
+                    }
+                    path.addLine(to: CGPoint(x: w, y: h))
+                    path.closeSubpath()
+                    gc.fill(path, with: .color(color.opacity(layer == 0 ? 0.10 : 0.14)))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A ring that fills smoothly; `progress` 0...1.
+struct RingProgress<Center: View>: View {
+    var progress: Double
+    var color: Color = Ink.server
+    var track: Color = Ink.wash
+    var lineWidth: CGFloat = 7
+    @ViewBuilder var center: () -> Center
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(track, lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: min(max(progress, 0), 1))
+                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            center()
+        }
+        .padding(lineWidth / 2)
     }
 }

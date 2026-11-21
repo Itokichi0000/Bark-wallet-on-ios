@@ -18,6 +18,18 @@ enum Tween {
         return c * c * (3 - 2 * c)
     }
 
+    /// Eases past 1 and settles back: a little overshoot for things that land.
+    static func back(_ x: Double) -> Double {
+        let c = clamp(x) - 1
+        let k = 1.9
+        return 1 + (k + 1) * c * c * c + k * c * c
+    }
+
+    /// 0 → 1 → 0 hump across 0...1.
+    static func hump(_ x: Double) -> Double {
+        sin(clamp(x) * .pi)
+    }
+
     /// 0 before `a`, 1 after `b`, eased in between.
     static func seg(_ p: Double, _ a: Double, _ b: Double) -> Double {
         ease((p - a) / (b - a))
@@ -73,7 +85,7 @@ struct ArkStage {
 
     var server: CGPoint { pt(w / 2, 26) }
     /// Just under the server box, where coins meet it.
-    var serverDock: CGPoint { pt(w / 2, 52) }
+    var serverDock: CGPoint { pt(w / 2, 56) }
     var rowY: Double { (h - 48) * 0.62 }
     var you: CGPoint { pt(30, rowY) }
     var peer: CGPoint { pt(w - 30, rowY) }
@@ -82,8 +94,8 @@ struct ArkStage {
     var peerCoin: CGPoint { pt(peer.x - 58, rowY) }
     var lineY: Double { h - 46 }
     var blockY: Double { h - 18 }
-    let blockSize: Double = 16
-    let blockGap: Double = 24
+    let blockSize: Double = 18
+    let blockGap: Double = 26
     var blockCount: Int { max(Int((w - 20) / blockGap), 4) }
 
     /// Centre of a block counted from the right: 0 is the next block.
@@ -113,49 +125,52 @@ enum ArkDraw {
         var color: Color = Ink.orange
     }
 
-    /// The Ark / chain divider and the row of blocks. `landings` are the
-    /// newest blocks, left to right, ending with the next block.
+    /// The two layers: Ark above (violet tint), the bitcoin chain below
+    /// (teal band) with its row of blocks. `landings` are the newest
+    /// blocks, left to right, ending with the next block.
     static func ground(_ gc: GraphicsContext, _ st: ArkStage, landings: [Landing] = [], quiet: String? = nil) {
-        var divider = Path()
-        divider.move(to: pt(10, st.lineY))
-        divider.addLine(to: pt(st.w - 10, st.lineY))
-        gc.stroke(divider, with: .color(Ink.line), style: StrokeStyle(lineWidth: 1, dash: [3, 4]))
-        text(gc, "Ark（チェーンの外）", pt(12, st.lineY - 9), size: 10, anchor: .leading)
-        text(gc, "ビットコイン", pt(12, st.lineY + 9), size: 10, anchor: .leading)
+        let ark = CGRect(x: 0, y: 0, width: st.w, height: st.lineY - 3)
+        gc.fill(Path(roundedRect: ark, cornerRadius: 18), with: .color(Ink.serverSoft.opacity(0.55)))
+        let chain = CGRect(x: 0, y: st.lineY + 3, width: st.w, height: st.h - st.lineY - 3)
+        gc.fill(Path(roundedRect: chain, cornerRadius: 14), with: .color(Ink.chainSoft))
+        text(gc, "Ark（チェーンの外）", pt(12, st.lineY - 14), size: 10, color: Ink.server, bold: true, anchor: .leading)
+        text(gc, "ビットコイン", pt(12, st.lineY + 13), size: 10, color: Ink.chain, bold: true, anchor: .leading)
 
         var links = Path()
         links.move(to: st.block(st.blockCount - 1))
         links.addLine(to: st.block(0))
-        gc.stroke(links, with: .color(Ink.line), lineWidth: 1)
+        gc.stroke(links, with: .color(Ink.chain.opacity(0.4)), lineWidth: 2)
 
         let pending = landings.count
         for k in 0..<st.blockCount {
             let c = st.block(k)
-            let s = st.blockSize
-            let rect = CGRect(x: Double(c.x) - s / 2, y: Double(c.y) - s / 2, width: s, height: s)
-            let shape = Path(roundedRect: rect, cornerRadius: 3)
+            var s = st.blockSize
+            var landing: Landing?
             if k < pending {
-                let landing = landings[pending - 1 - k]
+                landing = landings[pending - 1 - k]
+                // a block swells as it is found, then settles
+                s *= 1 + 0.35 * Tween.hump(landing?.fill ?? 0)
+            }
+            let rect = CGRect(x: Double(c.x) - s / 2, y: Double(c.y) - s / 2, width: s, height: s)
+            let shape = Path(roundedRect: rect, cornerRadius: 5)
+            if let landing {
                 gc.fill(shape, with: .color(Ink.paper))
                 if landing.fill > 0.01 {
                     gc.fill(shape, with: .color(landing.color.opacity(landing.fill)))
-                    gc.stroke(shape, with: .color(landing.color), lineWidth: 1)
                 } else {
-                    gc.stroke(shape, with: .color(Ink.sub.opacity(0.6)), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                    gc.stroke(shape, with: .color(Ink.chain.opacity(0.8)), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
                 }
             } else {
-                gc.fill(shape, with: .color(Ink.wash))
-                gc.stroke(shape, with: .color(Ink.line), lineWidth: 1)
+                gc.fill(shape, with: .color(Ink.chain.opacity(0.32)))
             }
         }
         if let quiet {
-            // a plate of card colour so the words sit over the blocks, not on them
-            let label = gc.resolve(Text(quiet).font(Brush.bold(10)).foregroundColor(Ink.sub))
+            // a plate so the words sit over the blocks, not on them
+            let label = gc.resolve(Text(quiet).font(Brush.bold(10)).foregroundColor(Ink.chain))
             let size = label.measure(in: CGSize(width: st.w, height: 40))
-            let plate = CGRect(x: st.w / 2 - Double(size.width) / 2 - 8, y: st.blockY - Double(size.height) / 2 - 4,
-                               width: Double(size.width) + 16, height: Double(size.height) + 8)
-            gc.fill(Path(roundedRect: plate, cornerRadius: 6), with: .color(Ink.paper))
-            gc.stroke(Path(roundedRect: plate, cornerRadius: 6), with: .color(Ink.line), lineWidth: 1)
+            let plate = CGRect(x: st.w / 2 - Double(size.width) / 2 - 10, y: st.blockY - Double(size.height) / 2 - 5,
+                               width: Double(size.width) + 20, height: Double(size.height) + 10)
+            gc.fill(Path(roundedRect: plate, cornerRadius: plate.height / 2), with: .color(Ink.paper))
             gc.draw(label, at: pt(st.w / 2, st.blockY))
         }
     }
@@ -163,54 +178,75 @@ enum ArkDraw {
     static func server(_ gc: GraphicsContext, _ st: ArkStage, title: String = "Ark サーバー",
                        pulse: Double = 0, offline: Double = 0) {
         let c = st.server
-        let rect = CGRect(x: Double(c.x) - 56, y: Double(c.y) - 15, width: 112, height: 30)
-        let shape = Path(roundedRect: rect, cornerRadius: 8)
+        let rect = CGRect(x: Double(c.x) - 62, y: Double(c.y) - 17, width: 124, height: 34)
+        let shape = Path(roundedRect: rect, cornerRadius: 17)
         if pulse > 0.01 {
-            let grow = 7 * pulse
-            let halo = Path(roundedRect: rect.insetBy(dx: -grow, dy: -grow), cornerRadius: 8 + grow)
-            gc.stroke(halo, with: .color(Ink.orange.opacity(0.6 * (1 - pulse))), lineWidth: 1.5)
+            let grow = 12 * pulse
+            let halo = Path(roundedRect: rect.insetBy(dx: -grow, dy: -grow), cornerRadius: 17 + grow)
+            gc.fill(halo, with: .color(Ink.server.opacity(0.28 * (1 - pulse))))
         }
-        gc.fill(shape, with: .color(Ink.paper))
         if offline > 0.01 {
-            gc.stroke(shape, with: .color(Ink.sub.opacity(0.5)), style: StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-            text(gc, title, c, size: 11, color: Ink.sub, bold: true, opacity: 1 - offline * 0.5)
-            text(gc, "応答なし", pt(Double(c.x) + 60, Double(c.y)), size: 10, color: Ink.alert, bold: true,
+            gc.fill(shape, with: .color(Ink.wash))
+            gc.stroke(shape, with: .color(Ink.sub.opacity(0.6)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+            text(gc, title, c, size: 12, color: Ink.sub, bold: true, opacity: 1 - offline * 0.4)
+            text(gc, "応答なし", pt(Double(c.x) + 68, Double(c.y)), size: 10, color: Ink.alert, bold: true,
                  anchor: .leading, opacity: offline)
         } else {
-            gc.stroke(shape, with: .color(Ink.server), lineWidth: 1.2)
-            text(gc, title, c, size: 11, color: Ink.ink, bold: true)
+            gc.fill(shape, with: .linearGradient(Gradient(colors: [Ink.server, Ink.serverDeep]),
+                                                 startPoint: pt(0, rect.minY), endPoint: pt(0, rect.maxY)))
+            text(gc, title, c, size: 12, color: Ink.onColor, bold: true)
+        }
+    }
+
+    /// Who is who keeps its colour: you are orange, others teal and pink.
+    static func personColor(_ initial: String) -> Color {
+        switch initial {
+        case "あ": return Ink.orange
+        case "C": return Ink.alert
+        default: return Ink.chain
         }
     }
 
     static func person(_ gc: GraphicsContext, _ c: CGPoint, initial: String, name: String) {
-        let r = 13.0
+        let r = 15.0
+        let color = personColor(initial)
         let circle = Path(ellipseIn: CGRect(x: Double(c.x) - r, y: Double(c.y) - r, width: r * 2, height: r * 2))
         gc.fill(circle, with: .color(Ink.paper))
-        gc.stroke(circle, with: .color(Ink.ink.opacity(0.75)), lineWidth: 1.2)
-        text(gc, initial, c, size: 11, color: Ink.ink, bold: true)
-        text(gc, name, pt(Double(c.x), Double(c.y) + 23), size: 10)
+        gc.fill(circle, with: .color(color.opacity(0.18)))
+        gc.stroke(circle, with: .color(color), lineWidth: 2)
+        text(gc, initial, c, size: 12, color: color, bold: true)
+        text(gc, name, pt(Double(c.x), Double(c.y) + 25), size: 10, color: Ink.ink, bold: true)
     }
 
-    /// A VTXO (or UTXO): a coin, its lifetime ring and a label under it.
-    static func coin(_ gc: GraphicsContext, _ c: CGPoint, r: Double = 9, color: Color = Ink.orange,
+    /// A VTXO (or UTXO): a glossy coin, its lifetime ring and a label under it.
+    static func coin(_ gc: GraphicsContext, _ c: CGPoint, r: Double = 10, color: Color = Ink.orange,
                      life: Double? = nil, label: String? = nil, opacity: Double = 1) {
         guard opacity > 0.01 else { return }
         var g = gc
         g.opacity = opacity
         let x = Double(c.x), y = Double(c.y)
+        // a soft glow so the eye follows the coin
+        let glow = r * 2.4
+        g.fill(Path(ellipseIn: CGRect(x: x - glow, y: y - glow, width: glow * 2, height: glow * 2)),
+               with: .radialGradient(Gradient(colors: [color.opacity(0.3), color.opacity(0)]),
+                                     center: c, startRadius: r * 0.6, endRadius: glow))
         if let life {
-            let rr = r + 4
+            let rr = r + 4.5
             let track = Path(ellipseIn: CGRect(x: x - rr, y: y - rr, width: rr * 2, height: rr * 2))
-            g.stroke(track, with: .color(Ink.line), lineWidth: 2)
+            g.stroke(track, with: .color(Ink.paper), lineWidth: 3.5)
+            g.stroke(track, with: .color(Ink.line), lineWidth: 2.5)
             var ring = Path()
             ring.addArc(center: c, radius: rr, startAngle: .degrees(-90),
                         endAngle: .degrees(-90 + 360 * Tween.clamp(life)), clockwise: false)
-            g.stroke(ring, with: .color(life < 0.25 ? Ink.alert : Ink.ink),
-                     style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            g.stroke(ring, with: .color(life < 0.25 ? Ink.alert : (life < 0.5 ? Ink.bolt : Ink.good)),
+                     style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
         }
         g.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)), with: .color(color))
+        // highlight
+        g.fill(Path(ellipseIn: CGRect(x: x - r * 0.55, y: y - r * 0.62, width: r * 0.6, height: r * 0.42)),
+               with: .color(Color.white.opacity(0.45)))
         if let label {
-            text(g, label, pt(x, y + r + (life == nil ? 9 : 13)), size: 10, color: Ink.ink, bold: true)
+            text(g, label, pt(x, y + r + (life == nil ? 10 : 14)), size: 10, color: Ink.ink, bold: true)
         }
     }
 
@@ -220,62 +256,64 @@ enum ArkDraw {
         var g = gc
         g.opacity = opacity
         let x = Double(c.x), y = Double(c.y)
-        let sheet = Path(roundedRect: CGRect(x: x - 11, y: y - 8, width: 22, height: 16), cornerRadius: 3)
+        let shadow = Path(roundedRect: CGRect(x: x - 12, y: y - 7, width: 24, height: 18), cornerRadius: 5)
+        g.fill(shadow, with: .color(color.opacity(0.25)))
+        let sheet = Path(roundedRect: CGRect(x: x - 12, y: y - 9, width: 24, height: 18), cornerRadius: 5)
         g.fill(sheet, with: .color(Ink.paper))
-        g.stroke(sheet, with: .color(color), lineWidth: 1.2)
+        g.stroke(sheet, with: .color(color), lineWidth: 2)
         var lines = Path()
-        lines.move(to: pt(x - 6, y - 2)); lines.addLine(to: pt(x + 6, y - 2))
+        lines.move(to: pt(x - 6, y - 3)); lines.addLine(to: pt(x + 6, y - 3))
         lines.move(to: pt(x - 6, y + 3)); lines.addLine(to: pt(x + 2, y + 3))
-        g.stroke(lines, with: .color(color.opacity(0.7)), lineWidth: 1)
+        g.stroke(lines, with: .color(color.opacity(0.8)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
     }
 
     /// A line drawn from `a` toward `b`, `progress` of the way.
     static func link(_ gc: GraphicsContext, _ a: CGPoint, _ b: CGPoint, progress: Double = 1,
-                     color: Color = Ink.line, dashed: Bool = false, width: Double = 1) {
+                     color: Color = Ink.line, dashed: Bool = false, width: Double = 2) {
         guard progress > 0.01 else { return }
         var path = Path()
         path.move(to: a)
         path.addLine(to: Tween.mix(a, b, Tween.clamp(progress)))
-        gc.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round, dash: dashed ? [3, 3] : []))
+        gc.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round, dash: dashed ? [1, 6] : []))
     }
 
     static func lock(_ gc: GraphicsContext, _ c: CGPoint, open: Double = 0) {
         let x = Double(c.x), y = Double(c.y)
         let body = Path(roundedRect: CGRect(x: x - 6, y: y - 1, width: 12, height: 9), cornerRadius: 2)
-        gc.fill(body, with: .color(Ink.ink))
+        gc.fill(body, with: .color(Ink.server))
         var shackle = Path()
         let lift = 4 * open
         shackle.addArc(center: pt(x, y - 1 - lift), radius: 4, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: false)
-        gc.stroke(shackle, with: .color(Ink.ink), lineWidth: 1.6)
+        gc.stroke(shackle, with: .color(Ink.server), lineWidth: 2)
     }
 
     static func key(_ gc: GraphicsContext, _ c: CGPoint) {
         let x = Double(c.x), y = Double(c.y)
-        gc.stroke(Path(ellipseIn: CGRect(x: x - 7, y: y - 3.5, width: 7, height: 7)), with: .color(Ink.ink), lineWidth: 1.4)
+        gc.stroke(Path(ellipseIn: CGRect(x: x - 7, y: y - 3.5, width: 7, height: 7)), with: .color(Ink.bolt), lineWidth: 2)
         var stem = Path()
         stem.move(to: pt(x, y)); stem.addLine(to: pt(x + 8, y))
         stem.move(to: pt(x + 5, y)); stem.addLine(to: pt(x + 5, y + 3))
         stem.move(to: pt(x + 8, y)); stem.addLine(to: pt(x + 8, y + 3))
-        gc.stroke(stem, with: .color(Ink.ink), lineWidth: 1.4)
+        gc.stroke(stem, with: .color(Ink.bolt), lineWidth: 2)
     }
 
-    static func check(_ gc: GraphicsContext, _ c: CGPoint, color: Color = Ink.ink, opacity: Double = 1) {
+    static func check(_ gc: GraphicsContext, _ c: CGPoint, color: Color = Ink.good, opacity: Double = 1) {
         guard opacity > 0.01 else { return }
         var g = gc
         g.opacity = opacity
         let x = Double(c.x), y = Double(c.y)
         var path = Path()
         path.move(to: pt(x - 5, y)); path.addLine(to: pt(x - 1.5, y + 3.5)); path.addLine(to: pt(x + 5, y - 3.5))
-        g.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
+        g.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: 2.6, lineCap: .round, lineJoin: .round))
     }
 
     /// A thin bar that fills, with a label over it.
     static func bar(_ gc: GraphicsContext, center c: CGPoint, width: Double, fill: Double, label: String) {
         let x = Double(c.x) - width / 2, y = Double(c.y)
-        let track = Path(roundedRect: CGRect(x: x, y: y - 2, width: width, height: 4), cornerRadius: 2)
-        gc.fill(track, with: .color(Ink.wash))
-        gc.fill(Path(roundedRect: CGRect(x: x, y: y - 2, width: width * Tween.clamp(fill), height: 4), cornerRadius: 2),
-                with: .color(Ink.ink))
+        let track = Path(roundedRect: CGRect(x: x, y: y - 3, width: width, height: 6), cornerRadius: 3)
+        gc.fill(track, with: .color(Ink.paper))
+        gc.fill(Path(roundedRect: CGRect(x: x, y: y - 3, width: width * Tween.clamp(fill), height: 6), cornerRadius: 3),
+                with: .color(Ink.chain))
         text(gc, label, pt(Double(c.x), y - 11), size: 10, color: Ink.ink, bold: true)
     }
 
@@ -431,14 +469,14 @@ enum ArkScene: String, CaseIterable, Identifiable {
             ArkDraw.tx(g, at, color: Ink.orange)
             ArkDraw.text(g, "ボード取引", pt(Double(at.x), Double(at.y) - 16), size: 10, color: Ink.ink, bold: true,
                          opacity: 1 - drop)
-            ArkDraw.check(g, pt(st.w / 2 + 64, 26), opacity: Tween.seg(p, 0.36, 0.42) * (1 - drop))
+            ArkDraw.check(g, pt(st.w / 2 + 74, 26), color: Ink.good, opacity: Tween.seg(p, 0.36, 0.42) * (1 - drop))
         }
         if p >= 0.6, p < 0.74 {
             let confirmations = Int(Tween.clamp((p - 0.6) / 0.12) * 3.99)
             for i in 0..<3 {
                 let c = pt(Double(st.block(0).x) - 10 + Double(i) * 10, st.blockY - 18)
                 let dot = Path(ellipseIn: CGRect(x: Double(c.x) - 2.5, y: Double(c.y) - 2.5, width: 5, height: 5))
-                g.fill(dot, with: .color(i < confirmations ? Ink.ink : Ink.line))
+                g.fill(dot, with: .color(i < confirmations ? Ink.chain : Ink.line))
             }
             ArkDraw.text(g, "承認", pt(Double(st.block(0).x), st.blockY - 30), size: 10, color: Ink.ink, bold: true)
         }
@@ -460,8 +498,8 @@ enum ArkScene: String, CaseIterable, Identifiable {
             let go = Tween.seg(p, 0.15, 0.36)
             ArkDraw.coin(g, Tween.arc(st.yourCoin, st.serverDock, go, lift: 20), r: 11, life: 0.8,
                          label: go < 0.05 ? "10,000" : nil)
-            ArkDraw.check(g, pt(st.w / 2 + 64, 26), opacity: Tween.seg(p, 0.4, 0.46))
-            ArkDraw.text(g, "共同署名", pt(st.w / 2 + 74, 26), size: 10, color: Ink.ink, bold: true, anchor: .leading,
+            ArkDraw.check(g, pt(st.w / 2 + 74, 26), color: Ink.good, opacity: Tween.seg(p, 0.4, 0.46))
+            ArkDraw.text(g, "共同署名", pt(st.w / 2 + 84, 26), size: 10, color: Ink.ink, bold: true, anchor: .leading,
                          opacity: Tween.seg(p, 0.4, 0.46))
         } else {
             let split = Tween.seg(p, 0.5, 0.74)
@@ -488,26 +526,26 @@ enum ArkScene: String, CaseIterable, Identifiable {
             ArkDraw.person(gc, pt(x, peopleY), initial: names[i].0, name: names[i].1)
         }
         let g = fade(gc, p)
-        let coinY = peopleY - 30
-        let root = pt(st.w / 2, 64)
+        let coinY = peopleY - 34
+        let root = pt(st.w / 2, 70)
 
         if p < 0.3 {
             for (i, x) in xs.enumerated() {
                 let go = Tween.seg(p, 0.04 + Double(i) * 0.04, 0.22 + Double(i) * 0.03)
-                ArkDraw.coin(g, Tween.mix(pt(x, coinY), st.serverDock, go), r: 7, color: Ink.sub, life: 0.2,
+                ArkDraw.coin(g, Tween.mix(pt(x, coinY), st.serverDock, go), r: 8, color: Color(light: 0xD9A566, dark: 0xB98B56), life: 0.2,
                              opacity: 1 - Tween.seg(go, 0.85, 1))
             }
         }
         if p >= 0.25 {
             let grow = Tween.seg(p, 0.28, 0.42)
             for x in xs {
-                ArkDraw.link(g, root, pt(x, coinY), progress: grow, color: Ink.server.opacity(0.6), dashed: true)
+                ArkDraw.link(g, root, pt(x, coinY), progress: grow, color: Ink.server.opacity(0.7), dashed: true)
             }
             ArkDraw.tx(g, root, color: Ink.orange, opacity: Tween.seg(p, 0.26, 0.3))
             let signedFade = 1 - Tween.seg(p, 0.62, 0.66)
             for (i, x) in xs.enumerated() {
                 let signed = Tween.seg(p, 0.36 + Double(i) * 0.02, 0.4 + Double(i) * 0.02)
-                ArkDraw.check(g, pt(x + 16, peopleY - 14), opacity: signed * signedFade)
+                ArkDraw.check(g, pt(x + 20, peopleY - 16), color: Ink.good, opacity: signed * signedFade)
             }
         }
         if p >= 0.45, p < 0.63 {
@@ -525,9 +563,9 @@ enum ArkScene: String, CaseIterable, Identifiable {
     }
 
     private func drawRefresh(_ gc: GraphicsContext, _ st: ArkStage, _ p: Double) {
-        let ticks = [ArkDraw.Landing(fill: Tween.seg(p, 0.06, 0.1), color: Ink.sub),
-                     ArkDraw.Landing(fill: Tween.seg(p, 0.16, 0.2), color: Ink.sub),
-                     ArkDraw.Landing(fill: Tween.seg(p, 0.26, 0.3), color: Ink.sub),
+        let ticks = [ArkDraw.Landing(fill: Tween.seg(p, 0.06, 0.1), color: Ink.chain),
+                     ArkDraw.Landing(fill: Tween.seg(p, 0.16, 0.2), color: Ink.chain),
+                     ArkDraw.Landing(fill: Tween.seg(p, 0.26, 0.3), color: Ink.chain),
                      ArkDraw.Landing(fill: Tween.seg(p, 0.66, 0.71))]
         ArkDraw.ground(gc, st, landings: ticks)
         ArkDraw.server(gc, st, pulse: ArkDraw.pulse(p, 0.48, 0.58))
@@ -538,13 +576,13 @@ enum ArkScene: String, CaseIterable, Identifiable {
             let life = 0.9 - 0.75 * Tween.seg(p, 0, 0.34)
             let go = Tween.seg(p, 0.38, 0.52)
             let label: String? = go > 0.05 ? nil : (life < 0.25 ? "期限 まぢか" : "VTXO")
-            ArkDraw.coin(g, Tween.arc(st.yourCoin, st.serverDock, go, lift: 20), color: Ink.sub, life: life, label: label)
+            ArkDraw.coin(g, Tween.arc(st.yourCoin, st.serverDock, go, lift: 20), color: Color(light: 0xD9A566, dark: 0xB98B56), life: life, label: label)
             if p < 0.36 {
                 ArkDraw.text(g, "ブロックが すすむ →", pt(st.w - 14, st.lineY - 9), size: 10, color: Ink.sub, anchor: .trailing)
             }
         }
         if p >= 0.55, p < 0.71 {
-            ArkDraw.tx(g, Tween.mix(pt(st.w / 2, 64), st.block(0), Tween.seg(p, 0.56, 0.68)), color: Ink.orange)
+            ArkDraw.tx(g, Tween.mix(pt(st.w / 2, 70), st.block(0), Tween.seg(p, 0.56, 0.68)), color: Ink.orange)
         }
         if p >= 0.74 {
             let back = Tween.seg(p, 0.74, 0.9)
@@ -563,12 +601,12 @@ enum ArkScene: String, CaseIterable, Identifiable {
         let n2 = pt(st.w * 0.72, st.rowY + 4)
         let route = [st.serverDock, n1, n2, pt(Double(shop.x) - 14, Double(shop.y))]
         for i in 1..<route.count {
-            ArkDraw.link(gc, route[i - 1], route[i], color: Ink.line, width: 1.2)
+            ArkDraw.link(gc, route[i - 1], route[i], color: Ink.bolt.opacity(0.6), width: 2)
         }
         for node in [n1, n2] {
             let c = Path(ellipseIn: CGRect(x: Double(node.x) - 5, y: Double(node.y) - 5, width: 10, height: 10))
             gc.fill(c, with: .color(Ink.paper))
-            gc.stroke(c, with: .color(Ink.sub), lineWidth: 1.2)
+            gc.stroke(c, with: .color(Ink.bolt), lineWidth: 2)
         }
         ArkDraw.text(gc, "ライトニング", pt(Double(n1.x) + 8, Double(n1.y) - 12), size: 10, anchor: .leading)
         let g = fade(gc, p)
@@ -581,15 +619,15 @@ enum ArkScene: String, CaseIterable, Identifiable {
             let t = Tween.seg(p, 0.26, 0.56)
             let bolt = Tween.along(route, t)
             let dot = Path(ellipseIn: CGRect(x: Double(bolt.x) - 4, y: Double(bolt.y) - 4, width: 8, height: 8))
-            g.fill(dot, with: .color(Ink.orange))
-            ArkDraw.text(g, "⚡", pt(Double(bolt.x), Double(bolt.y) - 12), size: 11, color: Ink.orange)
+            g.fill(dot, with: .color(Ink.bolt))
+            ArkDraw.text(g, "⚡", pt(Double(bolt.x), Double(bolt.y) - 13), size: 13, color: Ink.bolt)
         }
         if p >= 0.58, p < 0.82 {
             let t = Tween.seg(p, 0.6, 0.8)
             ArkDraw.key(g, Tween.along(Array(route.reversed()), t))
         }
         if p >= 0.56 {
-            ArkDraw.check(g, pt(Double(shop.x), Double(shop.y) - 24), color: Ink.orange, opacity: Tween.seg(p, 0.56, 0.6))
+            ArkDraw.check(g, pt(Double(shop.x), Double(shop.y) - 26), color: Ink.good, opacity: Tween.seg(p, 0.56, 0.6))
         }
         if p >= 0.84 {
             ArkDraw.text(g, "支払い 完了", pt(st.w / 2, st.rowY + 10), size: 12, color: Ink.ink, bold: true,
@@ -610,7 +648,7 @@ enum ArkScene: String, CaseIterable, Identifiable {
         }
         if p >= 0.3, p < 0.71 {
             let drop = Tween.seg(p, 0.52, 0.68)
-            ArkDraw.tx(g, Tween.mix(pt(st.w / 2, 64), st.block(0), drop), color: Ink.orange,
+            ArkDraw.tx(g, Tween.mix(pt(st.w / 2, 70), st.block(0), drop), color: Ink.orange,
                        opacity: Tween.seg(p, 0.3, 0.34))
         }
         if p >= 0.72 {
@@ -623,7 +661,7 @@ enum ArkScene: String, CaseIterable, Identifiable {
 
     private func drawExit(_ gc: GraphicsContext, _ st: ArkStage, _ p: Double) {
         let drops = (0..<3).map { i in Tween.seg(p, 0.3 + Double(i) * 0.1, 0.36 + Double(i) * 0.1) }
-        ArkDraw.ground(gc, st, landings: drops.map { ArkDraw.Landing(fill: $0, color: Ink.ink) })
+        ArkDraw.ground(gc, st, landings: drops.map { ArkDraw.Landing(fill: $0, color: Ink.chain) })
         let offline = Tween.seg(p, 0.04, 0.12) * (1 - Tween.seg(p, 0.95, 1))
         ArkDraw.server(gc, st, offline: offline)
         ArkDraw.person(gc, st.you, initial: "あ", name: "あなた")
@@ -639,7 +677,7 @@ enum ArkScene: String, CaseIterable, Identifiable {
                 let start = pt(Double(coin.x) + 30 + Double(i) * 26, st.rowY - 26)
                 let fall = Tween.seg(p, 0.3 + Double(i) * 0.1 - 0.05, 0.36 + Double(i) * 0.1)
                 let target = st.block(2 - i)
-                ArkDraw.tx(g, Tween.mix(start, target, fall), color: Ink.ink, opacity: appear * (1 - Tween.seg(fall, 0.95, 1)))
+                ArkDraw.tx(g, Tween.mix(start, target, fall), color: Ink.chain, opacity: appear * (1 - Tween.seg(fall, 0.95, 1)))
             }
             ArkDraw.text(g, "署名ずみの 取引", pt(Double(coin.x) + 56, st.rowY - 44), size: 10, color: Ink.ink, bold: true,
                          opacity: Tween.seg(p, 0.2, 0.24) * (1 - Tween.seg(p, 0.5, 0.56)))
@@ -677,11 +715,12 @@ struct ArkScenePlayer: View {
     @State private var start = Date()
     @State private var pausedAt: Date?
     @State private var still = 0
+    @Namespace private var beatSpace
 
     private var paused: Bool { reduceMotion || pausedAt != nil }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: paused)) { context in
+        TimelineView(.animation(paused: paused)) { context in
             let p = progress(at: context.date)
             let beat = scene.beatIndex(p)
             VStack(alignment: .leading, spacing: 12) {
@@ -694,61 +733,102 @@ struct ArkScenePlayer: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(scene.title)の 図: \(scene.beats[beat].text)")
 
-                // loop progress
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Ink.wash)
-                        Capsule().fill(Ink.ink).frame(width: geo.size.width * p)
+                // one segment per step, each filling while its step plays
+                HStack(spacing: 5) {
+                    ForEach(Array(scene.beats.enumerated()), id: \.offset) { index, item in
+                        let end = index + 1 < scene.beats.count ? scene.beats[index + 1].at : 1
+                        let fill = Tween.clamp((p - item.at) / max(end - item.at, 0.001))
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Ink.serverSoft)
+                                Capsule().fill(Ink.server).frame(width: geo.size.width * fill)
+                            }
+                        }
+                        .frame(height: 5)
                     }
                 }
-                .frame(height: 3)
                 .accessibilityHidden(true)
 
                 if showsBeats {
                     beatList(beat)
                 } else {
-                    Text(scene.beats[beat].text)
-                        .font(Brush.text(14))
-                        .foregroundStyle(Ink.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
-                        .id(beat)
-                        .transition(.opacity)
+                    caption(beat)
                 }
                 if showsControls {
                     controls(beat)
                 }
             }
-            .animation(.easeOut(duration: 0.25), value: beat)
+            .animation(Motion.glide, value: beat)
         }
         .onChange(of: scene) { _, _ in restart() }
     }
 
+    /// The current step, big, sliding up as the story moves on.
+    private func caption(_ beat: Int) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(beat + 1)")
+                .font(Brush.bold(13))
+                .foregroundStyle(Ink.onColor)
+                .frame(width: 24, height: 24)
+                .background(Ink.server, in: Circle())
+                .contentTransition(.numericText(value: Double(beat)))
+            Text(scene.beats[beat].text)
+                .font(Brush.bold(15))
+                .foregroundStyle(Ink.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 42, alignment: .topLeading)
+                .id(beat)
+                .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity),
+                                        removal: .move(edge: .top).combined(with: .opacity)))
+        }
+        .padding(12)
+        .background(Ink.serverSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+        .clipped()
+    }
+
     private func beatList(_ current: Int) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             ForEach(Array(scene.beats.enumerated()), id: \.offset) { index, beat in
+                let active = index == current
                 Button {
                     jump(to: index)
                 } label: {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text("\(index + 1)")
-                            .font(Brush.bold(11))
-                            .foregroundStyle(index == current ? Ink.paper : Ink.sub)
-                            .frame(width: 20, height: 20)
-                            .background(index == current ? Ink.ink : Ink.wash, in: Circle())
+                    HStack(alignment: .top, spacing: 10) {
+                        ZStack {
+                            Circle().fill(active ? Ink.server : (index < current ? Ink.serverSoft : Ink.wash))
+                            if index < current {
+                                InkIcon(kind: .check, size: 11, lineWidth: 3, color: Ink.server)
+                            } else {
+                                Text("\(index + 1)")
+                                    .font(Brush.bold(11))
+                                    .foregroundStyle(active ? Ink.onColor : Ink.sub)
+                            }
+                        }
+                        .frame(width: 22, height: 22)
+                        .scaleEffect(active ? 1.12 : 1)
                         Text(beat.text)
-                            .font(index == current ? Brush.bold(14) : Brush.text(14))
-                            .foregroundStyle(index == current ? Ink.ink : Ink.sub)
+                            .font(active ? Brush.bold(14) : Brush.text(14))
+                            .foregroundStyle(active ? Ink.ink : Ink.sub)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background {
+                        if active {
+                            RoundedRectangle(cornerRadius: Radius.small + 2, style: .continuous)
+                                .fill(Ink.serverSoft.opacity(0.7))
+                                .matchedGeometryEffect(id: "beat", in: beatSpace)
+                        }
+                    }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(index == current ? .isSelected : [])
+                .buttonStyle(PressableStyle(scale: 0.98))
+                .accessibilityAddTraits(active ? .isSelected : [])
             }
         }
+        .padding(.horizontal, -4)
     }
 
     private func controls(_ current: Int) -> some View {
@@ -763,10 +843,9 @@ struct ArkScenePlayer: View {
                 smallButton(icon: .refresh, label: "はじめから") { restart() }
             }
             Spacer()
-            Text("\(current + 1) / \(scene.beats.count)")
+            Text(paused && !reduceMotion ? "とまっています" : "図を タップで 一時停止")
                 .font(Brush.text(12))
                 .foregroundStyle(Ink.sub)
-                .monospacedDigit()
         }
     }
 
@@ -775,13 +854,12 @@ struct ArkScenePlayer: View {
             Haptics.tap()
             action()
         } label: {
-            InkIcon(kind: icon, size: 14, lineWidth: 1.8)
+            InkIcon(kind: icon, size: 15, lineWidth: 2.4, color: Ink.server)
                 .rotationEffect(.degrees(flipped ? 180 : 0))
-                .frame(width: 34, height: 30)
-                .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: Radius.small, style: .continuous).strokeBorder(Ink.line, lineWidth: 1))
+                .frame(width: 44, height: 36)
+                .background(Ink.serverSoft, in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle(scale: 0.88))
         .accessibilityLabel(label)
     }
 
@@ -828,7 +906,7 @@ struct ArkMark: View {
     var size: CGFloat = 72
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+        TimelineView(.animation(paused: reduceMotion)) { context in
             let t = reduceMotion ? 0.75 : context.date.timeIntervalSinceReferenceDate
             Canvas { gc, canvas in
                 let c = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
@@ -839,13 +917,13 @@ struct ArkMark: View {
                 let rr = s * 0.36
                 let x = Double(c.x), y = Double(c.y)
                 gc.stroke(Path(ellipseIn: CGRect(x: x - rr, y: y - rr, width: rr * 2, height: rr * 2)),
-                          with: .color(Ink.line), lineWidth: s * 0.05)
+                          with: .color(Ink.serverSoft), lineWidth: s * 0.07)
                 var ring = Path()
                 ring.addArc(center: c, radius: rr, startAngle: .degrees(-90),
                             endAngle: .degrees(-90 + 360 * life), clockwise: false)
-                gc.stroke(ring, with: .color(Ink.ink),
-                          style: StrokeStyle(lineWidth: s * 0.05, lineCap: .round))
-                let pop = phase > 0.8 ? 1 + 0.08 * sin((phase - 0.8) / 0.2 * Double.pi) : 1
+                gc.stroke(ring, with: .color(Ink.server),
+                          style: StrokeStyle(lineWidth: s * 0.07, lineCap: .round))
+                let pop = phase > 0.8 ? 1 + 0.16 * sin((phase - 0.8) / 0.2 * Double.pi) : 1
                 let cr = r * pop
                 gc.fill(Path(ellipseIn: CGRect(x: x - cr, y: y - cr, width: cr * 2, height: cr * 2)),
                         with: .color(Ink.orange))

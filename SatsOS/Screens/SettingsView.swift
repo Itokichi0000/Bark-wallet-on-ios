@@ -173,7 +173,7 @@ struct SettingsView: View {
                         }
                         SeedGrid(words: revealedSeed.split(separator: " ").map(String.init), animated: true)
                         InkButton("かくす", kind: .quiet, height: 44) {
-                            withAnimation(.easeOut(duration: 0.15)) { self.revealedSeed = nil }
+                            withAnimation(Motion.glide) { self.revealedSeed = nil }
                         }
                     }
                     .transition(.opacity)
@@ -189,9 +189,9 @@ struct SettingsView: View {
                 }
             }
             .inkCard()
-            .animation(.easeOut(duration: 0.2), value: store.isSyncing)
-            .animation(.easeOut(duration: 0.2), value: runningMaintenance)
-            .animation(.easeOut(duration: 0.2), value: maintenanceStatus)
+            .animation(Motion.glide, value: store.isSyncing)
+            .animation(Motion.glide, value: runningMaintenance)
+            .animation(Motion.glide, value: maintenanceStatus)
         }
     }
 
@@ -257,8 +257,8 @@ struct SettingsView: View {
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.characters)
                             .padding(12)
-                            .background(Ink.bg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Ink.alert, lineWidth: 1.5))
+                            .background(Ink.wash, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.control, style: .continuous).strokeBorder(Ink.alert, lineWidth: 2))
                         HStack(spacing: 12) {
                             InkButton("消す", kind: .danger, height: 48, sound: .error) {
                                 close()
@@ -266,7 +266,7 @@ struct SettingsView: View {
                             }
                             .disabled(deleteText != "DELETE")
                             InkButton("やめる", kind: .secondary, height: 48) {
-                                withAnimation(.easeOut(duration: 0.2)) {
+                                withAnimation(Motion.glide) {
                                     confirmDelete = false
                                     deleteText = ""
                                 }
@@ -276,7 +276,7 @@ struct SettingsView: View {
                     .transition(.opacity.combined(with: .offset(y: -8)))
                 } else {
                     InkButton("おさいふを 消す", kind: .danger, height: 48) {
-                        withAnimation(.easeOut(duration: 0.2)) { confirmDelete = true }
+                        withAnimation(Motion.glide) { confirmDelete = true }
                     }
                 }
             }
@@ -292,13 +292,13 @@ struct SettingsView: View {
         var authError: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError) else {
             // No passcode on the device: show it anyway, this is the owner's phone.
-            withAnimation(.easeOut(duration: 0.15)) { revealedSeed = store.revealMnemonic() }
+            withAnimation(Motion.glide) { revealedSeed = store.revealMnemonic() }
             return
         }
         do {
             let ok = try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "シードフレーズを ひょうじします")
             if ok {
-                withAnimation(.easeOut(duration: 0.15)) { revealedSeed = store.revealMnemonic() }
+                withAnimation(Motion.glide) { revealedSeed = store.revealMnemonic() }
                 seedError = nil
             }
         } catch {
@@ -332,12 +332,12 @@ struct InkToggle: View {
             Chiptune.shared.play(.select)
             Haptics.tap()
             flips += 1
-            withAnimation(.spring(duration: 0.3, bounce: 0.3)) { isOn.toggle() }
+            withAnimation(Motion.bounce) { isOn.toggle() }
         } label: {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
-                        .font(Brush.text(15))
+                        .font(Brush.bold(15))
                         .foregroundStyle(Ink.ink)
                     Text(detail)
                         .font(Brush.text(12))
@@ -346,20 +346,20 @@ struct InkToggle: View {
                 Spacer()
                 ZStack(alignment: isOn ? .trailing : .leading) {
                     Capsule()
-                        .fill(isOn ? Ink.ink : Ink.paper)
-                        .overlay(Capsule().stroke(Ink.ink, lineWidth: 1.5))
-                        .frame(width: 52, height: 30)
+                        .fill(isOn ? Ink.server : Ink.wash)
+                        .frame(width: 54, height: 32)
                     Circle()
-                        .fill(isOn ? Ink.orange : Ink.ink)
-                        .frame(width: 20, height: 20)
-                        .pop(trigger: flips, from: 0.5)
-                        .padding(.horizontal, 5)
+                        .fill(Color.white)
+                        .shadow(color: .black.opacity(0.18), radius: 3, y: 2)
+                        .frame(width: 24, height: 24)
+                        .pop(trigger: flips, from: 0.6)
+                        .padding(.horizontal, 4)
                 }
             }
             .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(isOn ? "オン" : "オフ")

@@ -58,7 +58,7 @@ struct SetupView: View {
 
     private func go(_ next: Step, forward: Bool) {
         self.forward = forward
-        withAnimation(.spring(duration: 0.4, bounce: 0.15)) { step = next }
+        withAnimation(Motion.bounce) { step = next }
     }
 
     // MARK: welcome
@@ -66,9 +66,10 @@ struct SetupView: View {
     private var welcome: some View {
         VStack(spacing: 22) {
             VStack(spacing: 8) {
-                SealStamp(text: "寿", size: 36)
+                SealStamp(text: "寿", size: 64)
+                    .floating(5, period: 3)
                 Text("ちょうじゅ")
-                    .font(Brush.bold(28, relativeTo: .largeTitle))
+                    .font(Brush.bold(34, relativeTo: .largeTitle))
                     .foregroundStyle(Ink.ink)
                 Text("Ark で ビットコインを すばやく・安く。\nしくみが 見える おさいふ")
                     .font(Brush.text(14))
@@ -156,11 +157,11 @@ struct SetupView: View {
                     HStack(spacing: 10) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(wroteItDown ? Ink.ink : Ink.paper)
-                                .frame(width: 26, height: 26)
-                                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
+                                .fill(wroteItDown ? Ink.good : Ink.wash)
+                                .frame(width: 28, height: 28)
+                                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(wroteItDown ? Ink.good : Ink.line, lineWidth: 2))
                             if wroteItDown {
-                                InkIcon(kind: .check, size: 18, lineWidth: 2.6, color: Ink.paper)
+                                InkIcon(kind: .check, size: 18, lineWidth: 3, color: Ink.onColor)
                             }
                         }
                         .pop(trigger: checkTick, from: 0.75)
@@ -170,7 +171,7 @@ struct SetupView: View {
                     }
                     .frame(minHeight: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableStyle())
                 .accessibilityAddTraits(wroteItDown ? .isSelected : [])
             }
             .inkCard()
@@ -211,8 +212,7 @@ struct SetupView: View {
                     .textInputAutocapitalization(.never)
                     .frame(minHeight: 130)
                     .padding(10)
-                    .background(Ink.bg, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
+                    .background(Ink.wash, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                 HStack {
                     Text("\(count) 個")
                         .font(Brush.text(13))
@@ -259,7 +259,7 @@ struct SetupView: View {
                 InkIcon(kind: .back, size: 22, lineWidth: 2)
                     .frame(width: 44, height: 44)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableStyle())
             .accessibilityLabel("もどる")
             Text(title)
                 .font(Brush.bold(22, relativeTo: .title2))

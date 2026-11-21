@@ -88,8 +88,8 @@ struct AquariumView: View {
             .padding(.bottom, 28)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
-            .animation(.spring(duration: 0.4), value: needingCare.count)
-            .animation(.spring(duration: 0.4), value: store.isRefreshingFish)
+            .animation(Motion.bounce, value: needingCare.count)
+            .animation(Motion.bounce, value: store.isRefreshingFish)
         }
         .refreshable {
             await store.sync()
@@ -122,18 +122,18 @@ struct AquariumView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationBackground { PaperBackground() }
-            .presentationCornerRadius(20)
+            .presentationCornerRadius(32)
         }
         .sheet(item: $plan) { plan in
             RefreshSheet(plan: plan)
                 .presentationDetents([.medium, .large])
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(20)
+                .presentationCornerRadius(32)
         }
         .sheet(isPresented: $showGuide) {
             ArkGuideView()
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(20)
+                .presentationCornerRadius(32)
         }
     }
 
@@ -165,7 +165,7 @@ struct AquariumView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("すいそう")
-                    .font(Brush.bold(26, relativeTo: .title))
+                    .font(Brush.bold(30, relativeTo: .title))
                     .foregroundStyle(Ink.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text("VTXO を さかなで 見てみよう")
@@ -192,19 +192,19 @@ struct AquariumView: View {
                 HStack(alignment: .top) {
                     Text("さかな \(school.count)ひき")
                         .font(Brush.bold(13))
-                        .foregroundStyle(Ink.paper)
+                        .foregroundStyle(Ink.onColor)
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(Ink.ink, in: Capsule())
+                        .padding(.vertical, 6)
+                        .background(Ink.orange, in: Capsule())
                         .contentTransition(.numericText(value: Double(school.count)))
                     Spacer()
                     if let height {
                         Text("ブロック #\(SatFormat.sats(height))")
-                            .font(Brush.text(12))
-                            .foregroundStyle(Ink.sub)
+                            .font(Brush.bold(12))
+                            .foregroundStyle(Ink.chain)
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Ink.paper.opacity(0.85), in: Capsule())
+                            .padding(.vertical, 5)
+                            .background(Ink.paper.opacity(0.92), in: Capsule())
                             .contentTransition(.numericText())
                     }
                 }
@@ -228,10 +228,11 @@ struct AquariumView: View {
                 .allowsHitTesting(false)
             }
         }
-        .frame(height: 300)
+        .frame(height: 320)
         .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .overlay(BrushFrame())
+        .overlay(BrushFrame(color: Color.white.opacity(0.5)))
+        .shadow(color: Color(hex: 0x2B8FC4, opacity: 0.3), radius: 18, y: 10)
         .animation(.easeInOut(duration: 1.2), value: murk)
     }
 
@@ -240,7 +241,8 @@ struct AquariumView: View {
     private var warning: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                InkIcon(kind: .alert, size: 20, color: Ink.alert)
+                IconBubble(icon: .alert, color: Ink.alert, size: 32)
+                    .floating(2, period: 1.2)
                 Text("\(needingCare.count)ひき が みずかえ時です")
                     .font(Brush.bold(16))
                     .foregroundStyle(Ink.alert)
@@ -253,7 +255,7 @@ struct AquariumView: View {
                 plan = RefreshPlan(fish: needingCare)
             }
         }
-        .inkCard(border: Ink.alert)
+        .inkCard(border: Ink.alert.opacity(0.5), fill: Ink.alertSoft)
     }
 
     private var warningText: String {
@@ -265,7 +267,7 @@ struct AquariumView: View {
 
     private var refreshing: some View {
         HStack(alignment: .center, spacing: 12) {
-            InkDots(size: 6)
+            InkDots(size: 7)
             VStack(alignment: .leading, spacing: 2) {
                 Text("みずかえ中…")
                     .font(Brush.bold(15))
@@ -301,7 +303,7 @@ struct AquariumView: View {
                         FishRow(fish: fish, unit: settings.unit)
                             .padding(.horizontal, 14)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableStyle())
                     if index < school.count - 1 {
                         DashedDivider().padding(.horizontal, 14)
                     }
@@ -310,7 +312,8 @@ struct AquariumView: View {
             .padding(.vertical, 4)
             .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             .overlay(BrushFrame())
-            .animation(.spring(duration: 0.4), value: school.map(\.id))
+            .softShadow()
+            .animation(Motion.bounce, value: school.map(\.id))
         }
     }
 
@@ -319,10 +322,10 @@ struct AquariumView: View {
     private var lesson: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(text: "すいそうの 見かた")
-            LegendRow(look: FishLook(spot: Ink.orange), title: "げんきな さかな", detail: "期限まで まだ たっぷり")
-            LegendRow(look: FishLook(), title: "ふつうの さかな", detail: "のこり 3分の1 より すくない")
-            LegendRow(look: FishLook(body: Ink.bg, line: Ink.sub), title: "「!」の さかな", detail: "みずかえ時。Refresh しよう")
-            LegendRow(look: FishLook(dashed: true), title: "あみの中", detail: "送金・ラウンドで 使用中")
+            LegendRow(look: .fresh, title: "げんきな さかな", detail: "期限まで まだ たっぷり")
+            LegendRow(look: .aging, title: "ふつうの さかな", detail: "のこり 3分の1 より すくない")
+            LegendRow(look: .tired, title: "「!」の さかな", detail: "みずかえ時。Refresh しよう")
+            LegendRow(look: .busy, title: "あみの中", detail: "送金・ラウンドで 使用中")
             Text("大きさは 金額。おくると さかなが 右へ 泳ぎさり、おつりや もらった お金は 新しい さかなとして 左から やってきます。")
                 .font(Brush.text(13))
                 .foregroundStyle(Ink.sub)
@@ -397,15 +400,24 @@ struct FishRow: View {
 struct HealthChip: View {
     var fish: Fish
 
+    private var color: Color {
+        if fish.isBusy { return Ink.server }
+        switch fish.health {
+        case .fresh: return Ink.good
+        case .aging: return Ink.bolt
+        case .refreshNow: return Ink.alert
+        case .expired: return Ink.sub
+        }
+    }
+
     var body: some View {
         let alert = fish.needsCare && !fish.isBusy
         Text(fish.healthLabel)
             .font(Brush.bold(12))
-            .foregroundStyle(alert ? Ink.paper : Ink.ink)
+            .foregroundStyle(alert ? Ink.onColor : color)
             .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(alert ? Ink.alert : Color.clear, in: Capsule())
-            .overlay(Capsule().stroke(alert ? Ink.alert : Ink.line, lineWidth: 1.2))
+            .padding(.vertical, 5)
+            .background(alert ? Ink.alert : color.opacity(0.16), in: Capsule())
             .fixedSize()
     }
 }
@@ -425,24 +437,25 @@ struct BlockClock: View {
                     let width = geo.size.width
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Ink.ink.opacity(0.06))
-                            .frame(height: 10)
+                            .fill(Ink.chainSoft)
+                            .frame(height: 12)
                         // the last day before expiry: time to refresh
                         Capsule()
-                            .fill(Ink.alert.opacity(0.25))
-                            .frame(width: max(width * min(144 / horizon, 1), 6), height: 10)
+                            .fill(Ink.alert.opacity(0.35))
+                            .frame(width: max(width * min(144 / horizon, 1), 8), height: 12)
                         ForEach(school) { fish in
                             let left = Double(max(fish.blocksLeft ?? 0, 0))
                             Circle()
-                                .fill(fish.needsCare ? Ink.alert : (fish.health == .fresh ? Ink.orange : Ink.ink))
-                                .overlay(Circle().stroke(Ink.paper, lineWidth: 1.5))
-                                .frame(width: 12, height: 12)
-                                .offset(x: width * min(left / horizon, 1) - 6)
+                                .fill(fish.needsCare ? Ink.alert : (fish.health == .fresh ? Ink.orange : Ink.bolt))
+                                .overlay(Circle().stroke(Ink.paper, lineWidth: 2))
+                                .frame(width: 16, height: 16)
+                                .offset(x: width * min(left / horizon, 1) - 8)
+                                .animation(Motion.glide, value: left)
                         }
                     }
-                    .frame(height: 14)
+                    .frame(height: 18)
                 }
-                .frame(height: 14)
+                .frame(height: 18)
                 HStack {
                     Text("いま")
                     Spacer()
