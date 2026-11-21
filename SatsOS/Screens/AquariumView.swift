@@ -552,5 +552,4 @@ struct RefreshSheet: View {
             }
         }
     }
-
 }

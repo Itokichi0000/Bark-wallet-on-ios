@@ -78,8 +78,8 @@ struct ArkStage {
     var you: CGPoint { pt(30, rowY) }
     var peer: CGPoint { pt(w - 30, rowY) }
     /// Your coin, beside you.
-    var yourCoin: CGPoint { pt(you.x + 44, rowY) }
-    var peerCoin: CGPoint { pt(peer.x - 44, rowY) }
+    var yourCoin: CGPoint { pt(you.x + 58, rowY) }
+    var peerCoin: CGPoint { pt(peer.x - 58, rowY) }
     var lineY: Double { h - 46 }
     var blockY: Double { h - 18 }
     let blockSize: Double = 16
