@@ -65,6 +65,13 @@ struct Fish: Identifiable, Equatable {
             hash ^= UInt64(byte)
             hash = hash &* 0x0000_0100_0000_01B3
         }
+        // FNV barely changes the upper bits for names that differ only at the
+        // end ("pebble1", "pebble2"), so mix them (splitmix64 finalizer)
+        hash ^= hash >> 30
+        hash = hash &* 0xBF58_476D_1CE4_E5B9
+        hash ^= hash >> 27
+        hash = hash &* 0x94D0_49BB_1331_11EB
+        hash ^= hash >> 31
         return hash
     }
 
