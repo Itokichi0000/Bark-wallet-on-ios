@@ -1,0 +1,34 @@
+name: Ark School Wallet (web)
+
+on:
+  push:
+    paths: ['ark-school-wallet/**', '.github/workflows/ark-school-wallet.yml']
+  pull_request:
+    paths: ['ark-school-wallet/**', '.github/workflows/ark-school-wallet.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ark-school-wallet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ark-school-wallet/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e -- --project=desktop --project=mobile-360
+        env:
+          CI: 'true'

@@ -14,6 +14,10 @@
 **MAINNET**（`ark.second.tech`、本物のビットコイン）で起動します。最初は少額で試してください。
 テスト用の **SIGNET** には せってい から切り替えられます（テストコインは https://signet.2nd.dev/ ）。
 
+## Ark School Wallet（Web・教育用）
+
+[`ark-school-wallet/`](ark-school-wallet/) は、Bark Web SDK（`@secondts/bark`）で動く **Signet専用の教育用Webウォレット** です。VTXOの状態・期限・Refresh・Exitを、ウォレット操作と連動して見られます。iOSアプリとは独立していて、ビルドもワークフローも別です。くわしくは [ark-school-wallet/README.md](ark-school-wallet/README.md)。
+
 ## 構成
 
 | 場所 | 中身 |

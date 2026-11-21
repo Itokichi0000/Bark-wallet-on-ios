@@ -20,6 +20,9 @@ on:
     paths-ignore:
       - "**.md"
       - "licenses/**"
+      # The separate web app has its own workflow (ark-school-wallet.yml).
+      - "ark-school-wallet/**"
+      - ".github/workflows/ark-school-wallet.yml"
 
 concurrency:
   group: testflight
