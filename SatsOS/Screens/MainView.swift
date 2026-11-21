@@ -152,5 +152,16 @@ struct MainView: View {
         .padding(.top, 6)
         .padding(.bottom, 4)
         .frame(maxWidth: 520)
+        .frame(maxWidth: .infinity)
+        .background {
+            // the page fades out behind the bar instead of showing through it
+            LinearGradient(stops: [.init(color: Ink.bg.opacity(0), location: 0),
+                                   .init(color: Ink.bg.opacity(0.94), location: 0.45),
+                                   .init(color: Ink.bg, location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+                .padding(.top, -18)
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
+        }
     }
 }

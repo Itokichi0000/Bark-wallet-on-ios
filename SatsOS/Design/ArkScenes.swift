@@ -715,7 +715,6 @@ struct ArkScenePlayer: View {
     @State private var start = Date()
     @State private var pausedAt: Date?
     @State private var still = 0
-    @Namespace private var beatSpace
 
     private var paused: Bool { reduceMotion || pausedAt != nil }
 
@@ -815,13 +814,8 @@ struct ArkScenePlayer: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
-                    .background {
-                        if active {
-                            RoundedRectangle(cornerRadius: Radius.small + 2, style: .continuous)
-                                .fill(Ink.serverSoft.opacity(0.7))
-                                .matchedGeometryEffect(id: "beat", in: beatSpace)
-                        }
-                    }
+                    .background(Ink.serverSoft.opacity(active ? 0.7 : 0),
+                                in: RoundedRectangle(cornerRadius: Radius.small + 2, style: .continuous))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PressableStyle(scale: 0.98))

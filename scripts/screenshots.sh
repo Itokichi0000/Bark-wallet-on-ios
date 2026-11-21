@@ -30,7 +30,7 @@ run() {
   xcrun simctl io "${UDID}" screenshot "${OUT}/${name}.png" >/dev/null
 }
 
-run 01-setup setup 10
+run 01-setup setup 20
 run 02-splash boot 40
 run 03-home home 30
 run 04-receive receive 25
@@ -42,7 +42,15 @@ run 09-receive-incoming receive-incoming 30
 run 10-aquarium aquarium 25
 run 11-guide guide 20
 
+# the same screens in dark mode
+xcrun simctl ui "${UDID}" appearance dark
+run 12-home-dark home 25
+run 13-learn-dark learn 15
+run 14-aquarium-dark aquarium 20
+run 15-send-dark send 15
+xcrun simctl ui "${UDID}" appearance light
+
 # keep the app's own log lines (wallet open errors etc.) for debugging
-xcrun simctl spawn "${UDID}" log show --last 6m --style compact \
+xcrun simctl spawn "${UDID}" log show --last 8m --style compact \
   --predicate 'process == "SatsOS"' > "${OUT}/app.log" 2>/dev/null || true
 ls -la "${OUT}"

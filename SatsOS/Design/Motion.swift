@@ -223,8 +223,7 @@ struct HoldToSendButton: View {
         .shadow(color: Ink.server.opacity(holding ? 0.5 : 0.25), radius: holding ? 18 : 8, y: 5)
         .scaleEffect(holding ? 0.97 : 1)
         .animation(Motion.press, value: holding)
-        .saturation(isEnabled ? 1 : 0.2)
-        .opacity(isEnabled ? 1 : 0.45)
+        .opacity(isEnabled ? 1 : 0.4)
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 0)
