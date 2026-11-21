@@ -60,8 +60,6 @@ struct ScannerScreen: View {
                 .frame(width: 250, height: 250)
 
                 HStack(spacing: 8) {
-                    CharacterView(art: .frogSit, height: 30)
-                        .environment(\.colorScheme, .dark)
                     Text("QRコードを 枠にあわせてね")
                         .font(Brush.text(15))
                         .foregroundStyle(.white)

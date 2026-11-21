@@ -236,6 +236,61 @@ extension Movement {
     }
 }
 
+// MARK: - Movement labels
+
+extension Movement {
+    /// The しくみ diagram that shows how this movement worked.
+    var scene: ArkScene? {
+        switch kind {
+        case .arkSend, .arkReceive: return .arkoor
+        case .lightningSend, .lightningReceive: return .lightning
+        case .board: return .board
+        case .offboard, .onchainSend: return .offboard
+        case .refresh: return .refresh
+        case .exit: return .exit
+        case .other: return nil
+        }
+    }
+}
+
+extension Movement {
+    var isIncoming: Bool { effectiveBalanceSats > 0 }
+
+    /// もらった / おくった / …
+    var title: String {
+        switch kind {
+        case .arkReceive, .lightningReceive: return "もらった"
+        case .arkSend, .lightningSend, .onchainSend: return "おくった"
+        case .board: return "入金"
+        case .offboard: return "出金"
+        case .exit: return "緊急出金"
+        case .refresh: return "こうしん"
+        case .other: return effectiveBalanceSats >= 0 ? "もらった" : "おくった"
+        }
+    }
+
+    /// Ark / ライトニング / オンチェーン
+    var railName: String {
+        switch kind {
+        case .arkSend, .arkReceive: return "Ark"
+        case .lightningSend, .lightningReceive: return "ライトニング"
+        case .onchainSend, .board, .offboard, .exit: return "オンチェーン"
+        case .refresh: return "Ark"
+        case .other: return subsystemName.replacingOccurrences(of: "bark.", with: "")
+        }
+    }
+
+    var statusText: String {
+        switch status {
+        case "successful": return "とどいた"
+        case "pending": return "とどけ中"
+        case "failed": return "しっぱい"
+        case "canceled": return "とりけし"
+        default: return status
+        }
+    }
+}
+
 // MARK: - Payment methods
 
 extension PaymentMethod {

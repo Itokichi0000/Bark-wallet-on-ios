@@ -5,7 +5,7 @@ import Foundation
 /// can be captured without UI automation.
 ///
 /// Modes: `setup`, `boot`, `home`, `send`, `receive`, `receive-incoming`,
-/// `history`, `growth`, `settings`, `aquarium`, `guide`.
+/// `history`, `learn`, `settings`, `aquarium`, `guide`.
 /// Release builds always return nil.
 enum Autopilot {
     static var mode: String? {
@@ -28,7 +28,7 @@ enum Autopilot {
         switch mode {
         case "history": return .history
         case "aquarium", "guide": return .aquarium
-        case "growth": return .growth
+        case "learn": return .learn
         default: return mode == nil ? nil : .home
         }
     }
@@ -42,16 +42,6 @@ enum Autopilot {
         }
     }
 
-    /// Highest balance to pretend for screenshots: most friends at home,
-    /// none before a faked payment so it can bring the first ones.
-    static var seedHighest: UInt64? {
-        switch mode {
-        case nil: return nil
-        case "receive-incoming": return 0
-        default: return 120_000
-        }
-    }
-
     /// Open the receive sheet and fake an incoming payment.
     static var fakeIncoming: Bool { mode == "receive-incoming" }
 
@@ -60,4 +50,7 @@ enum Autopilot {
 
     /// Open the しくみ図鑑 over the aquarium.
     static var openGuide: Bool { mode == "guide" }
+
+    /// The diagram the しくみ tab opens on for screenshots.
+    static var learnScene: ArkScene? { mode == "learn" ? .round : nil }
 }

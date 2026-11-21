@@ -67,9 +67,8 @@ struct ReceiveView: View {
             .background(PaperBackground())
 
             if let arrival {
-                ReceivedCelebration(payment: arrival) {
+                ReceivedPanel(payment: arrival) {
                     withAnimation(.easeOut(duration: 0.2)) { self.arrival = nil }
-                    store.clearFriendArrival()
                 }
                 .transition(.opacity)
                 .zIndex(3)
@@ -79,7 +78,7 @@ struct ReceiveView: View {
         .onDisappear { store.receiveOnScreen = false }
         .onChange(of: store.lastIncoming) { _, incoming in
             guard let incoming else { return }
-            // a paid invoice on screen celebrates in place
+            // a paid invoice on screen shows it in place
             if let hash = incoming.paymentHash, hash == invoice?.paymentHash { return }
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             withAnimation(.spring(duration: 0.4)) { arrival = incoming }
@@ -181,8 +180,6 @@ struct ReceiveView: View {
 
     private func waiting(text: String) -> some View {
         HStack(spacing: 8) {
-            CharacterView(art: .frogSit, height: 30)
-                .breathing(0.05, period: 1.0)
             Text(text)
                 .font(Brush.text(13))
                 .foregroundStyle(Ink.sub)
@@ -225,8 +222,8 @@ struct ReceiveView: View {
                     TextField("メモ（なくてもOK）", text: $memo)
                         .font(Brush.text(15))
                         .padding(12)
-                        .background(Ink.bg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
+                        .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.control, style: .continuous).strokeBorder(Ink.line, lineWidth: 1))
                     if let receiveFee {
                         InfoRow(label: "てすうりょう", value: "\(SatFormat.sats(receiveFee.feeSats)) sats")
                         InfoRow(label: "うけとる金額", value: "\(SatFormat.sats(receiveFee.netAmountSats)) sats", emphasized: true)
@@ -258,17 +255,19 @@ struct ReceiveView: View {
         return VStack(spacing: 16) {
             if paid {
                 VStack(spacing: 10) {
-                    CharacterView(art: .rabbitJump, height: 160)
-                        .jumpingForJoy(height: 20)
-                    Text("もらった！")
-                        .font(Brush.bold(30))
+                    InkIcon(kind: .check, size: 26, lineWidth: 2.2, color: Ink.paper)
+                        .frame(width: 52, height: 52)
+                        .background(Ink.orange, in: Circle())
+                        .pop(trigger: 1, from: 0.5)
+                    Text("うけとりました")
+                        .font(Brush.bold(22))
                         .foregroundStyle(Ink.ink)
                     CountUpText(value: invoice.amountSats) { "+" + SatFormat.amount($0, unit: settings.unit) }
                         .font(Brush.amount(34))
                         .foregroundStyle(Ink.ink)
                 }
                 .frame(maxWidth: .infinity)
-                .inkCard(border: Ink.orange)
+                .inkCard()
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
             } else {
                 VStack(spacing: 14) {
@@ -293,10 +292,8 @@ struct ReceiveView: View {
                         .buttonStyle(InkButtonStyle(kind: .secondary, height: 48))
                     }
                     if claiming {
-                        VStack(spacing: 6) {
-                            DeliveringFrog(height: 54)
-                                .frame(height: 70)
-                                .clipped()
+                        HStack(spacing: 8) {
+                            InkDots(size: 4)
                             Text("うけとり中")
                                 .font(Brush.text(13))
                                 .foregroundStyle(Ink.ink)
@@ -402,6 +399,52 @@ struct ReceiveView: View {
         Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             copied = false
+        }
+    }
+}
+
+/// Over the receive sheet when sats arrive: the amount, and how they got
+/// here as a diagram.
+struct ReceivedPanel: View {
+    @EnvironmentObject private var settings: AppSettings
+    var payment: IncomingPayment
+    var onClose: () -> Void
+
+    private var scene: ArkScene { payment.rail == "Ark" ? .arkoor : .lightning }
+
+    var body: some View {
+        ZStack {
+            Ink.bg.opacity(0.92)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onClose)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 10) {
+                    InkIcon(kind: .check, size: 18, lineWidth: 2.2, color: Ink.paper)
+                        .frame(width: 34, height: 34)
+                        .background(Ink.orange, in: Circle())
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("うけとりました")
+                            .font(Brush.bold(16))
+                            .foregroundStyle(Ink.ink)
+                        Text(payment.rail)
+                            .font(Brush.text(12))
+                            .foregroundStyle(Ink.sub)
+                    }
+                }
+                CountUpText(value: payment.amount, duration: 0.8) { "+" + SatFormat.amount($0, unit: settings.unit) }
+                    .font(Brush.amount(36))
+                    .foregroundStyle(Ink.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionLabel(text: "とどいた しくみ")
+                    ArkScenePlayer(scene: scene, height: 180, showsBeats: false, showsControls: false)
+                }
+                InkButton("とじる", action: onClose)
+            }
+            .inkCard(padding: 20)
+            .shadow(color: .black.opacity(0.08), radius: 24, y: 8)
+            .padding(.horizontal, 20)
         }
     }
 }

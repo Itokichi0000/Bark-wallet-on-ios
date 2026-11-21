@@ -66,7 +66,7 @@ enum InkFish {
             clipped.clip(to: body)
             clipped.fill(patch, with: .color(spot))
         }
-        let width = max(1.4, l * 0.045)
+        let width = max(1.1, l * 0.03)
         g.stroke(body, with: .color(look.line),
                  style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round,
                                     dash: look.dashed ? [width * 2, width * 1.6] : []))
@@ -271,7 +271,7 @@ struct FishTank: View {
     private func drawWater(_ gc: GraphicsContext, _ size: CGSize, _ t: Double) {
         let rect = CGRect(origin: .zero, size: size)
         gc.fill(Path(rect), with: .linearGradient(
-            Gradient(colors: [Ink.ink.opacity(0.02), Ink.ink.opacity(0.09)]),
+            Gradient(colors: [Ink.wash.opacity(0.3), Ink.wash]),
             startPoint: CGPoint(x: 0, y: surface), endPoint: CGPoint(x: 0, y: size.height)))
         if murk > 0 {
             gc.fill(Path(CGRect(x: 0, y: surface, width: Double(size.width), height: Double(size.height) - surface)),
@@ -295,7 +295,7 @@ struct FishTank: View {
             let y: Double = surface + sin(x / 22 + t * 1.3) * 2.2
             wave.addLine(to: CGPoint(x: x, y: y))
         }
-        gc.stroke(wave, with: .color(Ink.ink.opacity(0.75)), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+        gc.stroke(wave, with: .color(Ink.sub.opacity(0.6)), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
         var ripple = Path()
         for x in stride(from: 12.0, through: Double(size.width) - 12, by: 46) {
             let y: Double = surface + 9 + sin(x + t) * 1.5
@@ -330,12 +330,12 @@ struct FishTank: View {
             weed.move(to: CGPoint(x: x, y: bottom))
             weed.addQuadCurve(to: CGPoint(x: x + sway, y: bottom - height),
                               control: CGPoint(x: x - 10 + sway * 0.3, y: bottom - height * 0.55))
-            gc.stroke(weed, with: .color(Ink.ink.opacity(0.75)), style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+            gc.stroke(weed, with: .color(Ink.sub.opacity(0.45)), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
             var leaf = Path()
             leaf.move(to: CGPoint(x: x - 3 + sway * 0.25, y: bottom - height * 0.4))
             leaf.addQuadCurve(to: CGPoint(x: x + 10 + sway * 0.5, y: bottom - height * 0.62),
                               control: CGPoint(x: x + 8, y: bottom - height * 0.4))
-            gc.stroke(leaf, with: .color(Ink.ink.opacity(0.5)), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+            gc.stroke(leaf, with: .color(Ink.sub.opacity(0.35)), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
         }
         var sand = Path()
         sand.move(to: CGPoint(x: 0, y: bottom))
@@ -343,7 +343,7 @@ struct FishTank: View {
             let y: Double = bottom + sin(x / 37) * 2
             sand.addLine(to: CGPoint(x: x, y: y))
         }
-        gc.stroke(sand, with: .color(Ink.ink.opacity(0.6)), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+        gc.stroke(sand, with: .color(Ink.line), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
         for i in 0..<14 {
             let seed = Fish.seed("pebble\(i)")
             let x: Double = Self.unit(seed, 0) * w

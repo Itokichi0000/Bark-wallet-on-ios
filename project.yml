@@ -37,9 +37,6 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
         ITSAppUsesNonExemptEncryption: false
-        UIAppFonts:
-          - KleeOne-Regular.ttf
-          - KleeOne-SemiBold.ttf
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:

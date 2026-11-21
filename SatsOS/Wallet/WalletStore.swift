@@ -21,7 +21,7 @@ struct WalletToast: Identifiable, Equatable {
     let style: Style
 }
 
-/// A payment that just landed, for the receive screen's celebration.
+/// A payment that just landed.
 struct IncomingPayment: Identifiable, Equatable {
     let id = UUID()
     let amount: UInt64
@@ -69,19 +69,14 @@ final class WalletStore: ObservableObject {
     @Published private(set) var fingerprint: String?
     @Published private(set) var isSyncing = false
     @Published private(set) var lastSync: Date?
-    @Published private(set) var celebrationTick = 0
     @Published private(set) var settledInvoices: Set<String> = []
     @Published var toast: WalletToast?
     /// Latest successful receive (Ark or Lightning).
     @Published private(set) var lastIncoming: IncomingPayment?
-    /// The receive sheet is open and celebrates arrivals itself.
+    /// The receive sheet is open and shows arrivals itself.
     var receiveOnScreen = false
-    /// Highest balance this wallet has ever held on the current network.
-    /// Friends arrive as it grows and never leave.
-    @Published private(set) var highestBalance: UInt64 = 0
-    /// The friends who just arrived, for the home room and the celebration.
-    @Published private(set) var friendArrival: FriendArrival?
-    private var highestLoaded = false
+    /// When the Ark server starts its next round.
+    @Published private(set) var nextRoundAt: Date?
 
     // すいそう (Aquarium.swift): one fish per VTXO.
     @Published private(set) var vtxos: [Vtxo] = []
@@ -133,13 +128,6 @@ final class WalletStore: ObservableObject {
     }
 
     var needsRefresh: UInt64 { balance?.needsRefreshSats ?? 0 }
-
-    var friends: Friends { Friends(highest: highestBalance) }
-
-    /// The celebration has greeted them; don't greet them again.
-    func clearFriendArrival() {
-        friendArrival = nil
-    }
 
     // MARK: - Boot
 
@@ -300,9 +288,7 @@ final class WalletStore: ObservableObject {
         blockHeight = nil
         announced = []
         settledInvoices = []
-        highestLoaded = false
-        highestBalance = 0
-        friendArrival = nil
+        nextRoundAt = nil
         vtxos = []
         refreshIDs = []
         fishGhosts = []
@@ -346,7 +332,15 @@ final class WalletStore: ObservableObject {
         if let due = try? await wallet.getVtxosToRefresh() {
             refreshIDs = Set(due.map(\.id))
         }
-        updateHighest()
+        await refreshNextRound()
+    }
+
+    /// Asks the server when its next round starts (for the countdown).
+    func refreshNextRound() async {
+        guard let wallet else { return }
+        if let seconds = try? await wallet.nextRoundStartTime(), seconds > 0 {
+            nextRoundAt = Date(timeIntervalSince1970: TimeInterval(seconds))
+        }
     }
 
     // MARK: - Aquarium
@@ -421,49 +415,6 @@ final class WalletStore: ObservableObject {
         }
     }
 
-    // MARK: - Friends
-
-    private var highestKey: String { "highestBalance.\(network.rawValue)" }
-
-    /// Raises the highest balance from the current balance and from the
-    /// history (the running total at its peak), so friends also come for
-    /// highs reached on another device or before this version.
-    private func updateHighest() {
-        let hadRecord = UserDefaults.standard.object(forKey: highestKey) != nil
-        loadHighestIfNeeded()
-        var running: Int64 = 0
-        var peak: Int64 = 0
-        for movement in movements.reversed() where movement.isSuccessful {
-            running += Int64(movement.effectiveBalanceSats)
-            peak = max(peak, running)
-        }
-        let candidate = max(spendable, UInt64(peak))
-        // The first time on this network: remember quietly, no fanfare for
-        // friends who were "always" there.
-        raiseHighest(to: candidate, announce: hadRecord, force: !hadRecord)
-    }
-
-    private func loadHighestIfNeeded() {
-        guard !highestLoaded else { return }
-        highestLoaded = true
-        highestBalance = UInt64(max(UserDefaults.standard.integer(forKey: highestKey), 0))
-        #if DEBUG
-        if let seed = Autopilot.seedHighest { highestBalance = seed }
-        #endif
-    }
-
-    private func raiseHighest(to candidate: UInt64, announce: Bool, force: Bool = false) {
-        guard candidate > highestBalance || force else { return }
-        let before = Set(Friend.arrived(for: highestBalance))
-        let value = max(candidate, highestBalance)
-        highestBalance = value
-        UserDefaults.standard.set(Int(clamping: value), forKey: highestKey)
-        let fresh = Friend.arrived(for: value).filter { !before.contains($0) }
-        if announce, !fresh.isEmpty {
-            friendArrival = FriendArrival(friends: fresh)
-        }
-    }
-
     func refreshHeight() async {
         guard let url = URL(string: network.esploraAddress + "/blocks/tip/height") else { return }
         do {
@@ -528,12 +479,15 @@ final class WalletStore: ObservableObject {
         switch movement.kind {
         case .arkReceive, .lightningReceive:
             guard movement.isSuccessful else { return }
+            let rail = movement.kind == .arkReceive ? "Ark" : "ライトニング"
             lastIncoming = IncomingPayment(
                 amount: UInt64(movement.effectiveBalanceSats.magnitude),
-                rail: movement.kind == .arkReceive ? "Ark" : "ライトニング",
+                rail: rail,
                 paymentHash: movement.paymentHash
             )
-            celebrate()
+            if !receiveOnScreen {
+                showToast(.incoming, "うけとりました", "+\(amount) sats ・ \(rail)")
+            }
             Chiptune.shared.play(.coin)
             Haptics.success()
         case .arkSend, .lightningSend, .onchainSend:
@@ -609,7 +563,6 @@ final class WalletStore: ObservableObject {
     func markInvoiceSettled(_ paymentHash: String) {
         guard !settledInvoices.contains(paymentHash) else { return }
         settledInvoices.insert(paymentHash)
-        celebrate()
         Chiptune.shared.play(.coin)
         Haptics.success()
         Task { await refreshData() }
@@ -627,17 +580,10 @@ final class WalletStore: ObservableObject {
         }
     }
 
-    func celebrate() {
-        celebrationTick += 1
-    }
-
     #if DEBUG
     /// CI screenshots only: pretend an Ark payment just arrived.
     func simulateIncoming(_ amount: UInt64) {
         lastIncoming = IncomingPayment(amount: amount, rail: "Ark", paymentHash: nil)
-        loadHighestIfNeeded()
-        raiseHighest(to: highestBalance + amount, announce: true)
-        celebrate()
         Chiptune.shared.play(.coin)
     }
     #endif

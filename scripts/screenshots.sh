@@ -36,7 +36,7 @@ run 03-home home 30
 run 04-receive receive 25
 run 05-send send 15
 run 06-history history 15
-run 07-growth growth 15
+run 07-learn learn 15
 run 08-settings settings 20
 run 09-receive-incoming receive-incoming 30
 run 10-aquarium aquarium 25

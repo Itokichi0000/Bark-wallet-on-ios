@@ -39,9 +39,6 @@ struct RootView: View {
                 }
             }
 
-            CoinShower(trigger: store.celebrationTick)
-                .ignoresSafeArea()
-
             VStack {
                 if let toast = store.toast {
                     ToastView(toast: toast)

@@ -1,15 +1,15 @@
 import SwiftUI
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case home, aquarium, history, growth
+    case home, aquarium, history, learn
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .home: return "いえ"
+        case .home: return "ホーム"
         case .aquarium: return "すいそう"
         case .history: return "きろく"
-        case .growth: return "なかま"
+        case .learn: return "しくみ"
         }
     }
 
@@ -18,7 +18,7 @@ enum MainTab: String, CaseIterable, Identifiable {
         case .home: return .home
         case .aquarium: return .fish
         case .history: return .record
-        case .growth: return .rabbit
+        case .learn: return .book
         }
     }
 }
@@ -28,27 +28,27 @@ enum MainSheet: String, Identifiable {
     var id: String { rawValue }
 }
 
-/// Home / history / friends tabs, the send / receive / settings sheets, and
-/// the "もらった！" celebration whenever sats arrive.
+/// Home / aquarium / history / how-it-works tabs and the send / receive /
+/// settings sheets. Arrivals show as a toast (WalletStore.announce).
 struct MainView: View {
     @EnvironmentObject private var store: WalletStore
 
     @State private var tab: MainTab = .home
     @State private var sheet: MainSheet?
-    @State private var celebration: IncomingPayment?
 
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
                 switch tab {
                 case .home:
-                    HomeView(open: open, showHistory: { select(.history) }, showAquarium: { select(.aquarium) })
+                    HomeView(open: open, showHistory: { select(.history) }, showAquarium: { select(.aquarium) },
+                             showLearn: { select(.learn) })
                 case .aquarium:
                     AquariumView()
                 case .history:
                     HistoryView()
-                case .growth:
-                    FriendsView()
+                case .learn:
+                    LearnView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -57,16 +57,6 @@ struct MainView: View {
             tabBar
         }
         .background(PaperBackground())
-        .overlay {
-            if let celebration {
-                ReceivedCelebration(payment: celebration) {
-                    withAnimation(.easeOut(duration: 0.2)) { self.celebration = nil }
-                    store.clearFriendArrival()
-                }
-                .transition(.opacity)
-                .zIndex(5)
-            }
-        }
         .sheet(item: $sheet) { sheet in
             Group {
                 switch sheet {
@@ -76,12 +66,7 @@ struct MainView: View {
                 }
             }
             .presentationBackground { PaperBackground() }
-            .presentationCornerRadius(28)
-        }
-        .onChange(of: store.lastIncoming) { _, incoming in
-            // the receive sheet celebrates by itself
-            guard let incoming, !store.receiveOnScreen else { return }
-            withAnimation(.spring(duration: 0.4)) { celebration = incoming }
+            .presentationCornerRadius(20)
         }
         .onAppear {
             if let autoTab = Autopilot.tab { tab = autoTab }
@@ -107,9 +92,8 @@ struct MainView: View {
                 Button {
                     select(item)
                 } label: {
-                    VStack(spacing: 3) {
-                        InkIcon(kind: item.icon, size: 24, color: selected ? Ink.ink : Ink.sub)
-                            .pop(trigger: selected ? 1 : 0, from: 0.8)
+                    VStack(spacing: 4) {
+                        InkIcon(kind: item.icon, size: 22, color: selected ? Ink.ink : Ink.sub)
                             .overlay(alignment: .topTrailing) {
                                 // fish that want fresh water
                                 if item == .aquarium, !store.fishNeedingCare.isEmpty {
@@ -121,10 +105,10 @@ struct MainView: View {
                                 }
                             }
                         Text(item.title)
-                            .font(selected ? Brush.bold(12) : Brush.text(12))
+                            .font(Brush.bold(11, relativeTo: .caption))
                             .foregroundStyle(selected ? Ink.ink : Ink.sub)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .frame(maxWidth: .infinity, minHeight: 50)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -132,11 +116,10 @@ struct MainView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 6)
-        .background(PaperBackground())
+        .padding(.top, 4)
+        .background(Ink.paper.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) {
-            DashedDivider(color: Ink.ink.opacity(0.35))
-                .offset(y: -3)
+            DashedDivider()
         }
     }
 }

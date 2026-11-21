@@ -122,18 +122,18 @@ struct AquariumView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationBackground { PaperBackground() }
-            .presentationCornerRadius(28)
+            .presentationCornerRadius(20)
         }
         .sheet(item: $plan) { plan in
             RefreshSheet(plan: plan)
                 .presentationDetents([.medium, .large])
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(28)
+                .presentationCornerRadius(20)
         }
         .sheet(isPresented: $showGuide) {
             ArkGuideView()
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(28)
+                .presentationCornerRadius(20)
         }
     }
 
@@ -229,9 +229,9 @@ struct AquariumView: View {
             }
         }
         .frame(height: 300)
-        .background(Ink.paper, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(BrushFrame(color: Ink.ink))
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .overlay(BrushFrame())
         .animation(.easeInOut(duration: 1.2), value: murk)
     }
 
@@ -308,8 +308,8 @@ struct AquariumView: View {
                 }
             }
             .padding(.vertical, 4)
-            .background(Ink.paper, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
+            .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+            .overlay(BrushFrame())
             .animation(.spring(duration: 0.4), value: school.map(\.id))
         }
     }
@@ -498,7 +498,8 @@ struct RefreshSheet: View {
                 SheetHeader(title: "みずかえ（Refresh）", onClose: { dismiss() })
                     .padding(.horizontal, -20)
 
-                steps
+                ArkScenePlayer(scene: .refresh, height: 190, showsBeats: false, showsControls: false)
+                    .inkCard()
 
                 VStack(spacing: 12) {
                     InfoRow(label: "さかな", value: "\(plan.fish.count)ひき")
@@ -552,53 +553,4 @@ struct RefreshSheet: View {
         }
     }
 
-    /// old fish → round → new fish
-    private var steps: some View {
-        HStack(alignment: .top, spacing: 6) {
-            step(look: FishLook(body: Ink.bg, line: Ink.sub), title: "古い さかな", detail: "期限が ちかい")
-            arrow
-            VStack(spacing: 4) {
-                ZStack {
-                    Circle()
-                        .stroke(Ink.ink, style: StrokeStyle(lineWidth: 1.4, dash: [3, 3]))
-                        .frame(width: 34, height: 34)
-                    InkIcon(kind: .refresh, size: 20)
-                }
-                .frame(height: 34)
-                Text("ラウンド")
-                    .font(Brush.bold(12))
-                Text("みんなで こうかん")
-                    .font(Brush.text(11))
-                    .foregroundStyle(Ink.sub)
-            }
-            .frame(maxWidth: .infinity)
-            arrow
-            step(look: FishLook(spot: Ink.orange), title: "新しい さかな", detail: "期限が のびる")
-        }
-        .foregroundStyle(Ink.ink)
-        .multilineTextAlignment(.center)
-        .inkCard()
-    }
-
-    private var arrow: some View {
-        InkIcon(kind: .send, size: 16)
-            .rotationEffect(.degrees(45))
-            .padding(.top, 10)
-    }
-
-    private func step(look: FishLook, title: String, detail: String) -> some View {
-        VStack(spacing: 4) {
-            Canvas { gc, size in
-                InkFish.draw(in: gc, at: CGPoint(x: size.width / 2, y: size.height / 2),
-                             length: size.width * 0.9, facing: 1, look: look)
-            }
-            .frame(width: 48, height: 34)
-            Text(title)
-                .font(Brush.bold(12))
-            Text(detail)
-                .font(Brush.text(11))
-                .foregroundStyle(Ink.sub)
-        }
-        .frame(maxWidth: .infinity)
-    }
 }

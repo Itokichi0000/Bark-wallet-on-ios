@@ -3,7 +3,8 @@ import SwiftUI
 
 /// おくる: paste or scan anything Bark understands (Ark address, BOLT11,
 /// BOLT12, lightning address, LNURL, bitcoin: URI, on-chain address),
-/// check the amount and fee, then hold to send. The frog delivers it.
+/// check the amount and fee, then hold to send. While it goes, a diagram
+/// shows the route the payment takes (Ark, Lightning or on-chain).
 struct SendView: View {
     @EnvironmentObject private var store: WalletStore
     @EnvironmentObject private var settings: AppSettings
@@ -41,7 +42,6 @@ struct SendView: View {
     @State private var sentAmount: UInt64?
     @State private var lightning: LightningProgress?
     @State private var holdingSend = false
-    @State private var inputFrogPoke = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -168,25 +168,6 @@ struct SendView: View {
 
     private var inputStage: some View {
         VStack(spacing: 18) {
-            HStack(alignment: .bottom, spacing: 8) {
-                FriendActor(critter: .frog, height: 62, range: 0...0, poke: inputFrogPoke, cheer: 0, cheerDelay: 0)
-                    .onTapGesture {
-                        Chiptune.shared.play(.click)
-                        Haptics.tap()
-                        inputFrogPoke += 1
-                    }
-                    .accessibilityAddTraits(.isButton)
-                    // an address pasted or scanned in: the frog is on it
-                    .onChange(of: input.isEmpty) { _, empty in
-                        if !empty { inputFrogPoke += 1 }
-                    }
-                SpeechBubble(text: input.isEmpty ? "どこへ とどける？" : "まかせて！")
-                    .padding(.bottom, 36)
-                Spacer(minLength: 0)
-            }
-            .padding(.bottom, -10)
-            .appearIn()
-
             VStack(alignment: .leading, spacing: 12) {
                 SectionLabel(text: "あて先")
                 ZStack(alignment: .topLeading) {
@@ -207,10 +188,10 @@ struct SendView: View {
                         .padding(10)
                 }
                 .frame(minHeight: 120)
-                .background(Ink.bg, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(Ink.bg, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(parseError == nil ? Ink.line : Ink.alert, lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                        .strokeBorder(parseError == nil ? Ink.line : Ink.alert, lineWidth: 1)
                 )
                 Text("Ark アドレス ・ ライトニング（invoice / offer / アドレス / LNURL）・ ビットコインアドレス")
                     .font(Brush.text(11))
@@ -259,16 +240,6 @@ struct SendView: View {
     private var reviewStage: some View {
         if let selected {
             VStack(spacing: 16) {
-                VStack(spacing: 0) {
-                    onTheBank(height: 104) {
-                        ReadyFrog(height: 96, holding: holdingSend)
-                    }
-                    Text(holdingSend ? "いくよ… そのまま そのまま" : "かえるが 川ぞいに とどけます")
-                        .font(Brush.text(13))
-                        .foregroundStyle(Ink.sub)
-                        .padding(.top, -6)
-                }
-
                 amountSection
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -293,8 +264,8 @@ struct SendView: View {
                         TextField("ひとこと（なくてもOK）", text: $comment)
                             .font(Brush.text(15))
                             .padding(12)
-                            .background(Ink.bg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
+                            .background(Ink.bg, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.control, style: .continuous).strokeBorder(Ink.line, lineWidth: 1))
                     }
                     feeRow
                     DashedDivider()
@@ -317,13 +288,27 @@ struct SendView: View {
                 .inkCard()
                 .animation(.easeOut(duration: 0.15), value: insufficient)
 
+                // the route, before you send
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        SectionLabel(text: "この みちで とどきます")
+                        Text(railName(selected.method))
+                            .font(Brush.bold(12))
+                            .foregroundStyle(Ink.ink)
+                    }
+                    ArkScenePlayer(scene: Self.scene(for: selected.method), height: 170,
+                                   showsBeats: false, showsControls: false)
+                        .id(Self.scene(for: selected.method))
+                }
+                .inkCard()
+
                 VStack(spacing: 8) {
                     HoldToSendButton(title: "ながおしで おくる", holdingTitle: "そのまま…",
                                      onHoldChange: { holdingSend = $0 }) {
                         Task { await send() }
                     }
                     .disabled(!canSend)
-                    Text("ボタンを おしたままにすると オレンジが たまって おくれます")
+                    Text(holdingSend ? "そのまま…" : "ボタンを おしたままにすると オレンジが たまって おくれます")
                         .font(Brush.text(12))
                         .foregroundStyle(Ink.sub)
                         .multilineTextAlignment(.center)
@@ -401,20 +386,20 @@ struct SendView: View {
     // MARK: - Sending
 
     private var sendingStage: some View {
-        VStack(spacing: 24) {
-            onTheBank(height: 130) {
-                DeliveringFrog(height: 100)
-            }
-            .padding(.top, 20)
-
+        VStack(spacing: 18) {
             if let sentAmount {
                 AmountText(sats: sentAmount, unit: settings.unit, size: 40)
+                    .padding(.top, 12)
             }
             HStack(spacing: 10) {
-                InkDots(size: 6)
-                Text("かえるが とどけています")
+                InkDots(size: 5)
+                Text("とどけています")
                     .font(Brush.text(15))
                     .foregroundStyle(Ink.sub)
+            }
+            if let method = selected?.method {
+                ArkScenePlayer(scene: Self.scene(for: method), height: 210, showsBeats: false, showsControls: false)
+                    .inkCard()
             }
         }
         .frame(maxWidth: .infinity)
@@ -442,32 +427,27 @@ struct SendView: View {
 
     private var doneStage: some View {
         VStack(spacing: 18) {
-            onTheBank(height: 130) {
-                if lightning == .routing {
-                    DeliveringFrog(height: 96)
-                } else if lightningFailed {
-                    CharacterView(art: .frogSit, height: 96)
-                } else {
-                    CharacterView(art: .frogBanzai, height: 110)
-                        .jumpingForJoy(height: 16)
-                }
-            }
-            .padding(.top, 8)
-
             Group {
-                if delivered {
-                    WavyTitle(text: doneTitle, font: Brush.bold(30, relativeTo: .title))
+                if lightning == .routing {
+                    InkDots(size: 6)
+                        .frame(width: 56, height: 56)
+                } else if lightningFailed {
+                    InkIcon(kind: .alert, size: 28, lineWidth: 2, color: Ink.alert)
+                        .frame(width: 56, height: 56)
+                        .overlay(Circle().strokeBorder(Ink.alert.opacity(0.4), lineWidth: 1))
                 } else {
-                    Text(doneTitle)
-                        .font(Brush.bold(30, relativeTo: .title))
+                    InkIcon(kind: .check, size: 28, lineWidth: 2.2, color: Ink.paper)
+                        .frame(width: 56, height: 56)
+                        .background(Ink.orange, in: Circle())
+                        .pop(trigger: 1, from: 0.5)
                 }
             }
-            .foregroundStyle(lightningFailed ? Ink.alert : Ink.ink)
-            .overlay(alignment: .trailing) {
-                SlamSeal(text: "届", active: delivered)
-                    .offset(x: 44)
-            }
-            .animation(.easeOut(duration: 0.2), value: doneTitle)
+            .padding(.top, 16)
+
+            Text(doneTitle)
+                .font(Brush.bold(24, relativeTo: .title))
+                .foregroundStyle(lightningFailed ? Ink.alert : Ink.ink)
+                .animation(.easeOut(duration: 0.2), value: doneTitle)
 
             if let sentAmount {
                 CountUpText(value: sentAmount) { "-" + SatFormat.amount($0, unit: settings.unit) }
@@ -506,10 +486,10 @@ struct SendView: View {
 
     private func failedStage(_ message: String) -> some View {
         VStack(spacing: 18) {
-            onTheBank(height: 110) {
-                DroopyFrog(height: 90)
-            }
-            .padding(.top, 12)
+            InkIcon(kind: .alert, size: 28, lineWidth: 2, color: Ink.alert)
+                .frame(width: 56, height: 56)
+                .overlay(Circle().strokeBorder(Ink.alert.opacity(0.4), lineWidth: 1))
+                .padding(.top, 16)
             Text("おくれませんでした")
                 .font(Brush.bold(26, relativeTo: .title))
                 .foregroundStyle(Ink.alert)
@@ -525,23 +505,6 @@ struct SendView: View {
             .inkCard()
             InkButton("やりなおす") { go(.review, forward: false) }
             InkButton("さいしょから", kind: .secondary) { reset() }
-        }
-    }
-
-    /// A character standing on the stream bank (the bank is 46 pt down
-    /// the 130 pt scene, which runs edge to edge under the sheet's padding).
-    private func onTheBank<Content: View>(height: CGFloat, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(spacing: 0) {
-            content()
-                .frame(height: height, alignment: .bottom)
-                .frame(maxWidth: .infinity)
-                .clipped()
-                .zIndex(1)
-            SceneView(name: "stream")
-                .overlay(StreamRipples())
-                .frame(height: 130)
-                .padding(.top, -46)
-                .padding(.horizontal, -18)
         }
     }
 
@@ -630,7 +593,7 @@ struct SendView: View {
         do {
             let paid = try await store.pay(method, amount: amount, comment: comment.isEmpty ? nil : comment)
             result = paid
-            // let the frog make at least one trip
+            // let the route diagram play for a moment
             let elapsed = Date().timeIntervalSince(started)
             if !reduceMotion, elapsed < 1.6 {
                 try? await Task.sleep(nanoseconds: UInt64((1.6 - elapsed) * 1_000_000_000))
@@ -702,6 +665,14 @@ struct SendView: View {
         case .paid: return "とどいた"
         case .failed(let reason): return "しっぱい（\(reason.prefix(30))）"
         case .none: return "—"
+        }
+    }
+
+    static func scene(for method: PaymentMethod) -> ArkScene {
+        switch method {
+        case .ark, .custom: return .arkoor
+        case .bitcoin, .outputScript: return .offboard
+        case .invoice, .offer, .lightningAddress, .lnurl: return .lightning
         }
     }
 

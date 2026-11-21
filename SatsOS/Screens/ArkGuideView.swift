@@ -1,65 +1,179 @@
 import Bark
 import SwiftUI
 
-/// しくみ図鑑: Ark explained twice for every word — once as the aquarium
-/// picture, once as what really happens — plus the live rules of the server
-/// this wallet talks to, and a little quiz.
-struct ArkGuideView: View {
-    @EnvironmentObject private var store: WalletStore
-    @Environment(\.dismiss) private var dismiss
+/// しくみ: the tab. Animated diagrams first, then the words and the rules.
+struct LearnView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("しくみ")
+                        .font(Brush.bold(26, relativeTo: .title))
+                        .foregroundStyle(Ink.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Ark が ビットコインを どう うごかすか")
+                        .font(Brush.text(14))
+                        .foregroundStyle(Ink.sub)
+                }
+                .padding(.top, 14)
+                ArkLearnContent()
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
+        }
+        .background(PaperBackground())
+    }
+}
 
-    @State private var open: Set<String> = ["vtxo"]
+/// しくみ図鑑 as a sheet (from the aquarium and a fish's detail).
+struct ArkGuideView: View {
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
             SheetHeader(title: "しくみ図鑑", onClose: { dismiss() })
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("Ark は ビットコインを オンチェーンの 外で すばやく 安く うごかす しくみ。すいそうに たとえると こうなります。")
-                        .font(Brush.text(14))
-                        .foregroundStyle(Ink.sub)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    VStack(spacing: 10) {
-                        ForEach(GuideEntry.all) { entry in
-                            GuideCard(entry: entry, expanded: open.contains(entry.id)) {
-                                Chiptune.shared.play(.click)
-                                Haptics.tap()
-                                withAnimation(.spring(duration: 0.3)) {
-                                    if open.contains(entry.id) {
-                                        open.remove(entry.id)
-                                    } else {
-                                        open.insert(entry.id)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    rules
-
-                    ArkQuiz()
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 30)
-                .frame(maxWidth: 560)
-                .frame(maxWidth: .infinity)
+                ArkLearnContent()
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 30)
+                    .frame(maxWidth: 560)
+                    .frame(maxWidth: .infinity)
             }
         }
         .background(PaperBackground())
     }
+}
 
-    /// The numbers behind the picture, straight from the server.
+/// The diagrams, the glossary (each word twice: the aquarium picture and
+/// what really happens), the live server rules and a little quiz.
+struct ArkLearnContent: View {
+    @EnvironmentObject private var store: WalletStore
+
+    @State private var scene: ArkScene = Autopilot.learnScene ?? .arkoor
+    @State private var open: Set<String> = ["vtxo"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            scenePicker
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(scene.title)
+                        .font(Brush.bold(17))
+                        .foregroundStyle(Ink.ink)
+                    Text(scene.summary)
+                        .font(Brush.text(13))
+                        .foregroundStyle(Ink.sub)
+                }
+                ArkScenePlayer(scene: scene)
+            }
+            .inkCard(padding: 16)
+            .id(scene)
+            .transition(.opacity)
+
+            legend
+
+            Text("ことば")
+                .font(Brush.bold(15))
+                .foregroundStyle(Ink.ink)
+                .padding(.top, 4)
+            VStack(spacing: 8) {
+                ForEach(GuideEntry.all) { entry in
+                    GuideCard(entry: entry, expanded: open.contains(entry.id)) {
+                        Chiptune.shared.play(.click)
+                        Haptics.tap()
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            if open.contains(entry.id) {
+                                open.remove(entry.id)
+                            } else {
+                                open.insert(entry.id)
+                            }
+                        }
+                    }
+                }
+            }
+
+            rules
+
+            ArkQuiz()
+        }
+        .animation(.easeOut(duration: 0.2), value: scene)
+    }
+
+    private var scenePicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(ArkScene.allCases) { item in
+                    let selected = item == scene
+                    Button {
+                        Chiptune.shared.play(.select)
+                        Haptics.tap()
+                        scene = item
+                    } label: {
+                        Text(item.title)
+                            .font(Brush.bold(13))
+                            .foregroundStyle(selected ? Ink.paper : Ink.ink)
+                            .padding(.horizontal, 12)
+                            .frame(height: 32)
+                            .background(selected ? Ink.ink : Ink.paper,
+                                        in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                                    .strokeBorder(selected ? Ink.ink : Ink.line, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal, 1)
+        }
+    }
+
+    /// How to read the diagrams.
+    private var legend: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("図の 見かた")
+                .font(Brush.bold(14))
+                .foregroundStyle(Ink.ink)
+            legendRow(Canvas { gc, size in
+                ArkDraw.coin(gc, CGPoint(x: size.width / 2, y: size.height / 2), r: 7, life: 0.7)
+            }, "VTXO。まわりの リングは 期限までの のこり")
+            legendRow(Canvas { gc, size in
+                ArkDraw.tx(gc, CGPoint(x: size.width / 2, y: size.height / 2), color: Ink.orange)
+            }, "取引（トランザクション）")
+            legendRow(Canvas { gc, size in
+                let rect = CGRect(x: size.width / 2 - 8, y: size.height / 2 - 8, width: 16, height: 16)
+                gc.fill(Path(roundedRect: rect, cornerRadius: 3), with: .color(Ink.wash))
+                gc.stroke(Path(roundedRect: rect, cornerRadius: 3), with: .color(Ink.line), lineWidth: 1)
+            }, "ビットコインの ブロック。下の 段が チェーン、上が Ark")
+        }
+        .inkCard()
+    }
+
+    private func legendRow<Glyph: View>(_ glyph: Glyph, _ text: String) -> some View {
+        HStack(spacing: 10) {
+            glyph.frame(width: 32, height: 28)
+            Text(text)
+                .font(Brush.text(13))
+                .foregroundStyle(Ink.sub)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// The numbers behind the pictures, straight from the server.
     private var rules: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("この サーバーの きまり")
-                .font(Brush.bold(16))
+                .font(Brush.bold(15))
                 .foregroundStyle(Ink.ink)
             Text(store.network.serverHost)
                 .font(Brush.mono(12))
                 .foregroundStyle(Ink.sub)
             if let info = store.arkInfo {
-                InfoRow(label: "ラウンド（いっせい こうかん）", value: "\(RoundTime.text(info.roundIntervalSecs))ごと")
+                InfoRow(label: "ラウンド", value: "\(RoundTime.text(info.roundIntervalSecs))ごと")
                 InfoRow(label: "VTXO の いのち",
                         value: "\(SatFormat.sats(UInt64(info.vtxoLifetime))) ブロック（\(Fish.roughTime(blocks: Int64(info.vtxoLifetime)))）")
                 InfoRow(label: "ひとりで出るときの 待ち",
@@ -163,11 +277,11 @@ private struct GuideCard: View {
             Button(action: toggle) {
                 HStack {
                     Text(entry.word)
-                        .font(Brush.bold(16))
+                        .font(Brush.bold(15))
                         .foregroundStyle(Ink.ink)
                         .multilineTextAlignment(.leading)
                     Spacer()
-                    InkIcon(kind: .back, size: 16, lineWidth: 2)
+                    InkIcon(kind: .back, size: 14, color: Ink.sub)
                         .rotationEffect(.degrees(expanded ? 90 : -90))
                 }
                 .contentShape(Rectangle())
@@ -183,7 +297,7 @@ private struct GuideCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .inkCard(padding: 14, radius: 20, border: Ink.ink.opacity(expanded ? 0.6 : 0.3))
+        .inkCard(padding: 14)
     }
 
     private func labeled(_ label: String, _ text: String, color: Color) -> some View {

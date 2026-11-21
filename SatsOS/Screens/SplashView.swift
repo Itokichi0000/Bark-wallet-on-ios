@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// While the wallet wakes up: the rabbit on the ground and the app name.
+/// While the wallet wakes up: the mark, the app name and the boot steps.
 /// If the Ark server can't be reached, the ways out are offered here.
 struct SplashView: View {
     @EnvironmentObject private var store: WalletStore
-    @State private var hopTick = 0
     @State private var confirmReset = false
 
     var body: some View {
@@ -12,28 +11,23 @@ struct SplashView: View {
             VStack(spacing: 18) {
                 Spacer(minLength: 80)
 
-                VStack(spacing: 0) {
-                    CharacterView(art: .rabbit2, height: 170)
-                        .breathing()
-                        .hop(trigger: hopTick)
-                        .onTapGesture {
-                            Haptics.tap()
-                            hopTick += 1
-                        }
-                    GroundLine()
-                        .frame(width: 220)
-                }
-                .appearIn()
+                ArkMark(size: 76)
+                    .appearIn()
 
                 VStack(spacing: 4) {
                     Text("ちょうじゅ")
-                        .font(Brush.bold(34, relativeTo: .largeTitle))
+                        .font(Brush.bold(28, relativeTo: .largeTitle))
                         .foregroundStyle(Ink.ink)
-                    Text("Choju")
+                    Text("Ark wallet")
                         .font(Brush.text(14))
                         .foregroundStyle(Ink.sub)
                 }
                 .appearIn(delay: 0.12)
+
+                if !store.bootLog.isEmpty, store.phase == .booting {
+                    bootSteps
+                        .appearIn(delay: 0.18)
+                }
 
                 status
                     .padding(.top, 10)
@@ -58,13 +52,36 @@ struct SplashView: View {
         } message: {
             Text("シードフレーズは残ります。残高はサーバーの助けで もどります。")
         }
-        .task {
-            // an occasional hop while waiting
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 2_400_000_000)
-                hopTick += 1
+    }
+
+    /// What the wallet is doing, one quiet line per step.
+    private var bootSteps: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(store.bootLog) { line in
+                HStack(spacing: 10) {
+                    Group {
+                        switch line.status {
+                        case .ok: InkIcon(kind: .check, size: 14, color: Ink.ink)
+                        case .busy: InkDots(color: Ink.sub, size: 3)
+                        case .warn: InkIcon(kind: .alert, size: 14, color: Ink.orange)
+                        case .fail: InkIcon(kind: .alert, size: 14, color: Ink.alert)
+                        }
+                    }
+                    .frame(width: 18)
+                    Text(line.name)
+                        .font(Brush.mono(12))
+                        .foregroundStyle(Ink.ink)
+                    Spacer(minLength: 8)
+                    Text(line.detail)
+                        .font(Brush.text(12))
+                        .foregroundStyle(Ink.sub)
+                        .lineLimit(1)
+                }
+                .transition(.opacity)
             }
         }
+        .inkCard(padding: 14)
+        .animation(.easeOut(duration: 0.2), value: store.bootLog.count)
     }
 
     @ViewBuilder
@@ -98,7 +115,7 @@ struct SplashView: View {
         default:
             HStack(spacing: 10) {
                 InkDots(color: Ink.sub, size: 6)
-                Text(store.phase == .ready ? "おはよう" : "うさぎが 目をさましています")
+                Text(store.phase == .ready ? "じゅんび できました" : "Ark サーバーに つないでいます")
                     .font(Brush.text(14))
                     .foregroundStyle(Ink.sub)
             }
