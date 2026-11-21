@@ -149,7 +149,14 @@ enum ArkDraw {
             }
         }
         if let quiet {
-            text(gc, quiet, pt(st.w / 2, st.blockY), size: 10, color: Ink.sub, bold: true)
+            // a plate of card colour so the words sit over the blocks, not on them
+            let label = gc.resolve(Text(quiet).font(Brush.bold(10)).foregroundColor(Ink.sub))
+            let size = label.measure(in: CGSize(width: st.w, height: 40))
+            let plate = CGRect(x: st.w / 2 - Double(size.width) / 2 - 8, y: st.blockY - Double(size.height) / 2 - 4,
+                               width: Double(size.width) + 16, height: Double(size.height) + 8)
+            gc.fill(Path(roundedRect: plate, cornerRadius: 6), with: .color(Ink.paper))
+            gc.stroke(Path(roundedRect: plate, cornerRadius: 6), with: .color(Ink.line), lineWidth: 1)
+            gc.draw(label, at: pt(st.w / 2, st.blockY))
         }
     }
 
