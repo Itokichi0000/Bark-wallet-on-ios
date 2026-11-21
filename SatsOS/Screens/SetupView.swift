@@ -65,34 +65,22 @@ struct SetupView: View {
 
     private var welcome: some View {
         VStack(spacing: 22) {
-            VStack(spacing: 0) {
-                HStack(alignment: .bottom, spacing: 0) {
-                    CharacterView(art: .rabbit2, height: 150)
-                        .breathing()
-                    CharacterView(art: .frogSit, height: 56)
-                        .scaleEffect(x: -1, y: 1)
-                        .breathing(0.04, period: 1.3)
-                        .padding(.bottom, 6)
-                }
-                GroundLine()
-                    .frame(width: 240)
-            }
-            .padding(.top, 50)
-            .appearIn()
-
-            VStack(spacing: 6) {
-                Text("はじめまして")
-                    .font(Brush.text(16))
-                    .foregroundStyle(Ink.sub)
+            VStack(spacing: 8) {
+                SealStamp(text: "寿", size: 36)
                 Text("ちょうじゅ")
-                    .font(Brush.bold(34, relativeTo: .largeTitle))
+                    .font(Brush.bold(28, relativeTo: .largeTitle))
                     .foregroundStyle(Ink.ink)
-                Text("うさぎと かえると いっしょに ビットコインを ためる おさいふ")
+                Text("Ark で ビットコインを すばやく・安く。\nしくみが 見える おさいふ")
                     .font(Brush.text(14))
                     .foregroundStyle(Ink.sub)
                     .multilineTextAlignment(.center)
             }
-            .appearIn(delay: 0.1)
+            .padding(.top, 40)
+            .appearIn()
+
+            ArkScenePlayer(scene: .arkoor, height: 190, showsBeats: false, showsControls: false)
+                .inkCard()
+                .appearIn(delay: 0.1)
 
             VStack(spacing: 12) {
                 InkButton("あたらしく つくる", sound: .select) {
@@ -149,12 +137,10 @@ struct SetupView: View {
         return VStack(spacing: 20) {
             header("シードフレーズ") { go(.welcome, forward: false) }
 
-            HStack(alignment: .bottom, spacing: 12) {
-                CharacterView(art: .rabbit2, height: 80)
-                SpeechBubble(text: "この \(words.count) 個の ことばが 鍵だよ")
-                    .padding(.bottom, 40)
-                Spacer(minLength: 0)
-            }
+            Text("この \(words.count) 個の ことばが あなたの 鍵です")
+                .font(Brush.bold(16))
+                .foregroundStyle(Ink.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 14) {
                 Text("紙に書いて、安全な場所に しまってください。スクリーンショットは とらないで。")

@@ -66,8 +66,6 @@ struct HistoryView: View {
                                 .foregroundStyle(Ink.sub)
                         }
                         Spacer(minLength: 8)
-                        CharacterView(art: .frogSit, height: 56)
-                            .breathing(0.04, period: 1.2)
                     }
                     .inkCard()
                     .appearIn()
@@ -90,15 +88,12 @@ struct HistoryView: View {
                         }
                     }
                     .padding(.vertical, 4)
-                    .background(Ink.paper, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
+                    .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+                    .overlay(BrushFrame())
                     .id(filter)
                     .transition(.opacity)
                 }
 
-                SceneView(name: "strip")
-                    .frame(height: 90)
-                    .padding(.horizontal, -18)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 24)
@@ -113,7 +108,7 @@ struct HistoryView: View {
             MovementDetailView(movement: movement)
                 .presentationDetents([.medium, .large])
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(28)
+                .presentationCornerRadius(20)
         }
     }
 }
@@ -159,6 +154,16 @@ struct MovementDetailView: View {
                     InfoRow(label: "ID", value: "#\(movement.id)")
                 }
                 .inkCard()
+
+                if let scene = movement.scene {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("この うごきの しくみ")
+                            .font(Brush.bold(15))
+                            .foregroundStyle(Ink.ink)
+                        ArkScenePlayer(scene: scene, height: 200, showsBeats: false, showsControls: false)
+                    }
+                    .inkCard()
+                }
 
                 ForEach(movement.sentTo, id: \.self) { value in
                     CopyBlock(title: "あて先", value: value)

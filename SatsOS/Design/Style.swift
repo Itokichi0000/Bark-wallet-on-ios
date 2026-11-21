@@ -1,28 +1,42 @@
 import SwiftUI
+import CoreText
 import UIKit
 
-// ちょうじゅ / Choju — ink on paper.
+// ちょうじゅ / Choju — quiet and plain.
 //
-// White and black like a Chōjū-giga scroll, with a little bitcoin orange.
-// Every color follows the device's light / dark setting.
+// A neutral zinc palette with hairline borders, after shadcn/ui: almost no
+// colour, so the one accent (bitcoin orange) and the Ark animations carry
+// the meaning. Every colour follows the device's light / dark setting.
+//
+// The names (`Ink`, `Brush`) are kept from the ink-on-paper design so every
+// screen picked up the new look at once.
 
 enum Ink {
-    /// Page background (warm paper / near black).
-    static let bg = Color(light: 0xF6F5F1, dark: 0x111111)
-    /// Cards, buttons, the characters' bodies.
-    static let paper = Color(light: 0xFFFFFF, dark: 0x1B1B1A)
-    /// Main text and brush lines.
-    static let ink = Color(light: 0x151515, dark: 0xF1F0EC)
-    /// Secondary text.
-    static let sub = Color(light: 0x5E5E5A, dark: 0xA8A7A2)
-    /// Hairlines and borders.
-    static let line = Color(light: 0xD6D4CC, dark: 0x3A3A37)
-    /// Light ink wash (薄墨) on the characters.
-    static let wash = Color(light: 0x151515, dark: 0xF1F0EC, opacity: 0.2)
-    /// Bitcoin orange, used sparingly: arrivals, growth, the hold bar.
+    /// Page background.
+    static let bg = Color(light: 0xFAFAFA, dark: 0x09090B)
+    /// Cards and inputs (shadcn `card`).
+    static let paper = Color(light: 0xFFFFFF, dark: 0x111113)
+    /// Main text, primary buttons (shadcn `foreground` / `primary`).
+    static let ink = Color(light: 0x09090B, dark: 0xFAFAFA)
+    /// Secondary text (shadcn `muted-foreground`).
+    static let sub = Color(light: 0x71717A, dark: 0xA1A1AA)
+    /// Hairlines and borders (shadcn `border`).
+    static let line = Color(light: 0xE4E4E7, dark: 0x27272A)
+    /// Quiet fills: chips, tracks, secondary buttons (shadcn `muted`).
+    static let wash = Color(light: 0xF4F4F5, dark: 0x1C1C1F)
+    /// Bitcoin orange: the one accent. Your sats, arrivals, the live part of a diagram.
     static let orange = Color(hex: 0xF7931A)
-    /// Warnings and errors: a dark orange-brown that reads on both papers.
-    static let alert = Color(light: 0xA4370F, dark: 0xFFB066)
+    /// Warnings and errors (shadcn `destructive`).
+    static let alert = Color(light: 0xDC2626, dark: 0xF87171)
+    /// The Ark server and rounds in diagrams.
+    static let server = Color(light: 0x3F3F46, dark: 0xD4D4D8)
+}
+
+/// Corner radii (shadcn `--radius` scale).
+enum Radius {
+    static let small: CGFloat = 8
+    static let control: CGFloat = 10
+    static let card: CGFloat = 14
 }
 
 extension Color {
@@ -50,25 +64,49 @@ extension Color {
     }
 }
 
-/// Klee One (SIL OFL 1.1): pencil handwriting that stays readable for
-/// amounts and addresses. Scales with Dynamic Type.
+/// The system font (SF Pro / Hiragino), scaled with Dynamic Type from the
+/// given size. Amounts use tabular digits so they don't jiggle while counting.
 enum Brush {
     static func text(_ size: CGFloat, relativeTo style: Font.TextStyle = .body) -> Font {
-        .custom("KleeOne-Regular", size: size, relativeTo: style)
+        scaled(size, .regular, style)
     }
 
     static func bold(_ size: CGFloat, relativeTo style: Font.TextStyle = .body) -> Font {
-        .custom("KleeOne-SemiBold", size: size, relativeTo: style)
+        scaled(size, .semibold, style)
     }
 
     /// Big balances and amounts.
     static func amount(_ size: CGFloat) -> Font {
-        .custom("KleeOne-SemiBold", size: size, relativeTo: .largeTitle)
+        scaled(size, .semibold, .largeTitle).monospacedDigit()
     }
 
     /// Addresses, invoices, hashes.
     static func mono(_ size: CGFloat = 13) -> Font {
         .system(size: size, design: .monospaced)
+    }
+
+    private static func scaled(_ size: CGFloat, _ weight: UIFont.Weight, _ style: Font.TextStyle) -> Font {
+        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        let metrics = UIFontMetrics(forTextStyle: style.uiTextStyle)
+        return Font(metrics.scaledFont(for: base) as CTFont)
+    }
+}
+
+private extension Font.TextStyle {
+    var uiTextStyle: UIFont.TextStyle {
+        switch self {
+        case .largeTitle: return .largeTitle
+        case .title: return .title1
+        case .title2: return .title2
+        case .title3: return .title3
+        case .headline: return .headline
+        case .subheadline: return .subheadline
+        case .callout: return .callout
+        case .footnote: return .footnote
+        case .caption: return .caption1
+        case .caption2: return .caption2
+        default: return .body
+        }
     }
 }
 

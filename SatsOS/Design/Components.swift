@@ -18,32 +18,32 @@ struct InkButtonStyle: ButtonStyle {
         case .danger: text = Ink.alert
         }
         return configuration.label
-            .font(Brush.bold(17))
+            .font(Brush.bold(16))
             .foregroundStyle(text)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: height)
+            .frame(maxWidth: .infinity, minHeight: min(height, 52))
             .background { backdrop }
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(duration: 0.2), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 
-    /// Primary buttons are painted with a broad brush; the others are
-    /// paper with a brushed outline.
+    /// shadcn variants: default (solid), secondary (muted fill), outline,
+    /// destructive outline.
     @ViewBuilder
     private var backdrop: some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
         switch kind {
         case .primary:
-            InkBlock(color: Ink.ink)
+            shape.fill(Ink.ink)
         case .secondary:
-            BrushFrame(color: Ink.ink)
-                .background(Ink.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            shape.fill(Ink.wash)
         case .quiet:
-            BrushFrame(color: Ink.ink.opacity(0.35))
+            shape.fill(Ink.paper).overlay(shape.strokeBorder(Ink.line, lineWidth: 1))
         case .danger:
-            BrushFrame(color: Ink.alert)
-                .background(Ink.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            shape.fill(Ink.paper).overlay(shape.strokeBorder(Ink.alert.opacity(0.5), lineWidth: 1))
         }
     }
 }
@@ -108,13 +108,18 @@ struct InkChip: View {
         } label: {
             Text(title)
                 .font(Brush.bold(14))
-                .foregroundStyle(selected ? Ink.paper : Ink.ink)
+                .foregroundStyle(selected ? Ink.ink : Ink.sub)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity, minHeight: 40)
-                .background(selected ? Ink.ink : Ink.paper, in: Capsule())
-                .overlay(Capsule().stroke(selected ? Ink.ink : Ink.line, lineWidth: 1.5))
+                .frame(maxWidth: .infinity, minHeight: 34)
+                .background(selected ? Ink.paper : Color.clear,
+                            in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                        .strokeBorder(selected ? Ink.line : Color.clear, lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(selected ? 0.05 : 0), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -133,10 +138,15 @@ struct CircleIconButton: View {
             Haptics.tap()
             action()
         } label: {
-            InkIcon(kind: icon, size: 20)
+            InkIcon(kind: icon, size: 18)
+                .frame(width: 40, height: 40)
+                .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                        .strokeBorder(Ink.line, lineWidth: 1)
+                )
+                .contentShape(Rectangle())
                 .frame(width: 44, height: 44)
-                .background(Ink.paper, in: Circle())
-                .overlay(Circle().stroke(Ink.line, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -148,11 +158,12 @@ struct CircleIconButton: View {
 struct InkIcon: View {
     enum Kind {
         case send, receive, gear, close, back, home, record, rabbit, scan, paste, copy, share, check, alert, refresh
+        case fish, book, play, pause
     }
 
     var kind: Kind
     var size: CGFloat = 22
-    var lineWidth: CGFloat = 1.9
+    var lineWidth: CGFloat = 1.6
     var color: Color?
 
     var body: some View {
@@ -222,6 +233,21 @@ struct InkIcon: View {
                 path.addArc(center: p(12, 12), radius: 7 * s, startAngle: .degrees(-60), endAngle: .degrees(240), clockwise: false)
                 path.move(to: p(15.5, 5.9)); path.addLine(to: p(16, 2.5))
                 path.move(to: p(15.5, 5.9)); path.addLine(to: p(19, 6.5))
+            case .fish:
+                path.move(to: p(3.5, 12)); path.addQuadCurve(to: p(17, 12), control: p(10, 3.5))
+                path.addQuadCurve(to: p(3.5, 12), control: p(10, 20.5))
+                path.move(to: p(17, 12)); path.addLine(to: p(21, 8)); path.addLine(to: p(21, 16)); path.closeSubpath()
+                path.move(to: p(7.6, 10.6)); path.addLine(to: p(7.7, 10.7))
+            case .play:
+                path.move(to: p(8, 5)); path.addLine(to: p(19, 12)); path.addLine(to: p(8, 19)); path.closeSubpath()
+            case .pause:
+                path.move(to: p(9, 5)); path.addLine(to: p(9, 19))
+                path.move(to: p(15, 5)); path.addLine(to: p(15, 19))
+            case .book:
+                path.move(to: p(12, 6)); path.addQuadCurve(to: p(3, 5), control: p(7, 3.5))
+                path.addLine(to: p(3, 19)); path.addQuadCurve(to: p(12, 20), control: p(7, 17.5)); path.closeSubpath()
+                path.move(to: p(12, 6)); path.addQuadCurve(to: p(21, 5), control: p(17, 3.5))
+                path.addLine(to: p(21, 19)); path.addQuadCurve(to: p(12, 20), control: p(17, 17.5)); path.closeSubpath()
             }
             gc.stroke(path, with: .color(color ?? Ink.ink),
                       style: StrokeStyle(lineWidth: lineWidth * s, lineCap: .round, lineJoin: .round))
@@ -234,79 +260,83 @@ struct InkIcon: View {
 // MARK: - Cards & rows
 
 extension View {
-    /// A sheet of paper with a hand-brushed outline.
-    func inkCard(padding: CGFloat = 16, radius: CGFloat = 22, border: Color = Ink.ink.opacity(0.4)) -> some View {
+    /// A card: white (or near black) with a hairline border.
+    func inkCard(padding: CGFloat = 16, radius: CGFloat = Radius.card, border: Color = Ink.line) -> some View {
         self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Ink.paper, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(BrushFrame(color: border))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(border, lineWidth: 1)
+            )
     }
 }
 
-// MARK: - Brushed pieces (render.mjs: ui-*)
+// MARK: - Frames and fills
 
-/// A rounded outline drawn with a brush; stretches to any size.
+/// A hairline rounded border; stretches to any size.
 struct BrushFrame: View {
-    var color: Color = Ink.ink
+    var color: Color = Ink.line
+    var radius: CGFloat = Radius.card
 
     var body: some View {
-        Image("ui-frame")
-            .renderingMode(.template)
-            .resizable(capInsets: EdgeInsets(top: 26, leading: 26, bottom: 26, trailing: 26), resizingMode: .stretch)
-            .foregroundStyle(color)
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .strokeBorder(color, lineWidth: 1)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
 }
 
-/// A rounded block painted in ink with a broad brush.
+/// A solid rounded block.
 struct InkBlock: View {
     var color: Color = Ink.ink
 
     var body: some View {
-        Image("ui-ink-button")
-            .renderingMode(.template)
-            .resizable(capInsets: EdgeInsets(top: 24, leading: 24, bottom: 24, trailing: 24), resizingMode: .stretch)
-            .foregroundStyle(color)
+        RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+            .fill(color)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
 }
 
-/// Warm paper with faint washi fibres, behind every screen.
+/// The plain page colour behind every screen.
 struct PaperBackground: View {
     var body: some View {
-        ZStack {
-            Ink.bg
-            Image("ui-paper")
-                .renderingMode(.template)
-                .resizable(resizingMode: .tile)
-                .foregroundStyle(Ink.ink.opacity(0.07))
-        }
-        .ignoresSafeArea()
-        .accessibilityHidden(true)
+        Ink.bg
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
     }
 }
 
-/// An orange seal stamp (落款), like the red seals on scrolls.
+/// A small orange square mark with one character.
 struct SealStamp: View {
     var text: String
     var size: CGFloat = 24
 
     var body: some View {
         Text(text)
-            .font(Brush.bold(size * 0.62))
+            .font(Brush.bold(size * 0.55))
             .foregroundStyle(Color.white)
             .frame(width: size, height: size)
-            .background(Ink.orange, in: RoundedRectangle(cornerRadius: size * 0.18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: size * 0.12, style: .continuous)
-                    .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                    .padding(2.5)
-            )
-            .rotationEffect(.degrees(-4))
+            .background(Ink.orange, in: RoundedRectangle(cornerRadius: size * 0.26, style: .continuous))
             .accessibilityHidden(true)
+    }
+}
+
+/// `MAINNET` / `テスト用` style badge (shadcn `Badge`, outline variant).
+struct InkBadge: View {
+    var text: String
+    var color: Color = Ink.sub
+
+    var body: some View {
+        Text(text)
+            .font(Brush.bold(11, relativeTo: .caption))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .overlay(Capsule().strokeBorder(Ink.line, lineWidth: 1))
+            .fixedSize()
     }
 }
 
@@ -315,7 +345,7 @@ struct SectionLabel: View {
     var text: String
     var body: some View {
         Text(text)
-            .font(Brush.text(13, relativeTo: .footnote))
+            .font(Brush.bold(12, relativeTo: .footnote))
             .foregroundStyle(Ink.sub)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -347,84 +377,15 @@ struct InfoRow: View {
     }
 }
 
-/// A light brush stroke between rows.
+/// A hairline between rows.
 struct DashedDivider: View {
-    var color: Color = Ink.ink.opacity(0.28)
+    var color: Color = Ink.line
 
     var body: some View {
-        Image("ui-divider")
-            .renderingMode(.template)
-            .resizable()
-            .foregroundStyle(color)
-            .frame(height: 6)
+        Rectangle()
+            .fill(color)
+            .frame(height: 1)
             .accessibilityHidden(true)
-    }
-}
-
-/// The brushed ground under the characters, with a tuft of grass.
-struct GroundLine: View {
-    var body: some View {
-        Image("ui-ground")
-            .renderingMode(.template)
-            .resizable()
-            .foregroundStyle(Ink.ink)
-            .frame(height: 20)
-            .accessibilityHidden(true)
-    }
-}
-
-/// `●●●●●●○○○○` progress toward the next friend; the newest filled dot is orange.
-struct GrowthDots: View {
-    var progress: Double
-    var count = 10
-
-    var body: some View {
-        let filled = Int((Double(count) * progress).rounded(.down))
-        HStack(spacing: 4) {
-            ForEach(0..<count, id: \.self) { index in
-                Circle()
-                    .fill(index < filled ? (index == filled - 1 ? Ink.orange : Ink.ink) : Color.clear)
-                    .overlay(Circle().stroke(Ink.ink, lineWidth: 1.5))
-                    .frame(width: 9, height: 9)
-            }
-        }
-        .animation(.spring(duration: 0.4), value: filled)
-        .accessibilityElement(children: .ignore)
-        .accessibilityValue("\(Int(progress * 100))%")
-    }
-}
-
-/// Rounded speech bubble.
-struct SpeechBubble: View {
-    var text: String
-    var body: some View {
-        Text(text)
-            .font(Brush.text(14))
-            .foregroundStyle(Ink.ink)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Ink.paper, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Ink.ink, lineWidth: 1.5))
-            .fixedSize()
-    }
-}
-
-/// `なかま 3/5` badge.
-struct FriendsBadge: View {
-    var count: Int
-    var total = Friend.allCases.count
-    var body: some View {
-        HStack(spacing: 6) {
-            Text("なかま")
-            Text("\(count)/\(total)")
-                .contentTransition(.numericText(value: Double(count)))
-        }
-        .font(Brush.bold(13))
-        .foregroundStyle(Ink.paper)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
-        .background(Ink.ink, in: Capsule())
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -449,7 +410,7 @@ struct SheetHeader: View {
                 .accessibilityLabel("もどる")
             }
             Text(title)
-                .font(Brush.bold(22, relativeTo: .title2))
+                .font(Brush.bold(20, relativeTo: .title2))
                 .foregroundStyle(Ink.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
@@ -601,9 +562,9 @@ struct ToastView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .background(Ink.paper, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(BrushFrame(color: Ink.ink))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .overlay(BrushFrame())
+        .shadow(color: .black.opacity(0.08), radius: 16, y: 6)
         .padding(.horizontal, 16)
         .accessibilityElement(children: .combine)
     }
@@ -640,8 +601,8 @@ struct QRCodeView: View {
             }
         }
         .aspectRatio(1, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(BrushFrame(color: Ink.ink))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .overlay(BrushFrame())
         .task(id: content) {
             image = Self.render(content)
         }
@@ -686,10 +647,10 @@ struct SeedGrid: View {
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 10)
-                .background(Ink.bg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Ink.bg, in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(index == shown - 1 ? Ink.orange : Ink.line, lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                        .strokeBorder(index == shown - 1 ? Ink.orange : Ink.line, lineWidth: 1)
                 )
             }
         }

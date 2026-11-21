@@ -186,52 +186,6 @@ struct FloatingDelta: View {
     }
 }
 
-// MARK: - Celebration
-
-/// Orange coins drifting down when sats arrive.
-struct CoinShower: View {
-    var trigger: Int
-
-    @State private var start: Date?
-    @State private var coins: [Coin] = (0..<36).map { _ in Coin() }
-
-    struct Coin {
-        let x = Double.random(in: 0...1)
-        let delay = Double.random(in: 0...0.7)
-        let speed = Double.random(in: 0.8...1.2)
-        let size = Double.random(in: 8...16)
-        let sway = Double.random(in: 8...22)
-    }
-
-    var body: some View {
-        TimelineView(.animation(paused: start == nil)) { context in
-            Canvas { gc, size in
-                guard let start else { return }
-                let elapsed = context.date.timeIntervalSince(start)
-                for coin in coins {
-                    let local = elapsed - coin.delay
-                    guard local > 0 else { continue }
-                    let y = -20 + local * local * 520 * coin.speed
-                    guard y < size.height + 20 else { continue }
-                    let x = coin.x * size.width + sin(local * 3 + coin.x * 9) * coin.sway
-                    let rect = CGRect(x: x, y: y, width: coin.size, height: coin.size)
-                    gc.fill(Path(ellipseIn: rect), with: .color(Ink.orange))
-                }
-            }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-        .onChange(of: trigger) { _, _ in
-            coins = (0..<36).map { _ in Coin() }
-            start = Date()
-            Task {
-                try? await Task.sleep(nanoseconds: 2_800_000_000)
-                start = nil
-            }
-        }
-    }
-}
-
 // MARK: - Hold to send
 
 /// Press and hold: an orange bar fills along the bottom, then it fires.
@@ -252,20 +206,20 @@ struct HoldToSendButton: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            Text(holding ? holdingTitle : title)
-                .font(Brush.bold(18))
-                .foregroundStyle(Ink.paper)
-                .frame(maxWidth: .infinity, minHeight: 64)
+            // the charge fills the whole button from the left
             GeometryReader { proxy in
                 Rectangle()
                     .fill(Ink.orange)
-                    .frame(width: proxy.size.width * progress, height: 6)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .frame(width: proxy.size.width * progress)
             }
+            Text(holding ? holdingTitle : title)
+                .font(Brush.bold(16))
+                .foregroundStyle(Ink.paper)
+                .frame(maxWidth: .infinity, minHeight: 52)
         }
         .background(InkBlock(color: Ink.ink))
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .scaleEffect(holding ? 0.97 : 1)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+        .scaleEffect(holding ? 0.985 : 1)
         .animation(.spring(duration: 0.25), value: holding)
         .opacity(isEnabled ? 1 : 0.35)
         .contentShape(Rectangle())

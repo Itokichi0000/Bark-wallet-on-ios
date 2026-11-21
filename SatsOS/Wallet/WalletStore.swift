@@ -21,7 +21,7 @@ struct WalletToast: Identifiable, Equatable {
     let style: Style
 }
 
-/// A payment that just landed, for the receive screen's celebration.
+/// A payment that just landed.
 struct IncomingPayment: Identifiable, Equatable {
     let id = UUID()
     let amount: UInt64
@@ -69,19 +69,27 @@ final class WalletStore: ObservableObject {
     @Published private(set) var fingerprint: String?
     @Published private(set) var isSyncing = false
     @Published private(set) var lastSync: Date?
-    @Published private(set) var celebrationTick = 0
     @Published private(set) var settledInvoices: Set<String> = []
     @Published var toast: WalletToast?
     /// Latest successful receive (Ark or Lightning).
     @Published private(set) var lastIncoming: IncomingPayment?
-    /// The receive sheet is open and celebrates arrivals itself.
+    /// The receive sheet is open and shows arrivals itself.
     var receiveOnScreen = false
-    /// Highest balance this wallet has ever held on the current network.
-    /// Friends arrive as it grows and never leave.
-    @Published private(set) var highestBalance: UInt64 = 0
-    /// The friends who just arrived, for the home room and the celebration.
-    @Published private(set) var friendArrival: FriendArrival?
-    private var highestLoaded = false
+    /// When the Ark server starts its next round.
+    @Published private(set) var nextRoundAt: Date?
+
+    // すいそう (Aquarium.swift): one fish per VTXO.
+    @Published private(set) var vtxos: [Vtxo] = []
+    /// The VTXOs bark itself says should be refreshed soon.
+    @Published private(set) var refreshIDs: Set<String> = []
+    /// Fish that just left the tank, so it can show them swimming away.
+    @Published private(set) var fishGhosts: [FishGhost] = []
+    /// When each fish that is new since the last look arrived.
+    @Published private(set) var fishArrivals: [String: Date] = [:]
+    /// The fish waiting for a round to be swapped for new ones.
+    @Published private(set) var refreshingIDs: Set<String> = []
+    var isRefreshingFish: Bool { !refreshingIDs.isEmpty }
+    private var vtxosLoaded = false
 
     private var wallet: Wallet?
     private var notificationTask: Task<Void, Never>?
@@ -120,13 +128,6 @@ final class WalletStore: ObservableObject {
     }
 
     var needsRefresh: UInt64 { balance?.needsRefreshSats ?? 0 }
-
-    var friends: Friends { Friends(highest: highestBalance) }
-
-    /// The celebration has greeted them; don't greet them again.
-    func clearFriendArrival() {
-        friendArrival = nil
-    }
 
     // MARK: - Boot
 
@@ -287,9 +288,13 @@ final class WalletStore: ObservableObject {
         blockHeight = nil
         announced = []
         settledInvoices = []
-        highestLoaded = false
-        highestBalance = 0
-        friendArrival = nil
+        nextRoundAt = nil
+        vtxos = []
+        refreshIDs = []
+        fishGhosts = []
+        fishArrivals = [:]
+        vtxosLoaded = false
+        refreshingIDs = []
     }
 
     func revealMnemonic() -> String? {
@@ -321,49 +326,92 @@ final class WalletStore: ObservableObject {
         if let history = try? await wallet.history() {
             movements = history.sorted { $0.id > $1.id }
         }
-        updateHighest()
-    }
-
-    // MARK: - Friends
-
-    private var highestKey: String { "highestBalance.\(network.rawValue)" }
-
-    /// Raises the highest balance from the current balance and from the
-    /// history (the running total at its peak), so friends also come for
-    /// highs reached on another device or before this version.
-    private func updateHighest() {
-        let hadRecord = UserDefaults.standard.object(forKey: highestKey) != nil
-        loadHighestIfNeeded()
-        var running: Int64 = 0
-        var peak: Int64 = 0
-        for movement in movements.reversed() where movement.isSuccessful {
-            running += Int64(movement.effectiveBalanceSats)
-            peak = max(peak, running)
+        if let fresh = try? await wallet.vtxos() {
+            updateFish(fresh)
         }
-        let candidate = max(spendable, UInt64(peak))
-        // The first time on this network: remember quietly, no fanfare for
-        // friends who were "always" there.
-        raiseHighest(to: candidate, announce: hadRecord, force: !hadRecord)
+        if let due = try? await wallet.getVtxosToRefresh() {
+            refreshIDs = Set(due.map(\.id))
+        }
+        await refreshNextRound()
     }
 
-    private func loadHighestIfNeeded() {
-        guard !highestLoaded else { return }
-        highestLoaded = true
-        highestBalance = UInt64(max(UserDefaults.standard.integer(forKey: highestKey), 0))
-        #if DEBUG
-        if let seed = Autopilot.seedHighest { highestBalance = seed }
-        #endif
+    /// Asks the server when its next round starts (for the countdown).
+    func refreshNextRound() async {
+        guard let wallet else { return }
+        if let seconds = try? await wallet.nextRoundStartTime(), seconds > 0 {
+            nextRoundAt = Date(timeIntervalSince1970: TimeInterval(seconds))
+        }
     }
 
-    private func raiseHighest(to candidate: UInt64, announce: Bool, force: Bool = false) {
-        guard candidate > highestBalance || force else { return }
-        let before = Set(Friend.arrived(for: highestBalance))
-        let value = max(candidate, highestBalance)
-        highestBalance = value
-        UserDefaults.standard.set(Int(clamping: value), forKey: highestKey)
-        let fresh = Friend.arrived(for: value).filter { !before.contains($0) }
-        if announce, !fresh.isEmpty {
-            friendArrival = FriendArrival(friends: fresh)
+    // MARK: - Aquarium
+
+    var school: [Fish] {
+        Fish.school(from: vtxos, height: blockHeight, lifetime: arkInfo?.vtxoLifetime,
+                    refreshIDs: refreshIDs, netted: refreshingIDs)
+    }
+
+    /// Fish that want fresh water: bark says refresh, about a day left, or expired.
+    var fishNeedingCare: [Fish] {
+        school.filter { $0.needsCare && !$0.isBusy }
+    }
+
+    /// Notes which fish left and which arrived since the last look, so the
+    /// tank can show a payment as fish swimming out and change swimming in.
+    private func updateFish(_ fresh: [Vtxo]) {
+        let live = fresh.filter { vtxo in
+            switch vtxo.state {
+            case .spendable, .locked: return true
+            case .spent, .exited: return false
+            }
+        }
+        defer {
+            vtxos = live
+            vtxosLoaded = true
+        }
+        // the first look after boot: every fish was already there
+        guard vtxosLoaded else { return }
+        let now = Date()
+        let newIDs = Set(live.map(\.id))
+        let oldIDs = Set(vtxos.map(\.id))
+        let gone = vtxos.filter { !newIDs.contains($0.id) }
+            .map { FishGhost(id: $0.id, amount: $0.amountSats, at: now) }
+        let cutoff = now.addingTimeInterval(-90)
+        fishGhosts = (fishGhosts.filter { $0.at > cutoff } + gone)
+        var arrivals = fishArrivals.filter { $0.value > cutoff }
+        for vtxo in live where !oldIDs.contains(vtxo.id) {
+            arrivals[vtxo.id] = now
+        }
+        fishArrivals = arrivals
+    }
+
+    /// The tank has played these; forget them.
+    func clearFishEvents() {
+        fishGhosts = []
+        fishArrivals = [:]
+    }
+
+    func refreshFee(ids: [String]) async throws -> FeeEstimate {
+        try await requireWallet().estimateRefreshFee(vtxoIds: ids)
+    }
+
+    /// みずかえ: trades the given VTXOs in the next round for new ones with a
+    /// fresh expiry. Waits for the round, so this can take a while.
+    func refreshFish(ids: [String]) async {
+        guard let wallet, !isRefreshingFish, !ids.isEmpty else { return }
+        // the tank shows them caught in the net while they wait for the round
+        refreshingIDs = Set(ids)
+        defer { refreshingIDs = [] }
+        do {
+            _ = try await wallet.refreshVtxos(vtxoIds: ids)
+            await refreshData()
+            showToast(.info, "みずかえ できた", "\(ids.count)ぴき が 新しい さかなに なったよ")
+            Chiptune.shared.play(.coin)
+            Haptics.success()
+        } catch {
+            await refreshData()
+            showToast(.error, "みずかえ できませんでした", error.barkMessage)
+            Chiptune.shared.play(.error)
+            Haptics.error()
         }
     }
 
@@ -431,12 +479,15 @@ final class WalletStore: ObservableObject {
         switch movement.kind {
         case .arkReceive, .lightningReceive:
             guard movement.isSuccessful else { return }
+            let rail = movement.kind == .arkReceive ? "Ark" : "ライトニング"
             lastIncoming = IncomingPayment(
                 amount: UInt64(movement.effectiveBalanceSats.magnitude),
-                rail: movement.kind == .arkReceive ? "Ark" : "ライトニング",
+                rail: rail,
                 paymentHash: movement.paymentHash
             )
-            celebrate()
+            if !receiveOnScreen {
+                showToast(.incoming, "うけとりました", "+\(amount) sats ・ \(rail)")
+            }
             Chiptune.shared.play(.coin)
             Haptics.success()
         case .arkSend, .lightningSend, .onchainSend:
@@ -512,7 +563,6 @@ final class WalletStore: ObservableObject {
     func markInvoiceSettled(_ paymentHash: String) {
         guard !settledInvoices.contains(paymentHash) else { return }
         settledInvoices.insert(paymentHash)
-        celebrate()
         Chiptune.shared.play(.coin)
         Haptics.success()
         Task { await refreshData() }
@@ -530,17 +580,10 @@ final class WalletStore: ObservableObject {
         }
     }
 
-    func celebrate() {
-        celebrationTick += 1
-    }
-
     #if DEBUG
     /// CI screenshots only: pretend an Ark payment just arrived.
     func simulateIncoming(_ amount: UInt64) {
         lastIncoming = IncomingPayment(amount: amount, rail: "Ark", paymentHash: nil)
-        loadHighestIfNeeded()
-        raiseHighest(to: highestBalance + amount, announce: true)
-        celebrate()
         Chiptune.shared.play(.coin)
     }
     #endif

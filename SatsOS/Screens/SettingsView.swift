@@ -15,61 +15,19 @@ struct SettingsView: View {
     @State private var deleteText = ""
     @State private var maintenanceStatus: String?
     @State private var runningMaintenance = false
-    @State private var rabbitLine = SettingsView.greeting
-    @State private var lineID = 0
-    @State private var rabbitPoke = 0
-    @State private var rabbitShiver = 0
-    @State private var frogPoke = 0
     @State private var deleteShake = 0
-
-    private static let greeting = "なんでも きいておくれ"
-    private static let tips = [
-        "シードは 紙に 書いておこうね",
-        "本番は 少しの金額から ためしてね",
-        "おていれは ときどきで だいじょうぶ",
-        "わからなければ テスト用で あそんでみて",
-    ]
 
     var body: some View {
         VStack(spacing: 0) {
             SheetHeader(title: "せってい", onClose: { close() })
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // the rabbit keeps the settings, and has something to say
-                    // about every switch you flip
-                    HStack(alignment: .bottom, spacing: 10) {
-                        FriendActor(critter: .rabbit, height: 104, range: 0...0, poke: rabbitPoke,
-                                    cheer: 0, cheerDelay: 0, turnedAway: revealedSeed != nil,
-                                    onSay: { say($0) })
-                            .shake(trigger: rabbitShiver)
-                            .onTapGesture {
-                                Chiptune.shared.play(.select)
-                                Haptics.tap()
-                                rabbitPoke += 1
-                                say(Self.tips.randomElement() ?? Self.greeting)
-                            }
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityHint("うさぎが ひとこと いいます")
-                        SpeechBubble(text: rabbitLine)
-                            .id(lineID)
-                            .transition(.scale(scale: 0.7, anchor: .bottomLeading).combined(with: .opacity))
-                            .padding(.bottom, 56)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.bottom, -8)
-                    .appearIn()
-                    GroundLine()
-                        .padding(.top, -20)
                     displaySection.appearIn(delay: 0)
                     networkSection.appearIn(delay: 0.05)
                     walletSection.appearIn(delay: 0.1)
                     serverSection.appearIn(delay: 0.15)
                     aboutSection.appearIn(delay: 0.2)
                     dangerSection.appearIn(delay: 0.25)
-                    SceneView(name: "strip")
-                        .overlay(FallingLeaves())
-                        .frame(height: 90)
-                        .padding(.horizontal, -18)
                 }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 12)
@@ -79,32 +37,8 @@ struct SettingsView: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .background(PaperBackground())
-        .onChange(of: settings.unit) { _, unit in
-            rabbitPoke += 1
-            say(unit == .sats ? "sats で かぞえるね" : "BTC で かぞえるね")
-        }
-        .onChange(of: settings.sound) { _, on in
-            say(on ? "おと オン ♪" : "しずかに するね")
-        }
-        .onChange(of: settings.haptics) { _, on in
-            if on { rabbitShiver += 1 }
-            say(on ? "ぶるぶるっ" : "ふるえ オフ")
-        }
-        .onChange(of: store.isSyncing) { _, syncing in
-            say(syncing ? "どうき するよ…" : "どうき できた！")
-        }
-        .onChange(of: runningMaintenance) { _, running in
-            say(running ? "おていれ おていれ…" : "ぴかぴか！")
-        }
-        .onChange(of: revealedSeed != nil) { _, shown in
-            say(shown ? "ないしょ ないしょ" : "もう いいかい？")
-        }
         .onChange(of: confirmDelete) { _, asking in
-            if asking {
-                rabbitShiver += 1
-                deleteShake += 1
-                say("ほんとに 消すの…？")
-            }
+            if asking { deleteShake += 1 }
         }
         .alert(
             pendingNetwork == .mainnet ? "本番（MAINNET）に切りかえますか？" : "テスト用（SIGNET）に切りかえますか？",
@@ -294,19 +228,10 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 InfoRow(label: "ちょうじゅ", value: "v\(AppInfo.version) (\(AppInfo.build))")
                 InfoRow(label: "Bark SDK", value: AppInfo.barkSDKVersion)
-                HStack(alignment: .bottom, spacing: 12) {
-                    Text("Ark プロトコルを使う、自分で鍵を持つ ビットコインのおさいふ。鍵は この iPhone のキーチェーンにだけ 保存されます。\n\nうさぎと かえるは、鳥獣人物戯画（パブリックドメイン）をもとに 描きました。\n文字: Klee One（SIL Open Font License 1.1）")
-                        .font(Brush.text(12))
-                        .foregroundStyle(Ink.sub)
-                        .fixedSize(horizontal: false, vertical: true)
-                    FriendActor(critter: .frog, height: 44, range: 0...0, poke: frogPoke, cheer: 0, cheerDelay: 0)
-                        .onTapGesture {
-                            Chiptune.shared.play(.click)
-                            Haptics.tap()
-                            frogPoke += 1
-                        }
-                        .accessibilityAddTraits(.isButton)
-                }
+                Text("Ark プロトコルを使う、自分で鍵を持つ ビットコインのおさいふ。鍵は この iPhone のキーチェーンにだけ 保存されます。")
+                    .font(Brush.text(12))
+                    .foregroundStyle(Ink.sub)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .inkCard()
         }
@@ -357,24 +282,6 @@ struct SettingsView: View {
             }
             .inkCard(border: Ink.alert.opacity(0.5))
             .shake(trigger: deleteShake)
-        }
-    }
-
-    /// Puts a line in the rabbit's bubble; it goes back to the greeting
-    /// after a while.
-    private func say(_ text: String) {
-        withAnimation(.spring(duration: 0.35, bounce: 0.3)) {
-            rabbitLine = text
-            lineID += 1
-        }
-        let id = lineID
-        Task {
-            try? await Task.sleep(nanoseconds: 4_500_000_000)
-            guard lineID == id else { return }
-            withAnimation(.spring(duration: 0.35, bounce: 0.3)) {
-                rabbitLine = Self.greeting
-                lineID += 1
-            }
         }
     }
 
