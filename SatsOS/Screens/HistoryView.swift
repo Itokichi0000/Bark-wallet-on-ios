@@ -33,7 +33,7 @@ struct HistoryView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("きろく")
-                        .font(Brush.bold(26, relativeTo: .title))
+                        .font(Brush.bold(30, relativeTo: .title))
                         .foregroundStyle(Ink.ink)
                         .accessibilityAddTraits(.isHeader)
                     Text("\(store.movements.count) 件")
@@ -47,7 +47,7 @@ struct HistoryView: View {
                     HStack(spacing: 8) {
                         ForEach(Filter.allCases) { item in
                             InkChip(title: item.label, selected: filter == item) {
-                                withAnimation(.easeOut(duration: 0.2)) { filter = item }
+                                withAnimation(Motion.glide) { filter = item }
                             }
                         }
                     }
@@ -90,6 +90,7 @@ struct HistoryView: View {
                     .padding(.vertical, 4)
                     .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                     .overlay(BrushFrame())
+                    .softShadow()
                     .id(filter)
                     .transition(.opacity)
                 }
@@ -108,7 +109,7 @@ struct HistoryView: View {
             MovementDetailView(movement: movement)
                 .presentationDetents([.medium, .large])
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(20)
+                .presentationCornerRadius(32)
         }
     }
 }
@@ -214,17 +215,17 @@ struct CopyBlock: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        InkIcon(kind: copied ? .check : .copy, size: 14, lineWidth: 2.2, color: copied ? Ink.paper : Ink.ink)
+                        InkIcon(kind: copied ? .check : .copy, size: 14, lineWidth: 2.2, color: copied ? Ink.onColor : Ink.server)
                         Text(copied ? "コピーした" : "コピー")
                     }
                     .font(Brush.bold(12))
-                    .foregroundStyle(copied ? Ink.paper : Ink.ink)
-                    .padding(.horizontal, 10)
+                    .foregroundStyle(copied ? Ink.onColor : Ink.server)
+                    .padding(.horizontal, 12)
                     .frame(minHeight: 32)
-                    .background(copied ? Ink.ink : Color.clear, in: Capsule())
-                    .overlay(Capsule().stroke(Ink.ink, lineWidth: 1.2))
+                    .background(copied ? Ink.good : Ink.serverSoft, in: Capsule())
+                    .animation(Motion.press, value: copied)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableStyle())
                 .pop(trigger: tick, from: 0.85)
             }
             Text(value)
@@ -233,8 +234,7 @@ struct CopyBlock: View {
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(Ink.paper, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Ink.line, lineWidth: 1.5))
+                .background(Ink.wash, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
         }
     }
 }

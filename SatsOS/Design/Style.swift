@@ -2,41 +2,69 @@ import SwiftUI
 import CoreText
 import UIKit
 
-// ちょうじゅ / Choju — quiet and plain.
+// ちょうじゅ / Choju — soft, colourful and always gently moving.
 //
-// A neutral zinc palette with hairline borders, after shadcn/ui: almost no
-// colour, so the one accent (bitcoin orange) and the Ark animations carry
-// the meaning. Every colour follows the device's light / dark setting.
+// A picture-book palette for learning: every idea in Ark has its own colour
+// and keeps it on every screen and in every diagram.
+//   orange  your sats (VTXOs)
+//   violet  the Ark server and its rounds; also the app's main buttons
+//   teal    the bitcoin chain and its blocks
+//   yellow  lightning
+//   pink    "look here": expiry near, errors
+// Every colour follows the device's light / dark setting.
 //
 // The names (`Ink`, `Brush`) are kept from the ink-on-paper design so every
-// screen picked up the new look at once.
+// screen picks the new look up at once.
 
 enum Ink {
     /// Page background.
-    static let bg = Color(light: 0xFAFAFA, dark: 0x09090B)
-    /// Cards and inputs (shadcn `card`).
-    static let paper = Color(light: 0xFFFFFF, dark: 0x111113)
-    /// Main text, primary buttons (shadcn `foreground` / `primary`).
-    static let ink = Color(light: 0x09090B, dark: 0xFAFAFA)
-    /// Secondary text (shadcn `muted-foreground`).
-    static let sub = Color(light: 0x71717A, dark: 0xA1A1AA)
-    /// Hairlines and borders (shadcn `border`).
-    static let line = Color(light: 0xE4E4E7, dark: 0x27272A)
-    /// Quiet fills: chips, tracks, secondary buttons (shadcn `muted`).
-    static let wash = Color(light: 0xF4F4F5, dark: 0x1C1C1F)
-    /// Bitcoin orange: the one accent. Your sats, arrivals, the live part of a diagram.
-    static let orange = Color(hex: 0xF7931A)
-    /// Warnings and errors (shadcn `destructive`).
-    static let alert = Color(light: 0xDC2626, dark: 0xF87171)
-    /// The Ark server and rounds in diagrams.
-    static let server = Color(light: 0x3F3F46, dark: 0xD4D4D8)
+    static let bg = Color(light: 0xF3F1FC, dark: 0x0E0D18)
+    /// Cards and inputs.
+    static let paper = Color(light: 0xFFFFFF, dark: 0x1B1929)
+    /// Main text.
+    static let ink = Color(light: 0x1F1B3D, dark: 0xF4F2FF)
+    /// Secondary text.
+    static let sub = Color(light: 0x6B6789, dark: 0xA9A5C6)
+    /// Hairlines and borders.
+    static let line = Color(light: 0xE3E0F3, dark: 0x302D45)
+    /// Quiet fills: chips, tracks, secondary buttons.
+    static let wash = Color(light: 0xECE9F9, dark: 0x262338)
+    /// Bitcoin orange: your sats.
+    static let orange = Color(light: 0xF98A0C, dark: 0xFFA43A)
+    static let orangeSoft = Color(light: 0xFFEFD9, dark: 0x3A2A14)
+    /// "Look here": expiry near, errors.
+    static let alert = Color(light: 0xE8356D, dark: 0xFF6F98)
+    static let alertSoft = Color(light: 0xFFE4EC, dark: 0x3B1826)
+    /// The Ark server and rounds; the app's main colour.
+    static let server = Color(light: 0x6B4EFF, dark: 0x9C89FF)
+    static let serverDeep = Color(light: 0x4B2FD6, dark: 0x6B4EFF)
+    static let serverSoft = Color(light: 0xEAE5FF, dark: 0x2A2450)
+    /// The bitcoin chain.
+    static let chain = Color(light: 0x0FA896, dark: 0x3FD9C6)
+    static let chainSoft = Color(light: 0xDDF6F2, dark: 0x12322F)
+    /// Lightning.
+    static let bolt = Color(light: 0xF2B100, dark: 0xFFD04A)
+    /// Done, healthy.
+    static let good = Color(light: 0x21B573, dark: 0x4FDB9B)
+    /// Text on a coloured fill.
+    static let onColor = Color.white
 }
 
-/// Corner radii (shadcn `--radius` scale).
+/// Corner radii: round and friendly.
 enum Radius {
-    static let small: CGFloat = 8
-    static let control: CGFloat = 10
-    static let card: CGFloat = 14
+    static let small: CGFloat = 12
+    static let control: CGFloat = 18
+    static let card: CGFloat = 26
+}
+
+/// The springs every screen shares, so the whole app moves the same way.
+enum Motion {
+    /// Things you touch: quick, a little bounce.
+    static let press = Animation.spring(response: 0.3, dampingFraction: 0.6)
+    /// Things that slide or resize.
+    static let glide = Animation.spring(response: 0.5, dampingFraction: 0.82)
+    /// Things that arrive.
+    static let bounce = Animation.spring(response: 0.55, dampingFraction: 0.62)
 }
 
 extension Color {
@@ -64,7 +92,7 @@ extension Color {
     }
 }
 
-/// The system font (SF Pro / Hiragino), scaled with Dynamic Type from the
+/// The rounded system font (SF Rounded / Hiragino), scaled with Dynamic Type from the
 /// given size. Amounts use tabular digits so they don't jiggle while counting.
 enum Brush {
     static func text(_ size: CGFloat, relativeTo style: Font.TextStyle = .body) -> Font {
@@ -72,12 +100,12 @@ enum Brush {
     }
 
     static func bold(_ size: CGFloat, relativeTo style: Font.TextStyle = .body) -> Font {
-        scaled(size, .semibold, style)
+        scaled(size, .bold, style)
     }
 
     /// Big balances and amounts.
     static func amount(_ size: CGFloat) -> Font {
-        scaled(size, .semibold, .largeTitle).monospacedDigit()
+        scaled(size, .heavy, .largeTitle).monospacedDigit()
     }
 
     /// Addresses, invoices, hashes.
@@ -86,7 +114,10 @@ enum Brush {
     }
 
     private static func scaled(_ size: CGFloat, _ weight: UIFont.Weight, _ style: Font.TextStyle) -> Font {
-        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        var base = UIFont.systemFont(ofSize: size, weight: weight)
+        if let rounded = base.fontDescriptor.withDesign(.rounded) {
+            base = UIFont(descriptor: rounded, size: size)
+        }
         let metrics = UIFontMetrics(forTextStyle: style.uiTextStyle)
         return Font(metrics.scaledFont(for: base) as CTFont)
     }

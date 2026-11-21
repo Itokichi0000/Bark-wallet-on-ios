@@ -48,6 +48,8 @@ struct FishDetailView: View {
     private func content(_ fish: Fish) -> some View {
         HStack(alignment: .center, spacing: 14) {
             FishGlyph(fish: fish, size: 96, swim: true)
+                .padding(12)
+                .background(Color(light: 0xBFEFFF, dark: 0x123A5C), in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {
                 AmountText(sats: fish.amount, unit: settings.unit, size: 32)
                 HealthChip(fish: fish)
@@ -97,9 +99,9 @@ struct FishDetailView: View {
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Ink.ink.opacity(0.07))
+                    Capsule().fill(Ink.wash)
                     Capsule()
-                        .fill(fish.needsCare ? Ink.alert : (fish.health == .fresh ? Ink.orange : Ink.ink))
+                        .fill(fish.needsCare ? Ink.alert : (fish.health == .fresh ? Ink.good : Ink.bolt))
                         .frame(width: max(geo.size.width * (fish.freshness ?? 0), 8))
                 }
             }

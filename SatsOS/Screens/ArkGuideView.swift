@@ -8,7 +8,7 @@ struct LearnView: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("しくみ")
-                        .font(Brush.bold(26, relativeTo: .title))
+                        .font(Brush.bold(30, relativeTo: .title))
                         .foregroundStyle(Ink.ink)
                         .accessibilityAddTraits(.isHeader)
                     Text("Ark が ビットコインを どう うごかすか")
@@ -53,6 +53,7 @@ struct ArkLearnContent: View {
 
     @State private var scene: ArkScene = Autopilot.learnScene ?? .arkoor
     @State private var open: Set<String> = ["vtxo"]
+    @Namespace private var pickerSpace
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -60,7 +61,7 @@ struct ArkLearnContent: View {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(scene.title)
-                        .font(Brush.bold(17))
+                        .font(Brush.bold(20))
                         .foregroundStyle(Ink.ink)
                     Text(scene.summary)
                         .font(Brush.text(13))
@@ -70,12 +71,12 @@ struct ArkLearnContent: View {
             }
             .inkCard(padding: 16)
             .id(scene)
-            .transition(.opacity)
+            .transition(.asymmetric(insertion: .scale(scale: 0.94).combined(with: .opacity), removal: .opacity))
 
             legend
 
             Text("ことば")
-                .font(Brush.bold(15))
+                .font(Brush.bold(17))
                 .foregroundStyle(Ink.ink)
                 .padding(.top, 4)
             VStack(spacing: 8) {
@@ -83,7 +84,7 @@ struct ArkLearnContent: View {
                     GuideCard(entry: entry, expanded: open.contains(entry.id)) {
                         Chiptune.shared.play(.click)
                         Haptics.tap()
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(Motion.glide) {
                             if open.contains(entry.id) {
                                 open.remove(entry.id)
                             } else {
@@ -98,36 +99,55 @@ struct ArkLearnContent: View {
 
             ArkQuiz()
         }
-        .animation(.easeOut(duration: 0.2), value: scene)
+        .animation(Motion.glide, value: scene)
     }
 
     private var scenePicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(ArkScene.allCases) { item in
-                    let selected = item == scene
-                    Button {
-                        Chiptune.shared.play(.select)
-                        Haptics.tap()
-                        scene = item
-                    } label: {
-                        Text(item.title)
-                            .font(Brush.bold(13))
-                            .foregroundStyle(selected ? Ink.paper : Ink.ink)
-                            .padding(.horizontal, 12)
-                            .frame(height: 32)
-                            .background(selected ? Ink.ink : Ink.paper,
-                                        in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
-                                    .strokeBorder(selected ? Ink.ink : Ink.line, lineWidth: 1)
-                            )
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(ArkScene.allCases.enumerated()), id: \.element.id) { index, item in
+                        let selected = item == scene
+                        Button {
+                            Chiptune.shared.play(.select)
+                            Haptics.tap()
+                            withAnimation(Motion.glide) {
+                                scene = item
+                                proxy.scrollTo(item.id, anchor: .center)
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text("\(index + 1)")
+                                    .font(Brush.bold(11))
+                                    .foregroundStyle(selected ? Ink.server : Ink.sub)
+                                    .frame(width: 20, height: 20)
+                                    .background(selected ? Color.white : Ink.wash, in: Circle())
+                                Text(item.title)
+                                    .font(Brush.bold(14))
+                                    .foregroundStyle(selected ? Ink.onColor : Ink.ink)
+                            }
+                            .padding(.leading, 8)
+                            .padding(.trailing, 14)
+                            .frame(height: 38)
+                            .background {
+                                if selected {
+                                    Capsule().fill(Ink.server)
+                                        .matchedGeometryEffect(id: "scene", in: pickerSpace)
+                                        .shadow(color: Ink.server.opacity(0.35), radius: 8, y: 4)
+                                } else {
+                                    Capsule().fill(Ink.paper)
+                                }
+                            }
+                        }
+                        .buttonStyle(PressableStyle(scale: 0.92))
+                        .id(item.id)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 1)
+            .padding(.horizontal, -16)
         }
     }
 
@@ -145,8 +165,7 @@ struct ArkLearnContent: View {
             }, "取引（トランザクション）")
             legendRow(Canvas { gc, size in
                 let rect = CGRect(x: size.width / 2 - 8, y: size.height / 2 - 8, width: 16, height: 16)
-                gc.fill(Path(roundedRect: rect, cornerRadius: 3), with: .color(Ink.wash))
-                gc.stroke(Path(roundedRect: rect, cornerRadius: 3), with: .color(Ink.line), lineWidth: 1)
+                gc.fill(Path(roundedRect: rect, cornerRadius: 5), with: .color(Ink.chain))
             }, "ビットコインの ブロック。下の 段が チェーン、上が Ark")
         }
         .inkCard()
@@ -281,20 +300,22 @@ private struct GuideCard: View {
                         .foregroundStyle(Ink.ink)
                         .multilineTextAlignment(.leading)
                     Spacer()
-                    InkIcon(kind: .back, size: 14, color: Ink.sub)
+                    InkIcon(kind: .back, size: 12, lineWidth: 2.6, color: Ink.server)
                         .rotationEffect(.degrees(expanded ? 90 : -90))
+                        .frame(width: 28, height: 28)
+                        .background(Ink.serverSoft, in: Circle())
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableStyle())
             .accessibilityAddTraits(expanded ? .isSelected : [])
 
             if expanded {
                 VStack(alignment: .leading, spacing: 10) {
                     labeled("たとえると", entry.picture, color: Ink.orange)
-                    labeled("ほんとうは", entry.real, color: Ink.ink)
+                    labeled("ほんとうは", entry.real, color: Ink.server)
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
             }
         }
         .inkCard(padding: 14)
@@ -304,7 +325,7 @@ private struct GuideCard: View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
                 .font(Brush.bold(11))
-                .foregroundStyle(Ink.paper)
+                .foregroundStyle(Ink.onColor)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
                 .background(color, in: Capsule())
@@ -386,7 +407,7 @@ private struct ArkQuiz: View {
                 if let picked {
                     Text((picked == question.answer ? "せいかい！ " : "ざんねん… ") + question.why)
                         .font(Brush.text(13))
-                        .foregroundStyle(picked == question.answer ? Ink.ink : Ink.alert)
+                        .foregroundStyle(picked == question.answer ? Ink.good : Ink.alert)
                         .fixedSize(horizontal: false, vertical: true)
                         .transition(.opacity)
                     InkButton(index + 1 < QuizQuestion.all.count ? "つぎへ" : "けっか を 見る", kind: .secondary, height: 46) {
@@ -396,8 +417,8 @@ private struct ArkQuiz: View {
             }
         }
         .inkCard()
-        .animation(.spring(duration: 0.3), value: picked)
-        .animation(.spring(duration: 0.3), value: index)
+        .animation(Motion.bounce, value: picked)
+        .animation(Motion.glide, value: index)
     }
 
     private func choiceButton(_ choice: Int, _ text: String) -> some View {
@@ -423,20 +444,23 @@ private struct ArkQuiz: View {
                     .multilineTextAlignment(.leading)
                 Spacer()
                 if reveal, isAnswer {
-                    InkIcon(kind: .check, size: 16, lineWidth: 2.4, color: Ink.orange)
+                    InkIcon(kind: .check, size: 16, lineWidth: 3, color: Ink.good)
+                        .transition(.scale)
                 }
             }
             .foregroundStyle(reveal && chosen && !isAnswer ? Ink.alert : Ink.ink)
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(Ink.paper, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(reveal && isAnswer ? Ink.good.opacity(0.16) : (chosen ? Ink.alertSoft : Ink.wash),
+                        in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(reveal && isAnswer ? Ink.orange : (chosen ? Ink.alert : Ink.line), lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                    .strokeBorder(reveal && isAnswer ? Ink.good : (chosen ? Ink.alert : Color.clear), lineWidth: 2)
             )
+            .scaleEffect(reveal && isAnswer ? 1.02 : 1)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle())
         .disabled(reveal)
     }
 

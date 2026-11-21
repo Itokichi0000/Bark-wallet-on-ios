@@ -35,25 +35,29 @@ struct MainView: View {
 
     @State private var tab: MainTab = .home
     @State private var sheet: MainSheet?
+    @State private var forward = true
+    @State private var bounce: [MainTab: Int] = [:]
+    @Namespace private var tabSpace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                switch tab {
-                case .home:
-                    HomeView(open: open, showHistory: { select(.history) }, showAquarium: { select(.aquarium) },
-                             showLearn: { select(.learn) })
-                case .aquarium:
-                    AquariumView()
-                case .history:
-                    HistoryView()
-                case .learn:
-                    LearnView()
-                }
+        ZStack {
+            switch tab {
+            case .home:
+                HomeView(open: open, showHistory: { select(.history) }, showAquarium: { select(.aquarium) },
+                         showLearn: { select(.learn) })
+                    .transition(slide)
+            case .aquarium:
+                AquariumView().transition(slide)
+            case .history:
+                HistoryView().transition(slide)
+            case .learn:
+                LearnView().transition(slide)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .transition(.opacity)
-
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // room for the floating tab bar at the end of every scroll
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             tabBar
         }
         .background(PaperBackground())
@@ -66,7 +70,7 @@ struct MainView: View {
                 }
             }
             .presentationBackground { PaperBackground() }
-            .presentationCornerRadius(20)
+            .presentationCornerRadius(32)
         }
         .onAppear {
             if let autoTab = Autopilot.tab { tab = autoTab }
@@ -78,13 +82,28 @@ struct MainView: View {
         sheet = target
     }
 
+    /// Tabs slide in from the side you are heading to.
+    private var slide: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        let edge: Edge = forward ? .trailing : .leading
+        let other: Edge = forward ? .leading : .trailing
+        return .asymmetric(
+            insertion: .move(edge: edge).combined(with: .opacity),
+            removal: .move(edge: other).combined(with: .opacity)
+        )
+    }
+
     private func select(_ target: MainTab) {
         guard target != tab else { return }
         Chiptune.shared.play(.select)
         Haptics.tap()
-        withAnimation(.easeOut(duration: 0.18)) { tab = target }
+        let all = MainTab.allCases
+        forward = (all.firstIndex(of: target) ?? 0) > (all.firstIndex(of: tab) ?? 0)
+        bounce[target, default: 0] += 1
+        withAnimation(Motion.glide) { tab = target }
     }
 
+    /// A floating pill; a violet bubble slides under the chosen tab.
     private var tabBar: some View {
         HStack(spacing: 0) {
             ForEach(MainTab.allCases) { item in
@@ -92,34 +111,57 @@ struct MainView: View {
                 Button {
                     select(item)
                 } label: {
-                    VStack(spacing: 4) {
-                        InkIcon(kind: item.icon, size: 22, color: selected ? Ink.ink : Ink.sub)
+                    VStack(spacing: 3) {
+                        InkIcon(kind: item.icon, size: 22, lineWidth: selected ? 2.2 : 1.8,
+                                color: selected ? Ink.server : Ink.sub)
+                            .pop(trigger: bounce[item, default: 0], from: 0.6)
                             .overlay(alignment: .topTrailing) {
                                 // fish that want fresh water
                                 if item == .aquarium, !store.fishNeedingCare.isEmpty {
                                     Circle()
                                         .fill(Ink.alert)
-                                        .frame(width: 9, height: 9)
-                                        .offset(x: 4, y: -2)
+                                        .overlay(Circle().stroke(Ink.paper, lineWidth: 2))
+                                        .frame(width: 11, height: 11)
+                                        .offset(x: 5, y: -3)
                                         .transition(.scale)
                                 }
                             }
                         Text(item.title)
                             .font(Brush.bold(11, relativeTo: .caption))
-                            .foregroundStyle(selected ? Ink.ink : Ink.sub)
+                            .foregroundStyle(selected ? Ink.server : Ink.sub)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background {
+                        if selected {
+                            Capsule()
+                                .fill(Ink.serverSoft)
+                                .matchedGeometryEffect(id: "tab", in: tabSpace)
+                        }
+                    }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableStyle(scale: 0.9))
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 4)
-        .background(Ink.paper.ignoresSafeArea(edges: .bottom))
-        .overlay(alignment: .top) {
-            DashedDivider()
+        .padding(5)
+        .background(Ink.paper, in: Capsule())
+        .overlay(Capsule().strokeBorder(Ink.line.opacity(0.6), lineWidth: 1))
+        .softShadow(1.6)
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+        .frame(maxWidth: 520)
+        .frame(maxWidth: .infinity)
+        .background {
+            // the page fades out behind the bar instead of showing through it
+            LinearGradient(stops: [.init(color: Ink.bg.opacity(0), location: 0),
+                                   .init(color: Ink.bg.opacity(0.94), location: 0.45),
+                                   .init(color: Ink.bg, location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+                .padding(.top, -18)
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
         }
     }
 }

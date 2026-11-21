@@ -4,27 +4,31 @@ import SwiftUI
 
 /// How one fish is painted.
 struct FishLook {
-    var body: Color = Ink.paper
-    var line: Color = Ink.ink
-    /// The koi's orange patch, for the healthiest fish.
-    var spot: Color?
+    var body: Color = Color(hex: 0xFF9A2E)
+    var line: Color = Color(hex: 0xC25F00)
+    /// A lighter belly patch.
+    var spot: Color? = Color(hex: 0xFFD08A)
     var dashed = false
     var opacity: Double = 1
 
+    static let fresh = FishLook()
+    static let aging = FishLook(body: Color(hex: 0xFFC84A), line: Color(hex: 0xB98200), spot: Color(hex: 0xFFE6A3))
+    static let tired = FishLook(body: Color(hex: 0xF2A9BF), line: Color(hex: 0xC24A72), spot: nil)
+    static let busy = FishLook(body: Color(hex: 0xC9BEFF), line: Color(hex: 0x6B4EFF), spot: nil, dashed: true)
+    static let expired = FishLook(body: Color(hex: 0xC9C7D6), line: Color(hex: 0x7C7896), spot: nil, opacity: 0.85)
+
     static func of(_ fish: Fish) -> FishLook {
-        if fish.isBusy {
-            return FishLook(body: Ink.paper, line: Ink.ink, spot: nil, dashed: true)
-        }
+        if fish.isBusy { return busy }
         switch fish.health {
-        case .fresh: return FishLook(spot: Ink.orange)
-        case .aging: return FishLook()
-        case .refreshNow: return FishLook(body: Ink.bg, line: Ink.sub)
-        case .expired: return FishLook(body: Ink.bg, line: Ink.sub, dashed: true, opacity: 0.8)
+        case .fresh: return fresh
+        case .aging: return aging
+        case .refreshNow: return tired
+        case .expired: return expired
         }
     }
 }
 
-/// A brush-and-ink fish facing right, centred on the origin, `length` long.
+/// A round, friendly fish facing right, centred on the origin, `length` long.
 enum InkFish {
     static func outline(_ length: CGFloat, tail: CGFloat = 0) -> Path {
         let l = length
@@ -61,12 +65,12 @@ enum InkFish {
         let body = outline(l, tail: tail)
         g.fill(body, with: .color(look.body))
         if let spot = look.spot {
-            let patch = Path(ellipseIn: CGRect(x: -0.08 * l, y: -0.17 * l, width: 0.26 * l, height: 0.14 * l))
+            let patch = Path(ellipseIn: CGRect(x: -0.2 * l, y: 0.04 * l, width: 0.6 * l, height: 0.3 * l))
             var clipped = g
             clipped.clip(to: body)
             clipped.fill(patch, with: .color(spot))
         }
-        let width = max(1.1, l * 0.03)
+        let width = max(1.4, l * 0.035)
         g.stroke(body, with: .color(look.line),
                  style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round,
                                     dash: look.dashed ? [width * 2, width * 1.6] : []))
@@ -85,7 +89,11 @@ enum InkFish {
                  style: StrokeStyle(lineWidth: width * 0.7, lineCap: .round))
         // eye: a cross when it has expired
         let eye = CGPoint(x: 0.34 * l, y: -0.05 * l)
-        let r = max(1.2, l * 0.035)
+        let r = max(1.4, l * 0.04)
+        if !belly {
+            g.fill(Path(ellipseIn: CGRect(x: eye.x - r * 1.9, y: eye.y - r * 1.9, width: r * 3.8, height: r * 3.8)),
+                   with: .color(.white))
+        }
         if belly {
             var cross = Path()
             cross.move(to: CGPoint(x: eye.x - r, y: eye.y - r)); cross.addLine(to: CGPoint(x: eye.x + r, y: eye.y + r))
@@ -93,7 +101,7 @@ enum InkFish {
             g.stroke(cross, with: .color(look.line), lineWidth: width * 0.8)
         } else {
             g.fill(Path(ellipseIn: CGRect(x: eye.x - r, y: eye.y - r, width: r * 2, height: r * 2)),
-                   with: .color(look.line))
+                   with: .color(Color(hex: 0x1F1B3D)))
         }
     }
 }
@@ -105,7 +113,7 @@ struct FishGlyph: View {
     var swim = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !swim)) { context in
+        TimelineView(.animation(paused: !swim)) { context in
             let t = swim ? context.date.timeIntervalSinceReferenceDate : 0
             Canvas { gc, canvas in
                 InkFish.draw(
@@ -142,12 +150,12 @@ struct FishTank: View {
 
     /// Only this many fish swim; the list below has the rest.
     static let maxShown = 36
-    let surface: Double = 30
-    let floor: Double = 26
+    let surface: Double = 34
+    let floor: Double = 30
 
     var body: some View {
         GeometryReader { geo in
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+            TimelineView(.animation(paused: reduceMotion)) { context in
                 let t = clock(context.date)
                 Canvas { gc, size in
                     drawWater(gc, size, t)
@@ -268,89 +276,105 @@ struct FishTank: View {
 
     // MARK: drawing
 
+    private static let waterTop = Color(light: 0xBFEFFF, dark: 0x123A5C)
+    private static let waterBottom = Color(light: 0x5CC4F0, dark: 0x0A2440)
+    private static let sand = Color(light: 0xFFE2A8, dark: 0x5A4526)
+    private static let weed = Color(light: 0x2DBE8C, dark: 0x1E8F6B)
+
     private func drawWater(_ gc: GraphicsContext, _ size: CGSize, _ t: Double) {
-        let rect = CGRect(origin: .zero, size: size)
-        gc.fill(Path(rect), with: .linearGradient(
-            Gradient(colors: [Ink.wash.opacity(0.3), Ink.wash]),
-            startPoint: CGPoint(x: 0, y: surface), endPoint: CGPoint(x: 0, y: size.height)))
+        let w = Double(size.width), h = Double(size.height)
+        // the sky above the water
+        gc.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Ink.paper))
+        // the surface: a rolling wave, water below it
+        func wave(_ offset: Double, _ speed: Double, _ height: Double) -> Path {
+            var path = Path()
+            path.move(to: CGPoint(x: 0, y: h))
+            path.addLine(to: CGPoint(x: 0, y: surface))
+            for x in stride(from: 0.0, through: w + 6, by: 6) {
+                let y: Double = surface + offset + sin(x / 34 + t * speed) * height + sin(x / 13 + t * speed * 1.7) * height * 0.3
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+            path.addLine(to: CGPoint(x: w, y: h))
+            path.closeSubpath()
+            return path
+        }
+        gc.fill(wave(-4, -0.9, 3.5), with: .color(Self.waterTop.opacity(0.6)))
+        gc.fill(wave(0, 1.3, 3), with: .linearGradient(
+            Gradient(colors: [Self.waterTop, Self.waterBottom]),
+            startPoint: CGPoint(x: 0, y: surface), endPoint: CGPoint(x: 0, y: h)))
+        // shafts of light swaying down from the surface
+        for i in 0..<4 {
+            let x: Double = w * (0.15 + 0.24 * Double(i)) + sin(t * 0.4 + Double(i) * 1.9) * 16
+            var ray = Path()
+            ray.move(to: CGPoint(x: x - 10, y: surface + 4))
+            ray.addLine(to: CGPoint(x: x + 14, y: surface + 4))
+            ray.addLine(to: CGPoint(x: x + 60, y: h))
+            ray.addLine(to: CGPoint(x: x - 4, y: h))
+            ray.closeSubpath()
+            gc.fill(ray, with: .linearGradient(
+                Gradient(colors: [Color.white.opacity(0.22), Color.white.opacity(0)]),
+                startPoint: CGPoint(x: x, y: surface), endPoint: CGPoint(x: x + 30, y: h * 0.85)))
+        }
         if murk > 0 {
-            gc.fill(Path(CGRect(x: 0, y: surface, width: Double(size.width), height: Double(size.height) - surface)),
-                    with: .color(Ink.alert.opacity(0.10 * murk)))
+            gc.fill(wave(0, 1.3, 3), with: .color(Color(hex: 0x8A6B4A, opacity: 0.3 * murk)))
             // drifting silt
-            let w = Double(size.width), h = Double(size.height)
             for i in 0..<Int(10 * murk) + 2 {
                 let fx: Double = Self.unit(Fish.seed("silt\(i)"), 0)
                 let fy: Double = Self.unit(Fish.seed("silt\(i)"), 16)
                 let x: Double = (fx * w + t * 4 * (0.5 + fy)).truncatingRemainder(dividingBy: max(w, 1))
                 let depth: Double = h - surface - floor - 24
                 let y: Double = surface + 16 + fy * depth + sin(t + fx * 6) * 4
-                gc.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 2.4, height: 2.4)),
-                        with: .color(Ink.alert.opacity(0.35 * murk)))
+                gc.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 3, height: 3)),
+                        with: .color(Color(hex: 0x6B4A2A, opacity: 0.4 * murk)))
             }
         }
-        // the surface
-        var wave = Path()
-        wave.move(to: CGPoint(x: 0, y: surface))
-        for x in stride(from: 0.0, through: Double(size.width), by: 6) {
-            let y: Double = surface + sin(x / 22 + t * 1.3) * 2.2
-            wave.addLine(to: CGPoint(x: x, y: y))
-        }
-        gc.stroke(wave, with: .color(Ink.sub.opacity(0.6)), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
-        var ripple = Path()
-        for x in stride(from: 12.0, through: Double(size.width) - 12, by: 46) {
-            let y: Double = surface + 9 + sin(x + t) * 1.5
-            ripple.move(to: CGPoint(x: x, y: y))
-            ripple.addLine(to: CGPoint(x: x + 14, y: y))
-        }
-        gc.stroke(ripple, with: .color(Ink.ink.opacity(0.18)), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
         // bubbles
-        for i in 0..<9 {
+        for i in 0..<10 {
             let seed = Fish.seed("bubble\(i)")
             let fx: Double = Self.unit(seed, 0)
             let speed: Double = 0.05 + 0.06 * Self.unit(seed, 16)
-            let r: Double = 1.8 + 2.4 * Self.unit(seed, 32)
+            let r: Double = 2 + 3 * Self.unit(seed, 32)
             let rise: Double = (t * speed + Self.unit(seed, 48)).truncatingRemainder(dividingBy: 1)
-            let h = Double(size.height)
-            let y: Double = h - floor - rise * (h - floor - surface)
-            let x: Double = fx * Double(size.width) + sin(t * 2 + Double(i)) * 3
-            gc.stroke(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
-                      with: .color(Ink.ink.opacity(0.35 * (1 - rise * 0.6))), lineWidth: 1)
+            let y: Double = h - floor - rise * (h - floor - surface - 6)
+            let x: Double = fx * w + sin(t * 2 + Double(i)) * 4
+            let circle = Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
+            gc.fill(circle, with: .color(Color.white.opacity(0.25 * (1 - rise * 0.5))))
+            gc.stroke(circle, with: .color(Color.white.opacity(0.7 * (1 - rise * 0.5))), lineWidth: 1.2)
         }
     }
 
-    /// Weeds and pebbles in front of the fish.
+    /// Weeds and sand in front of the fish.
     private func drawFront(_ gc: GraphicsContext, _ size: CGSize, _ t: Double) {
-        let w = Double(size.width)
-        let bottom: Double = Double(size.height) - floor + 8
-        for (i, fx) in [0.06, 0.13, 0.84, 0.93].enumerated() {
+        let w = Double(size.width), h = Double(size.height)
+        let bottom: Double = h - floor + 6
+        for (i, fx) in [0.07, 0.15, 0.82, 0.92].enumerated() {
             let x: Double = fx * w
-            let height: Double = 38 + Double(i % 2) * 26
-            let sway: Double = sin(t * 0.8 + Double(i) * 1.7) * 8
+            let height: Double = 44 + Double(i % 2) * 30
+            let sway: Double = sin(t * 0.9 + Double(i) * 1.7) * 9
             var weed = Path()
-            weed.move(to: CGPoint(x: x, y: bottom))
+            weed.move(to: CGPoint(x: x, y: bottom + 6))
             weed.addQuadCurve(to: CGPoint(x: x + sway, y: bottom - height),
-                              control: CGPoint(x: x - 10 + sway * 0.3, y: bottom - height * 0.55))
-            gc.stroke(weed, with: .color(Ink.sub.opacity(0.45)), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
-            var leaf = Path()
-            leaf.move(to: CGPoint(x: x - 3 + sway * 0.25, y: bottom - height * 0.4))
-            leaf.addQuadCurve(to: CGPoint(x: x + 10 + sway * 0.5, y: bottom - height * 0.62),
-                              control: CGPoint(x: x + 8, y: bottom - height * 0.4))
-            gc.stroke(leaf, with: .color(Ink.sub.opacity(0.35)), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
+                              control: CGPoint(x: x - 12 + sway * 0.3, y: bottom - height * 0.55))
+            gc.stroke(weed, with: .color(Self.weed.opacity(i % 2 == 0 ? 0.95 : 0.7)),
+                      style: StrokeStyle(lineWidth: 6, lineCap: .round))
         }
         var sand = Path()
-        sand.move(to: CGPoint(x: 0, y: bottom))
-        for x in stride(from: 0.0, through: w, by: 10) {
-            let y: Double = bottom + sin(x / 37) * 2
+        sand.move(to: CGPoint(x: 0, y: h))
+        sand.addLine(to: CGPoint(x: 0, y: bottom))
+        for x in stride(from: 0.0, through: w + 10, by: 10) {
+            let y: Double = bottom + sin(x / 37) * 4
             sand.addLine(to: CGPoint(x: x, y: y))
         }
-        gc.stroke(sand, with: .color(Ink.line), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
-        for i in 0..<14 {
+        sand.addLine(to: CGPoint(x: w, y: h))
+        sand.closeSubpath()
+        gc.fill(sand, with: .color(Self.sand))
+        for i in 0..<9 {
             let seed = Fish.seed("pebble\(i)")
-            let x: Double = Self.unit(seed, 0) * w
-            let pebble: Double = 4 + Self.unit(seed, 16) * 7
-            let y: Double = bottom + 4 + Self.unit(seed, 32) * max(floor - 14, 4)
-            gc.stroke(Path(ellipseIn: CGRect(x: x, y: y, width: pebble, height: pebble * 0.6)),
-                      with: .color(Ink.ink.opacity(0.4)), lineWidth: 1)
+            let x: Double = 18 + Self.unit(seed, 0) * (w - 44)
+            let pebble: Double = 5 + Self.unit(seed, 16) * 6
+            let y: Double = bottom + 7 + Self.unit(seed, 32) * max(floor - 22, 2)
+            gc.fill(Path(ellipseIn: CGRect(x: x, y: y, width: pebble, height: pebble * 0.6)),
+                    with: .color(Color(light: 0xE9C27E, dark: 0x7A6037)))
         }
     }
 
@@ -361,23 +385,24 @@ struct FishTank: View {
             // a little net, hanging from the surface
             let r: Double = l * 0.62
             let net = Path(ellipseIn: CGRect(x: s.point.x - r, y: s.point.y - r * 0.8, width: r * 2, height: r * 1.6))
-            gc.stroke(net, with: .color(Ink.ink.opacity(0.55)),
-                      style: StrokeStyle(lineWidth: 1.2, dash: [2, 3]))
+            gc.fill(net, with: .color(Color.white.opacity(0.25)))
+            gc.stroke(net, with: .color(Color.white.opacity(0.9)),
+                      style: StrokeStyle(lineWidth: 1.6, dash: [3, 3]))
             var handle = Path()
             handle.move(to: CGPoint(x: s.point.x, y: s.point.y - r * 0.8))
             handle.addLine(to: CGPoint(x: s.point.x + 6, y: 0))
-            gc.stroke(handle, with: .color(Ink.ink.opacity(0.55)), lineWidth: 1.4)
+            gc.stroke(handle, with: .color(Color.white.opacity(0.9)), lineWidth: 2)
         }
         InkFish.draw(in: gc, at: s.point, length: l, facing: s.facing, tilt: s.tilt, tail: s.tail,
                      belly: fish.health == .expired, look: FishLook.of(fish))
         if fish.needsCare, !fish.isBusy {
             // "!" over the fish that wants fresh water
-            let bob: Double = sin(t * 3 + Double(index)) * 2
-            let center = CGPoint(x: Double(s.point.x), y: Double(s.point.y) - l * 0.32 - 12 + bob)
-            let bubble = Path(ellipseIn: CGRect(x: center.x - 8, y: center.y - 8, width: 16, height: 16))
-            gc.fill(bubble, with: .color(Ink.paper))
-            gc.stroke(bubble, with: .color(Ink.alert), lineWidth: 1.4)
-            gc.draw(Text("!").font(Brush.bold(12)).foregroundColor(Ink.alert), at: center)
+            let bob: Double = sin(t * 3 + Double(index)) * 3
+            let center = CGPoint(x: Double(s.point.x), y: Double(s.point.y) - l * 0.32 - 14 + bob)
+            let bubble = Path(ellipseIn: CGRect(x: center.x - 10, y: center.y - 10, width: 20, height: 20))
+            gc.fill(bubble, with: .color(Ink.alert))
+            gc.stroke(bubble, with: .color(.white), lineWidth: 2)
+            gc.draw(Text("!").font(Brush.bold(13)).foregroundColor(.white), at: center)
         }
     }
 
@@ -394,13 +419,13 @@ struct FishTank: View {
         let startY: Double = surface + 30 + (h - surface - floor - 60) * Self.unit(seed, 16)
         let x: Double = startX + (w + l - startX) * eased
         let y: Double = startY - 26 * eased + sin(age * 8) * 2
-        var look = FishLook(body: Ink.paper, line: Ink.ink, dashed: true)
+        var look = FishLook.busy
         look.opacity = 1 - p * 0.6
         InkFish.draw(in: gc, at: CGPoint(x: x, y: y), length: l, facing: 1,
                      tilt: .degrees(-8), tail: sin(age * 14) * 0.05, look: look)
         gc.draw(Text("-\(SatFormat.sats(ghost.amount))")
-                    .font(Brush.bold(12))
-                    .foregroundColor(Ink.sub),
+                    .font(Brush.bold(13))
+                    .foregroundColor(.white),
                 at: CGPoint(x: x, y: y - l * 0.3 - 10))
     }
 }

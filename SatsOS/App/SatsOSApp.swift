@@ -50,7 +50,7 @@ struct RootView: View {
             .padding(.top, 6)
             .animation(.spring(duration: 0.35), value: store.toast)
         }
-        .tint(Ink.ink)
+        .tint(Ink.server)
         .task {
             await store.boot()
         }

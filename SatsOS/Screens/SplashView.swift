@@ -11,7 +11,8 @@ struct SplashView: View {
             VStack(spacing: 18) {
                 Spacer(minLength: 80)
 
-                ArkMark(size: 76)
+                ArkMark(size: 96)
+                    .floating(6, period: 3)
                     .appearIn()
 
                 VStack(spacing: 4) {
@@ -61,7 +62,7 @@ struct SplashView: View {
                 HStack(spacing: 10) {
                     Group {
                         switch line.status {
-                        case .ok: InkIcon(kind: .check, size: 14, color: Ink.ink)
+                        case .ok: InkIcon(kind: .check, size: 14, lineWidth: 2.6, color: Ink.good)
                         case .busy: InkDots(color: Ink.sub, size: 3)
                         case .warn: InkIcon(kind: .alert, size: 14, color: Ink.orange)
                         case .fail: InkIcon(kind: .alert, size: 14, color: Ink.alert)
@@ -77,11 +78,11 @@ struct SplashView: View {
                         .foregroundStyle(Ink.sub)
                         .lineLimit(1)
                 }
-                .transition(.opacity)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .inkCard(padding: 14)
-        .animation(.easeOut(duration: 0.2), value: store.bootLog.count)
+        .animation(Motion.bounce, value: store.bootLog.count)
     }
 
     @ViewBuilder

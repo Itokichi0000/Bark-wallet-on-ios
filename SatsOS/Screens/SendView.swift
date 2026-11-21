@@ -188,10 +188,10 @@ struct SendView: View {
                         .padding(10)
                 }
                 .frame(minHeight: 120)
-                .background(Ink.bg, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+                .background(Ink.wash, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
-                        .strokeBorder(parseError == nil ? Ink.line : Ink.alert, lineWidth: 1)
+                        .strokeBorder(parseError == nil ? Color.clear : Ink.alert, lineWidth: 2)
                 )
                 Text("Ark アドレス ・ ライトニング（invoice / offer / アドレス / LNURL）・ ビットコインアドレス")
                     .font(Brush.text(11))
@@ -221,8 +221,8 @@ struct SendView: View {
             }
             .inkCard()
             .shake(trigger: parseErrorTick)
-            .animation(.easeOut(duration: 0.15), value: parsing)
-            .animation(.easeOut(duration: 0.15), value: parseError)
+            .animation(Motion.glide, value: parsing)
+            .animation(Motion.glide, value: parseError)
 
             InkButton("つぎへ", sound: .select) {
                 Task { await parse() }
@@ -249,7 +249,7 @@ struct SendView: View {
                         HStack(spacing: 8) {
                             ForEach(Array(options.enumerated()), id: \.offset) { _, option in
                                 InkChip(title: railName(option.method), selected: option.method == selected.method) {
-                                    withAnimation(.easeOut(duration: 0.15)) { select(option) }
+                                    withAnimation(Motion.glide) { select(option) }
                                 }
                             }
                         }
@@ -264,8 +264,8 @@ struct SendView: View {
                         TextField("ひとこと（なくてもOK）", text: $comment)
                             .font(Brush.text(15))
                             .padding(12)
-                            .background(Ink.bg, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: Radius.control, style: .continuous).strokeBorder(Ink.line, lineWidth: 1))
+                            .background(Ink.wash, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+                            
                     }
                     feeRow
                     DashedDivider()
@@ -286,7 +286,7 @@ struct SendView: View {
                     }
                 }
                 .inkCard()
-                .animation(.easeOut(duration: 0.15), value: insufficient)
+                .animation(Motion.glide, value: insufficient)
 
                 // the route, before you send
                 VStack(alignment: .leading, spacing: 8) {
@@ -436,9 +436,10 @@ struct SendView: View {
                         .frame(width: 56, height: 56)
                         .overlay(Circle().strokeBorder(Ink.alert.opacity(0.4), lineWidth: 1))
                 } else {
-                    InkIcon(kind: .check, size: 28, lineWidth: 2.2, color: Ink.paper)
-                        .frame(width: 56, height: 56)
-                        .background(Ink.orange, in: Circle())
+                    InkIcon(kind: .check, size: 28, lineWidth: 2.2, color: Ink.onColor)
+                        .frame(width: 72, height: 72)
+                        .background(Ink.good, in: Circle())
+                        .shadow(color: Ink.good.opacity(0.4), radius: 14, y: 6)
                         .pop(trigger: 1, from: 0.5)
                 }
             }
@@ -447,7 +448,7 @@ struct SendView: View {
             Text(doneTitle)
                 .font(Brush.bold(24, relativeTo: .title))
                 .foregroundStyle(lightningFailed ? Ink.alert : Ink.ink)
-                .animation(.easeOut(duration: 0.2), value: doneTitle)
+                .animation(Motion.glide, value: doneTitle)
 
             if let sentAmount {
                 CountUpText(value: sentAmount) { "-" + SatFormat.amount($0, unit: settings.unit) }
@@ -512,7 +513,7 @@ struct SendView: View {
 
     private func go(_ next: Stage, forward: Bool) {
         self.forward = forward
-        withAnimation(reduceMotion ? .linear(duration: 0.15) : .spring(duration: 0.4, bounce: 0.15)) {
+        withAnimation(reduceMotion ? .linear(duration: 0.15) : Motion.bounce) {
             stage = next
         }
     }
@@ -620,7 +621,7 @@ struct SendView: View {
             let status = try await store.waitForLightningSend(paymentHash: paymentHash)
             switch status {
             case .paid:
-                withAnimation(.spring(duration: 0.4)) { lightning = .paid }
+                withAnimation(Motion.bounce) { lightning = .paid }
                 Chiptune.shared.play(.coin)
                 Haptics.success()
             case .inProgress:

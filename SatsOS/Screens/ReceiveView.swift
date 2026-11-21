@@ -68,7 +68,7 @@ struct ReceiveView: View {
 
             if let arrival {
                 ReceivedPanel(payment: arrival) {
-                    withAnimation(.easeOut(duration: 0.2)) { self.arrival = nil }
+                    withAnimation(Motion.glide) { self.arrival = nil }
                 }
                 .transition(.opacity)
                 .zIndex(3)
@@ -81,7 +81,7 @@ struct ReceiveView: View {
             // a paid invoice on screen shows it in place
             if let hash = incoming.paymentHash, hash == invoice?.paymentHash { return }
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            withAnimation(.spring(duration: 0.4)) { arrival = incoming }
+            withAnimation(Motion.bounce) { arrival = incoming }
         }
         .task {
             if arkAddress == nil { await loadArkAddress() }
@@ -111,7 +111,7 @@ struct ReceiveView: View {
     private func switchRail(to item: Rail) {
         guard item != rail else { return }
         railForward = item == .lightning
-        withAnimation(.spring(duration: 0.35, bounce: 0.15)) { rail = item }
+        withAnimation(Motion.bounce) { rail = item }
     }
 
     // MARK: Ark
@@ -223,7 +223,7 @@ struct ReceiveView: View {
                         .font(Brush.text(15))
                         .padding(12)
                         .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: Radius.control, style: .continuous).strokeBorder(Ink.line, lineWidth: 1))
+                        
                     if let receiveFee {
                         InfoRow(label: "てすうりょう", value: "\(SatFormat.sats(receiveFee.feeSats)) sats")
                         InfoRow(label: "うけとる金額", value: "\(SatFormat.sats(receiveFee.netAmountSats)) sats", emphasized: true)
@@ -255,9 +255,10 @@ struct ReceiveView: View {
         return VStack(spacing: 16) {
             if paid {
                 VStack(spacing: 10) {
-                    InkIcon(kind: .check, size: 26, lineWidth: 2.2, color: Ink.paper)
-                        .frame(width: 52, height: 52)
-                        .background(Ink.orange, in: Circle())
+                    InkIcon(kind: .check, size: 26, lineWidth: 2.2, color: Ink.onColor)
+                        .frame(width: 68, height: 68)
+                        .background(Ink.good, in: Circle())
+                        .shadow(color: Ink.good.opacity(0.4), radius: 14, y: 6)
                         .pop(trigger: 1, from: 0.5)
                     Text("うけとりました")
                         .font(Brush.bold(22))
@@ -306,19 +307,19 @@ struct ReceiveView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .inkCard()
-                .animation(.easeOut(duration: 0.2), value: claiming)
+                .animation(Motion.glide, value: claiming)
                 .transition(.opacity)
             }
 
             InkButton(paid ? "あたらしい請求書" : "やめる・金額を かえる", kind: .secondary, height: 48) {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(Motion.glide) {
                     self.invoice = nil
                     receiveState = nil
                     copied = false
                 }
             }
         }
-        .animation(.spring(duration: 0.45), value: paid)
+        .animation(Motion.bounce, value: paid)
     }
 
     private var claiming: Bool {
@@ -335,7 +336,7 @@ struct ReceiveView: View {
         defer { loadingAddress = false }
         do {
             let address = try await store.newArkAddress()
-            withAnimation(.easeOut(duration: 0.2)) { arkAddress = address }
+            withAnimation(Motion.glide) { arkAddress = address }
             arkError = nil
             copied = false
         } catch {
@@ -349,7 +350,7 @@ struct ReceiveView: View {
         defer { creatingInvoice = false }
         do {
             let created = try await store.newInvoice(amount: amount, memo: memo)
-            withAnimation(.spring(duration: 0.4)) { invoice = created }
+            withAnimation(Motion.bounce) { invoice = created }
             invoiceError = nil
             copied = false
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -419,7 +420,7 @@ struct ReceivedPanel: View {
                 .onTapGesture(perform: onClose)
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
-                    InkIcon(kind: .check, size: 18, lineWidth: 2.2, color: Ink.paper)
+                    InkIcon(kind: .check, size: 18, lineWidth: 2.6, color: Ink.onColor)
                         .frame(width: 34, height: 34)
                         .background(Ink.orange, in: Circle())
                     VStack(alignment: .leading, spacing: 0) {
