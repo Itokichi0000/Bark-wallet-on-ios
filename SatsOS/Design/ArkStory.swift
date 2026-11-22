@@ -413,7 +413,8 @@ private enum StoryScene {
                 ArkDraw.coin(g, Tween.mix(st.dock, sp(x, coinY), back), r: 11, life: back, opacity: Tween.seg(back, 0, 0.1))
             }
         }
-        StoryDraw.tag(g, "チェーンには 1件だけ", at: sp(st.w / 2, st.chainTop - 6), color: Ink.chain, appear: Tween.seg(p, 0.58, 0.66))
+        StoryDraw.tag(g, "チェーンには 1件だけ", at: sp(st.w / 2, 104), color: Ink.chain,
+                      appear: Tween.seg(p, 0.56, 0.64) * (1 - Tween.seg(p, 0.8, 0.84)))
         StoryDraw.tag(g, "手数料は みんなで わりかん 🪙", at: sp(st.w / 2, 104), color: Ink.orange, appear: Tween.seg(p, 0.84, 0.92))
     }
 
@@ -433,7 +434,7 @@ private enum StoryScene {
             StoryDraw.tag(g, "あなたの ビットコイン", at: sp(Double(above.x) - 96, Double(above.y)), color: Ink.orange,
                           appear: Tween.seg(p, 0.72, 0.8))
         }
-        StoryDraw.tag(g, "サーバーの 許可は いらない 🔑", at: sp(st.w / 2, st.rowY - 62), color: Ink.good,
+        StoryDraw.tag(g, "サーバーの 許可は いらない 🔑", at: sp(st.w / 2, st.rowY - 44), color: Ink.good,
                       appear: Tween.seg(p, 0.22, 0.32))
     }
 
@@ -631,6 +632,7 @@ struct ArkStoryPlayer: View {
                 .padding(.vertical, 6)
                 .background(Ink.paper, in: Capsule())
         }
+        .offset(y: -14)
         .transition(.scale.combined(with: .opacity))
         .allowsHitTesting(false)
     }
