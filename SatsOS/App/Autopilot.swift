@@ -5,7 +5,7 @@ import Foundation
 /// can be captured without UI automation.
 ///
 /// Modes: `setup`, `boot`, `home`, `send`, `receive`, `receive-incoming`,
-/// `history`, `learn`, `settings`, `aquarium`, `guide`.
+/// `history`, `learn` (`learn-N` for film scene N), `settings`, `aquarium`, `guide`.
 /// Release builds always return nil.
 enum Autopilot {
     static var mode: String? {
@@ -28,7 +28,7 @@ enum Autopilot {
         switch mode {
         case "history": return .history
         case "aquarium", "guide": return .aquarium
-        case "learn": return .learn
+        case let mode? where mode.hasPrefix("learn"): return .learn
         default: return mode == nil ? nil : .home
         }
     }
@@ -50,6 +50,13 @@ enum Autopilot {
 
     /// Open the しくみ図鑑 over the aquarium.
     static var openGuide: Bool { mode == "guide" }
+
+    /// The film scene the しくみ tab shows for screenshots (nil: the poster).
+    static var storyChapter: Int? {
+        guard let mode, mode.hasPrefix("learn") else { return nil }
+        // `learn-7` shows scene 7 (counting from 0)
+        return mode.split(separator: "-").last.flatMap { Int($0) } ?? 3
+    }
 
     /// The diagram the しくみ tab opens on for screenshots.
     static var learnScene: ArkScene? { mode == "learn" ? .round : nil }

@@ -42,6 +42,11 @@ run 09-receive-incoming receive-incoming 30
 run 10-aquarium aquarium 25
 run 11-guide guide 20
 
+# more scenes of the しくみ film
+for scene in 0 2 4 5 6 7 8 9; do
+  run "16-story-${scene}" "learn-${scene}" 12
+done
+
 # the same screens in dark mode
 xcrun simctl ui "${UDID}" appearance dark
 run 12-home-dark home 25
@@ -51,6 +56,6 @@ run 15-send-dark send 15
 xcrun simctl ui "${UDID}" appearance light
 
 # keep the app's own log lines (wallet open errors etc.) for debugging
-xcrun simctl spawn "${UDID}" log show --last 8m --style compact \
+xcrun simctl spawn "${UDID}" log show --last 10m --style compact \
   --predicate 'process == "SatsOS"' > "${OUT}/app.log" 2>/dev/null || true
 ls -la "${OUT}"
