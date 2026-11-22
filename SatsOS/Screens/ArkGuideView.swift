@@ -11,7 +11,7 @@ struct LearnView: View {
                         .font(Brush.bold(30, relativeTo: .title))
                         .foregroundStyle(Ink.ink)
                         .accessibilityAddTraits(.isHeader)
-                    Text("Ark が ビットコインを どう うごかすか")
+                    Text("まずは 1分の どうがを 見てみよう")
                         .font(Brush.text(14))
                         .foregroundStyle(Ink.sub)
                 }
@@ -53,53 +53,117 @@ struct ArkLearnContent: View {
 
     @State private var scene: ArkScene = Autopilot.learnScene ?? .arkoor
     @State private var open: Set<String> = ["vtxo"]
+    @State private var sections: Set<String> = []
     @Namespace private var pickerSpace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            scenePicker
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(scene.title)
-                        .font(Brush.bold(20))
-                        .foregroundStyle(Ink.ink)
-                    Text(scene.summary)
-                        .font(Brush.text(13))
-                        .foregroundStyle(Ink.sub)
-                }
-                ArkScenePlayer(scene: scene)
-            }
-            .inkCard(padding: 16)
-            .id(scene)
-            .transition(.asymmetric(insertion: .scale(scale: 0.94).combined(with: .opacity), removal: .opacity))
+        VStack(alignment: .leading, spacing: 14) {
+            // the whole idea first, as one short film
+            ArkStoryPlayer(autoStart: Autopilot.storyChapter)
+                .inkCard(padding: 16)
 
-            legend
-
-            Text("ことば")
+            Text("もっと 知りたく なったら")
                 .font(Brush.bold(17))
                 .foregroundStyle(Ink.ink)
-                .padding(.top, 4)
-            VStack(spacing: 8) {
-                ForEach(GuideEntry.all) { entry in
-                    GuideCard(entry: entry, expanded: open.contains(entry.id)) {
-                        Chiptune.shared.play(.click)
-                        Haptics.tap()
-                        withAnimation(Motion.glide) {
-                            if open.contains(entry.id) {
-                                open.remove(entry.id)
-                            } else {
-                                open.insert(entry.id)
+                .padding(.top, 8)
+
+            section("scenes", icon: .play, color: Ink.server, title: "うごきを 1つずつ 見る",
+                    detail: "ボード・送金・ラウンドなど 7つの 図") {
+                VStack(alignment: .leading, spacing: 12) {
+                    scenePicker
+                    VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(scene.title)
+                                .font(Brush.bold(20))
+                                .foregroundStyle(Ink.ink)
+                            Text(scene.summary)
+                                .font(Brush.text(13))
+                                .foregroundStyle(Ink.sub)
+                        }
+                        ArkScenePlayer(scene: scene)
+                    }
+                    .id(scene)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.94).combined(with: .opacity), removal: .opacity))
+                    legend
+                }
+            }
+
+            section("words", icon: .book, color: Ink.orange, title: "ことば図鑑",
+                    detail: "VTXO・ラウンド・Refresh… \(GuideEntry.all.count)この ことば") {
+                VStack(spacing: 8) {
+                    ForEach(GuideEntry.all) { entry in
+                        GuideCard(entry: entry, expanded: open.contains(entry.id)) {
+                            Chiptune.shared.play(.click)
+                            Haptics.tap()
+                            withAnimation(Motion.glide) {
+                                if open.contains(entry.id) {
+                                    open.remove(entry.id)
+                                } else {
+                                    open.insert(entry.id)
+                                }
                             }
                         }
                     }
                 }
             }
 
-            rules
+            section("rules", icon: .record, color: Ink.chain, title: "この サーバーの きまり",
+                    detail: "ラウンドの 間隔や 期限の 長さ（じっさいの 数字）") {
+                rules
+            }
 
-            ArkQuiz()
+            section("quiz", icon: .check, color: Ink.good, title: "クイズで たしかめる",
+                    detail: "\(ArkQuiz.count)もん。どうがを 見たあとに どうぞ") {
+                ArkQuiz()
+            }
         }
         .animation(Motion.glide, value: scene)
+    }
+
+    /// One fold-away part of the page: closed, it is a single tidy row.
+    private func section<Content: View>(_ id: String, icon: InkIcon.Kind, color: Color, title: String, detail: String,
+                                        @ViewBuilder content: () -> Content) -> some View {
+        let expanded = sections.contains(id)
+        return VStack(alignment: .leading, spacing: 14) {
+            Button {
+                Chiptune.shared.play(.click)
+                Haptics.tap()
+                withAnimation(Motion.glide) {
+                    if expanded {
+                        sections.remove(id)
+                    } else {
+                        sections.insert(id)
+                    }
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    IconBubble(icon: icon, color: color, size: 42)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(title)
+                            .font(Brush.bold(16))
+                            .foregroundStyle(Ink.ink)
+                        Text(detail)
+                            .font(Brush.text(12))
+                            .foregroundStyle(Ink.sub)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 0)
+                    InkIcon(kind: .back, size: 12, lineWidth: 2.6, color: color)
+                        .rotationEffect(.degrees(expanded ? 90 : -90))
+                        .frame(width: 30, height: 30)
+                        .background(color.opacity(0.14), in: Circle())
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressableStyle(scale: 0.98))
+            .accessibilityAddTraits(expanded ? .isSelected : [])
+
+            if expanded {
+                content()
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            }
+        }
+        .inkCard(padding: 14)
     }
 
     private var scenePicker: some View {
@@ -144,10 +208,10 @@ struct ArkLearnContent: View {
                         .accessibilityAddTraits(selected ? .isSelected : [])
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 14)
                 .padding(.vertical, 8)
             }
-            .padding(.horizontal, -16)
+            .padding(.horizontal, -14)
         }
     }
 
@@ -168,7 +232,9 @@ struct ArkLearnContent: View {
                 gc.fill(Path(roundedRect: rect, cornerRadius: 5), with: .color(Ink.chain))
             }, "ビットコインの ブロック。下の 段が チェーン、上が Ark")
         }
-        .inkCard()
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Ink.wash.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 
     private func legendRow<Glyph: View>(_ glyph: Glyph, _ text: String) -> some View {
@@ -185,9 +251,6 @@ struct ArkLearnContent: View {
     /// The numbers behind the pictures, straight from the server.
     private var rules: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("この サーバーの きまり")
-                .font(Brush.bold(15))
-                .foregroundStyle(Ink.ink)
             Text(store.network.serverHost)
                 .font(Brush.mono(12))
                 .foregroundStyle(Ink.sub)
@@ -208,7 +271,7 @@ struct ArkLearnContent: View {
                     .foregroundStyle(Ink.sub)
             }
         }
-        .inkCard()
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -318,7 +381,8 @@ private struct GuideCard: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
             }
         }
-        .inkCard(padding: 14)
+        .padding(12)
+        .background(Ink.wash.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
     }
 
     private func labeled(_ label: String, _ text: String, color: Color) -> some View {
@@ -371,6 +435,8 @@ private struct QuizQuestion {
 }
 
 private struct ArkQuiz: View {
+    static var count: Int { QuizQuestion.all.count }
+
     @State private var index = 0
     @State private var picked: Int?
     @State private var score = 0
@@ -382,9 +448,6 @@ private struct ArkQuiz: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("ちょっと クイズ")
-                    .font(Brush.bold(16))
-                    .foregroundStyle(Ink.ink)
                 Spacer()
                 Text(finished ? "\(score) / \(QuizQuestion.all.count)" : "\(index + 1) / \(QuizQuestion.all.count)")
                     .font(Brush.text(13))
@@ -416,7 +479,6 @@ private struct ArkQuiz: View {
                 }
             }
         }
-        .inkCard()
         .animation(Motion.bounce, value: picked)
         .animation(Motion.glide, value: index)
     }

@@ -177,7 +177,11 @@ enum ArkDraw {
 
     static func server(_ gc: GraphicsContext, _ st: ArkStage, title: String = "Ark サーバー",
                        pulse: Double = 0, offline: Double = 0) {
-        let c = st.server
+        serverBox(gc, at: st.server, title: title, pulse: pulse, offline: offline)
+    }
+
+    static func serverBox(_ gc: GraphicsContext, at c: CGPoint, title: String = "Ark サーバー",
+                          pulse: Double = 0, offline: Double = 0) {
         let rect = CGRect(x: Double(c.x) - 62, y: Double(c.y) - 17, width: 124, height: 34)
         let shape = Path(roundedRect: rect, cornerRadius: 17)
         if pulse > 0.01 {

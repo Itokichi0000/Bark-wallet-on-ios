@@ -181,7 +181,7 @@ struct CircleIconButton: View {
 struct InkIcon: View {
     enum Kind {
         case send, receive, gear, close, back, home, record, rabbit, scan, paste, copy, share, check, alert, refresh
-        case fish, book, play, pause
+        case fish, book, play, pause, sound, mute
     }
 
     var kind: Kind
@@ -261,6 +261,16 @@ struct InkIcon: View {
                 path.addQuadCurve(to: p(3.5, 12), control: p(10, 20.5))
                 path.move(to: p(17, 12)); path.addLine(to: p(21, 8)); path.addLine(to: p(21, 16)); path.closeSubpath()
                 path.move(to: p(7.6, 10.6)); path.addLine(to: p(7.7, 10.7))
+            case .sound, .mute:
+                path.move(to: p(4, 10)); path.addLine(to: p(8, 10)); path.addLine(to: p(12.5, 6))
+                path.addLine(to: p(12.5, 18)); path.addLine(to: p(8, 14)); path.addLine(to: p(4, 14)); path.closeSubpath()
+                if kind == .sound {
+                    path.move(to: p(15.5, 9.5)); path.addQuadCurve(to: p(15.5, 14.5), control: p(17.5, 12))
+                    path.move(to: p(18, 7)); path.addQuadCurve(to: p(18, 17), control: p(22, 12))
+                } else {
+                    path.move(to: p(16, 9.5)); path.addLine(to: p(21, 14.5))
+                    path.move(to: p(21, 9.5)); path.addLine(to: p(16, 14.5))
+                }
             case .play:
                 path.move(to: p(8, 5)); path.addLine(to: p(19, 12)); path.addLine(to: p(8, 19)); path.closeSubpath()
             case .pause:
