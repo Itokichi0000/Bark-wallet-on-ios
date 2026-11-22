@@ -258,7 +258,6 @@ struct ReceiveView: View {
                     InkIcon(kind: .check, size: 26, lineWidth: 2.2, color: Ink.onColor)
                         .frame(width: 68, height: 68)
                         .background(Ink.good, in: Circle())
-                        .shadow(color: Ink.good.opacity(0.4), radius: 14, y: 6)
                         .pop(trigger: 1, from: 0.5)
                     Text("うけとりました")
                         .font(Brush.bold(22))
@@ -444,7 +443,7 @@ struct ReceivedPanel: View {
                 InkButton("とじる", action: onClose)
             }
             .inkCard(padding: 20)
-            .shadow(color: .black.opacity(0.08), radius: 24, y: 8)
+            
             .padding(.horizontal, 20)
         }
     }

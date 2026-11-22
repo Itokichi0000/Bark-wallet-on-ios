@@ -70,7 +70,7 @@ struct MainView: View {
                 }
             }
             .presentationBackground { PaperBackground() }
-            .presentationCornerRadius(32)
+            .presentationCornerRadius(28)
         }
         .onAppear {
             if let autoTab = Autopilot.tab { tab = autoTab }
@@ -112,8 +112,8 @@ struct MainView: View {
                     select(item)
                 } label: {
                     VStack(spacing: 3) {
-                        InkIcon(kind: item.icon, size: 22, lineWidth: selected ? 2.2 : 1.8,
-                                color: selected ? Ink.server : Ink.sub)
+                        InkIcon(kind: item.icon, size: 22, lineWidth: selected ? 2.4 : 2,
+                                color: selected ? Ink.ink : Ink.sub)
                             .pop(trigger: bounce[item, default: 0], from: 0.6)
                             .overlay(alignment: .topTrailing) {
                                 // fish that want fresh water
@@ -127,14 +127,14 @@ struct MainView: View {
                                 }
                             }
                         Text(item.title)
-                            .font(Brush.bold(11, relativeTo: .caption))
-                            .foregroundStyle(selected ? Ink.server : Ink.sub)
+                            .font(Brush.bold(10, relativeTo: .caption2))
+                            .foregroundStyle(selected ? Ink.ink : Ink.sub)
                     }
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .background {
                         if selected {
                             Capsule()
-                                .fill(Ink.serverSoft)
+                                .fill(Ink.ink.opacity(0.08))
                                 .matchedGeometryEffect(id: "tab", in: tabSpace)
                         }
                     }
@@ -145,21 +145,17 @@ struct MainView: View {
             }
         }
         .padding(5)
-        .background(Ink.paper, in: Capsule())
-        .overlay(Capsule().strokeBorder(Ink.line.opacity(0.6), lineWidth: 1))
-        .softShadow(1.6)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Ink.line.opacity(0.5), lineWidth: 0.5))
+        .softShadow(2)
         .padding(.horizontal, 20)
         .padding(.top, 6)
         .padding(.bottom, 4)
         .frame(maxWidth: 520)
-        .frame(maxWidth: .infinity)
-        .background {
-            // the page fades out behind the bar instead of showing through it
-            LinearGradient(stops: [.init(color: Ink.bg.opacity(0), location: 0),
-                                   .init(color: Ink.bg.opacity(0.94), location: 0.45),
-                                   .init(color: Ink.bg, location: 1)],
-                           startPoint: .top, endPoint: .bottom)
-                .padding(.top, -18)
+        .frame(maxWidth: .infinity)        .background(alignment: .bottom) {
+            // the page dissolves into the background under the bar
+            LinearGradient(colors: [Ink.bg.opacity(0), Ink.bg], startPoint: .top, endPoint: .center)
+                .padding(.top, -24)
                 .ignoresSafeArea(edges: .bottom)
                 .allowsHitTesting(false)
         }

@@ -439,7 +439,6 @@ struct SendView: View {
                     InkIcon(kind: .check, size: 28, lineWidth: 2.2, color: Ink.onColor)
                         .frame(width: 72, height: 72)
                         .background(Ink.good, in: Circle())
-                        .shadow(color: Ink.good.opacity(0.4), radius: 14, y: 6)
                         .pop(trigger: 1, from: 0.5)
                 }
             }

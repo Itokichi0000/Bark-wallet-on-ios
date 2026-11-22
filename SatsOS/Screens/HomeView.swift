@@ -21,7 +21,7 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 22) {
                 header
                 balanceCard
                     .appearIn()
@@ -34,7 +34,7 @@ struct HomeView: View {
                 recent
                     .appearIn(delay: 0.12)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 20)
             .padding(.bottom, 24)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
@@ -43,7 +43,16 @@ struct HomeView: View {
         .refreshable {
             await store.sync()
         }
-        .background(PaperBackground())
+        .background(alignment: .top) {
+            ZStack(alignment: .top) {
+                PaperBackground()
+                // a soft glow for the balance and the glass card to sit over
+                Aurora()
+                    .frame(height: 520)
+                    .mask(LinearGradient(colors: [.black, .black, .clear], startPoint: .top, endPoint: .bottom))
+                    .ignoresSafeArea(edges: .top)
+            }
+        }
         .onChange(of: store.spendable) { old, new in
             guard old != new else { return }
             balanceTick += 1
@@ -60,9 +69,9 @@ struct HomeView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 8) {
-            SealStamp(text: "寿", size: 30)
+            SealStamp(text: "寿", size: 26)
             Text("ちょうじゅ")
-                .font(Brush.bold(20, relativeTo: .headline))
+                .font(Brush.bold(17, relativeTo: .headline))
                 .foregroundStyle(Ink.ink)
             InkBadge(text: store.network.isRealMoney ? "MAINNET" : "テスト用",
                      color: store.network.isRealMoney ? Ink.good : Ink.orange)
@@ -74,90 +83,49 @@ struct HomeView: View {
 
     // MARK: balance
 
-    /// The hero: a violet card with liquid rolling along the bottom.
+    /// The balance, very large, straight on the page; then the two actions.
     private var balanceCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text("つかえる残高")
-                        .font(Brush.bold(13, relativeTo: .footnote))
-                        .foregroundStyle(Color.white.opacity(0.8))
-                    Spacer()
-                    Text("タップで 単位きりかえ")
-                        .font(Brush.text(11, relativeTo: .caption))
-                        .foregroundStyle(Color.white.opacity(0.55))
-                }
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("つかえる残高")
+                    .font(Brush.bold(15, relativeTo: .subheadline))
+                    .foregroundStyle(Ink.sub)
                 Button {
                     Chiptune.shared.play(.select)
                     Haptics.tap()
                     settings.toggleUnit()
                 } label: {
-                    AmountText(sats: store.spendable, unit: settings.unit, size: 46, color: .white)
-                        .pop(trigger: balanceTick, from: 0.9)
+                    AmountText(sats: store.spendable, unit: settings.unit, size: 64)
+                        .kerning(-1.5)
+                        .pop(trigger: balanceTick, from: 0.96)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(PressableStyle(scale: 0.97))
+                .buttonStyle(PressableStyle(scale: 0.98))
                 .accessibilityHint("単位を切りかえます")
                 .overlay(alignment: .topTrailing) {
                     ZStack {
                         ForEach(deltas) { delta in
-                            FloatingDelta(text: deltaText(delta.amount), color: .white)
+                            FloatingDelta(text: deltaText(delta.amount), color: delta.amount >= 0 ? Ink.good : Ink.sub)
                         }
                     }
                 }
                 if store.pendingTotal > 0 {
                     HStack(spacing: 6) {
-                        InkDots(color: .white, size: 4)
+                        InkDots(color: Ink.sub, size: 4)
                         Text("処理中 \(SatFormat.amount(store.pendingTotal, unit: settings.unit))")
-                            .font(Brush.text(13))
-                            .foregroundStyle(Color.white.opacity(0.85))
+                            .font(Brush.text(14))
+                            .foregroundStyle(Ink.sub)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            HStack(spacing: 10) {
-                heroButton("おくる", icon: .send, solid: true) { open(.send) }
-                heroButton("もらう", icon: .receive, solid: false) { open(.receive) }
+            HStack(spacing: 12) {
+                InkButton("おくる", icon: .send, sound: .select) { open(.send) }
+                InkButton("もらう", icon: .receive, kind: .secondary, sound: .select) { open(.receive) }
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack {
-                LinearGradient(colors: [Color(hex: 0x8B6CFF), Color(hex: 0x5B3DF0), Color(hex: 0x4326C9)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                // a warm glow, as if the sats inside were shining through
-                Circle()
-                    .fill(RadialGradient(colors: [Color(hex: 0xFFB13D, opacity: 0.55), .clear],
-                                         center: .center, startRadius: 0, endRadius: 110))
-                    .frame(width: 220, height: 220)
-                    .offset(x: 130, y: -70)
-                    .floating(8, period: 5)
-                LiquidWave(color: .white, level: 0.34)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .shadow(color: Color(hex: 0x4B2FD6, opacity: 0.35), radius: 20, y: 10)
+        .padding(.top, 18)
         .animation(Motion.glide, value: store.pendingTotal > 0)
-    }
-
-    private func heroButton(_ title: String, icon: InkIcon.Kind, solid: Bool, action: @escaping () -> Void) -> some View {
-        Button {
-            Chiptune.shared.play(.select)
-            Haptics.tap()
-            action()
-        } label: {
-            HStack(spacing: 8) {
-                InkIcon(kind: icon, size: 18, lineWidth: 2.6, color: solid ? Ink.serverDeep : .white)
-                Text(title)
-                    .font(Brush.bold(16))
-                    .foregroundStyle(solid ? Ink.serverDeep : .white)
-            }
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(solid ? Color.white : Color.white.opacity(0.2), in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.white.opacity(solid ? 0 : 0.35), lineWidth: 1))
-        }
-        .buttonStyle(PressableStyle(scale: 0.93))
     }
 
     private func deltaText(_ amount: Int64) -> String {
@@ -201,7 +169,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("さいきん")
-                    .font(Brush.bold(17))
+                    .font(Brush.bold(22, relativeTo: .title2))
                     .foregroundStyle(Ink.ink)
                 Spacer()
                 if !store.movements.isEmpty {
@@ -219,7 +187,8 @@ struct HomeView: View {
                         Link(destination: faucet) {
                             Text("テスト用コインを もらう ↗︎")
                                 .font(Brush.bold(14))
-                                .foregroundStyle(Ink.server)
+                                .foregroundStyle(Ink.ink)
+                                .underline()
                         }
                     }
                 }
@@ -228,7 +197,7 @@ struct HomeView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(store.movements.prefix(4).enumerated()), id: \.element.id) { index, movement in
                         TransactionRow(movement: movement)
-                            .padding(.horizontal, 14)
+                            .padding(.horizontal, 16)
                             .transition(.move(edge: .top).combined(with: .opacity))
                         if index < min(store.movements.count, 4) - 1 {
                             DashedDivider().padding(.leading, 64)
@@ -237,8 +206,7 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 4)
                 .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-                .overlay(BrushFrame())
-                .softShadow()
+                
                 .animation(Motion.bounce, value: store.movements.prefix(4).map(\.id))
             }
         }
@@ -247,8 +215,8 @@ struct HomeView: View {
 
 // MARK: - Ark status
 
-/// What Ark is doing for you right now, one coloured tile per idea:
-/// your VTXOs (orange), the next round (violet) and the chain tip (teal).
+/// What Ark is doing for you right now, as one frosted card with three
+/// rows: your VTXOs, the next round and the chain tip.
 struct ArkStatusCard: View {
     @EnvironmentObject private var store: WalletStore
     @EnvironmentObject private var settings: AppSettings
@@ -261,79 +229,96 @@ struct ArkStatusCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Ark の ようす")
-                    .font(Brush.bold(17))
+                    .font(Brush.bold(22, relativeTo: .title2))
                     .foregroundStyle(Ink.ink)
                 Spacer()
                 Text(store.network.serverHost)
-                    .font(Brush.mono(11))
+                    .font(Brush.text(12))
                     .foregroundStyle(Ink.sub)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
 
-            Button(action: showAquarium) {
-                vtxoTile
-            }
-            .buttonStyle(PressableStyle(scale: 0.97))
-
-            HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 0) {
+                Button(action: showAquarium) {
+                    vtxoRow
+                }
+                .buttonStyle(PressableStyle(scale: 0.98))
+                DashedDivider(color: Ink.line.opacity(0.6))
                 RoundCountdown()
-                chainTile
+                DashedDivider(color: Ink.line.opacity(0.6))
+                chainRow
             }
-            .fixedSize(horizontal: false, vertical: true)
+            .glassCard(padding: 0)
 
             Button {
                 Chiptune.shared.play(.click)
                 Haptics.tap()
                 showLearn()
             } label: {
-                HStack(spacing: 12) {
-                    IconBubble(icon: .play, color: Ink.server)
+                HStack(spacing: 14) {
+                    InkIcon(kind: .play, size: 16, color: Ink.onTint)
+                        .frame(width: 40, height: 40)
+                        .background(Ink.tint, in: Circle())
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Ark の しくみを 見る")
-                            .font(Brush.bold(15))
+                        Text("Ark って なに？")
+                            .font(Brush.bold(17))
                             .foregroundStyle(Ink.ink)
-                        Text("うごく 図で 7つの しくみを まなぶ")
-                            .font(Brush.text(12))
+                        Text("1分の どうがで しくみが わかる")
+                            .font(Brush.text(13))
                             .foregroundStyle(Ink.sub)
                     }
                     Spacer(minLength: 0)
-                    InkIcon(kind: .back, size: 14, lineWidth: 2.2, color: Ink.server)
-                        .rotationEffect(.degrees(180))
+                    chevron
                 }
-                .inkCard(padding: 14)
+                .inkCard(padding: 16)
             }
-            .buttonStyle(PressableStyle(scale: 0.97))
+            .buttonStyle(PressableStyle(scale: 0.98))
         }
     }
 
-    // MARK: VTXO tile
+    private var chevron: some View {
+        InkIcon(kind: .back, size: 13, lineWidth: 2.6, color: Ink.sub.opacity(0.7))
+            .rotationEffect(.degrees(180))
+    }
 
-    private var vtxoTile: some View {
+    private func rowLabel(_ text: String, _ color: Color) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 7, height: 7)
+            Text(text)
+                .font(Brush.bold(13, relativeTo: .footnote))
+                .foregroundStyle(Ink.sub)
+        }
+    }
+
+    // MARK: VTXO row
+
+    private var vtxoRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 8) {
-                Text("あなたの VTXO")
-                    .font(Brush.bold(15))
-                    .foregroundStyle(Ink.ink)
-                InkBadge(text: "\(school.count)こ", color: Ink.orange)
-                    .contentTransition(.numericText(value: Double(school.count)))
+            HStack(alignment: .firstTextBaseline) {
+                rowLabel("あなたの VTXO", Ink.orange)
                 Spacer()
                 Text(nextExpiryText)
-                    .font(Brush.bold(12))
+                    .font(Brush.text(13))
                     .foregroundStyle(school.contains(where: \.needsCare) ? Ink.alert : Ink.sub)
-                InkIcon(kind: .back, size: 12, lineWidth: 2.2, color: Ink.sub)
-                    .rotationEffect(.degrees(180))
+                chevron
             }
-            bubbles
+            HStack(alignment: .center, spacing: 14) {
+                Text("\(school.count)")
+                    .font(Brush.amount(34))
+                    .foregroundStyle(Ink.ink)
+                    .contentTransition(.numericText(value: Double(school.count)))
+                bubbles
+            }
             Text(school.isEmpty
                  ? "うけとると、残高は VTXO という 期限つきの コインで 届きます"
-                 : "残高は これらの VTXO の 合計。大きさは 金額、リングは 期限までの のこり")
-                .font(Brush.text(12))
+                 : "残高は これらの コインの 合計。大きさは 金額、リングは 期限までの のこり")
+                .font(Brush.text(13))
                 .foregroundStyle(Ink.sub)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .inkCard(padding: 16)
+        .padding(18)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityHint("すいそうを 開きます")
@@ -347,22 +332,20 @@ struct ArkStatusCard: View {
             if school.isEmpty {
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .strokeBorder(Ink.orange.opacity(0.45), style: StrokeStyle(lineWidth: 2, dash: [4, 4]))
-                        .frame(width: 34 - CGFloat(index) * 5, height: 34 - CGFloat(index) * 5)
-                        .floating(3, period: 2.4 + Double(index) * 0.6)
+                        .strokeBorder(Ink.sub.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [3, 4]))
+                        .frame(width: 30 - CGFloat(index) * 5, height: 30 - CGFloat(index) * 5)
                 }
             }
             ForEach(Array(shown.enumerated()), id: \.element.id) { index, fish in
-                let size = 26 + 22 * (Double(fish.amount) / most).squareRoot()
-                RingProgress(progress: fish.freshness ?? 1, color: ring(for: fish), track: Ink.wash, lineWidth: 3.5) {
+                let size = 24 + 18 * (Double(fish.amount) / most).squareRoot()
+                RingProgress(progress: fish.freshness ?? 1, color: ring(for: fish), track: Ink.ink.opacity(0.08), lineWidth: 3) {
                     Circle()
-                        .fill(LinearGradient(colors: [Color(hex: 0xFFB648), Color(hex: 0xF7831A)],
-                                             startPoint: .top, endPoint: .bottom))
+                        .fill(Ink.orange)
                         .padding(3)
                 }
                 .frame(width: size, height: size)
                 .opacity(fish.isBusy ? 0.4 : 1)
-                .floating(2 + CGFloat(index % 3), period: 2.2 + Double(index % 4) * 0.5)
+                .floating(1.5 + CGFloat(index % 3) * 0.5, period: 2.6 + Double(index % 4) * 0.5)
                 .transition(.scale.combined(with: .opacity))
             }
             if school.count > shown.count {
@@ -372,7 +355,7 @@ struct ArkStatusCard: View {
             }
             Spacer(minLength: 0)
         }
-        .frame(height: 56)
+        .frame(height: 44)
         .animation(Motion.bounce, value: school.map(\.id))
     }
 
@@ -387,31 +370,27 @@ struct ArkStatusCard: View {
         return "つぎの 期限 \(Fish.roughTime(blocks: soonest))"
     }
 
-    // MARK: chain tile
+    // MARK: chain row
 
-    private var chainTile: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Circle().fill(Ink.chain).frame(width: 8, height: 8)
-                Text("ブロック")
-                    .font(Brush.bold(13))
-                    .foregroundStyle(Ink.chain)
+    private var chainRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            rowLabel("ビットコインの ブロック", Ink.chain)
+            HStack(alignment: .center, spacing: 14) {
+                Text(store.blockHeight.map { "#\(SatFormat.sats($0))" } ?? "—")
+                    .font(Brush.amount(26))
+                    .foregroundStyle(Ink.ink)
+                    .contentTransition(.numericText())
+                    .animation(Motion.glide, value: store.blockHeight)
+                Spacer(minLength: 0)
+                ChainStrip(height: store.blockHeight)
+                    .fixedSize()
             }
-            ChainStrip(height: store.blockHeight)
-                .frame(height: 44)
-            Text(store.blockHeight.map { "#\(SatFormat.sats($0))" } ?? "—")
-                .font(Brush.bold(17))
-                .foregroundStyle(Ink.ink)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .animation(Motion.glide, value: store.blockHeight)
-            Text("約10分に 1つ。期限は ブロックで 数えます")
-                .font(Brush.text(11, relativeTo: .caption))
+            Text("約10分に 1つ ふえます。VTXO の 期限は ブロックで 数えます")
+                .font(Brush.text(13))
                 .foregroundStyle(Ink.sub)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
         }
-        .inkCard(padding: 14)
+        .padding(18)
     }
 }
 
@@ -424,19 +403,17 @@ struct ChainStrip: View {
         let tip = Int64(height ?? 0)
         HStack(spacing: 4) {
             ForEach((0..<3).map { tip - Int64(2 - $0) }, id: \.self) { block in
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(block == tip && height != nil ? Ink.chain : Ink.chain.opacity(0.28))
-                    .frame(width: 24, height: 24)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(block == tip && height != nil ? Ink.chain : Ink.chain.opacity(0.25))
+                    .frame(width: 20, height: 20)
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.2).combined(with: .opacity),
                         removal: .scale(scale: 0.5).combined(with: .opacity)))
                 Capsule().fill(Ink.chain.opacity(0.35)).frame(width: 5, height: 3)
             }
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(Ink.chain.opacity(0.7), style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
-                .frame(width: 24, height: 24)
-                .floating(2, period: 1.6)
-            Spacer(minLength: 0)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Ink.chain.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
+                .frame(width: 20, height: 20)
         }
         .animation(Motion.bounce, value: height)
         .accessibilityHidden(true)
@@ -450,43 +427,41 @@ struct RoundCountdown: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Circle().fill(Ink.server).frame(width: 8, height: 8)
-                Text("つぎの ラウンド")
-                    .font(Brush.bold(13))
-                    .foregroundStyle(Ink.server)
+                Circle().fill(Ink.server).frame(width: 7, height: 7)
+                Text("つぎの ラウンドまで")
+                    .font(Brush.bold(13, relativeTo: .footnote))
+                    .foregroundStyle(Ink.sub)
             }
             TimelineView(.animation(minimumInterval: reduceMotion ? 1 : nil)) { context in
                 let interval = Double(max(store.arkInfo?.roundIntervalSecs ?? 0, 1))
                 let remaining = store.nextRoundAt.map { max($0.timeIntervalSince(context.date), 0) }
                 let fill = remaining.map { 1 - min($0 / interval, 1) } ?? 0
                 let soon = remaining.map { $0 < 3 } == true
-                HStack(spacing: 10) {
-                    RingProgress(progress: fill, color: soon ? Ink.orange : Ink.server, track: Ink.serverSoft, lineWidth: 6) {
-                        Circle()
-                            .fill(soon ? Ink.orange : Ink.server)
-                            .frame(width: 10, height: 10)
-                            .scaleEffect(soon ? 1.5 : 1)
-                            .animation(Motion.bounce, value: soon)
-                    }
-                    .frame(width: 44, height: 44)
+                HStack(spacing: 14) {
                     Text(remaining.map(Self.clock) ?? "—")
-                        .font(Brush.bold(22))
-                        .foregroundStyle(soon ? Ink.orange : Ink.ink)
-                        .monospacedDigit()
+                        .font(Brush.amount(34))
+                        .foregroundStyle(soon ? Ink.server : Ink.ink)
                         .contentTransition(.numericText(countsDown: true))
                         .animation(.snappy, value: remaining.map { Int($0.rounded(.up)) })
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Ink.ink.opacity(0.08))
+                            Capsule().fill(Ink.server).frame(width: max(geo.size.width * fill, 6))
+                        }
+                        .frame(height: 6)
+                        .frame(maxHeight: .infinity)
+                    }
                 }
             }
-            .frame(height: 44)
-            Text("みんなの Refresh や 入出金を 1つの 取引に まとめます")
-                .font(Brush.text(11, relativeTo: .caption))
+            .frame(height: 40)
+            Text("サーバーは 決まった 間隔で みんなの Refresh や 入出金を 1つの 取引に まとめます")
+                .font(Brush.text(13))
                 .foregroundStyle(Ink.sub)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
         }
-        .inkCard(padding: 14)
+        .padding(18)
         .task {
             // ask again once the round we were counting to has started
             while !Task.isCancelled {

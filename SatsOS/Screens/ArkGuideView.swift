@@ -8,7 +8,7 @@ struct LearnView: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("しくみ")
-                        .font(Brush.bold(30, relativeTo: .title))
+                        .font(Brush.bold(34, relativeTo: .largeTitle))
                         .foregroundStyle(Ink.ink)
                         .accessibilityAddTraits(.isHeader)
                     Text("まずは 1分の どうがを 見てみよう")
@@ -67,7 +67,7 @@ struct ArkLearnContent: View {
                 .foregroundStyle(Ink.ink)
                 .padding(.top, 8)
 
-            section("scenes", icon: .play, color: Ink.server, title: "うごきを 1つずつ 見る",
+            section("scenes", icon: .play, color: Ink.ink, title: "うごきを 1つずつ 見る",
                     detail: "ボード・送金・ラウンドなど 7つの 図") {
                 VStack(alignment: .leading, spacing: 12) {
                     scenePicker
@@ -88,7 +88,7 @@ struct ArkLearnContent: View {
                 }
             }
 
-            section("words", icon: .book, color: Ink.orange, title: "ことば図鑑",
+            section("words", icon: .book, color: Ink.ink, title: "ことば図鑑",
                     detail: "VTXO・ラウンド・Refresh… \(GuideEntry.all.count)この ことば") {
                 VStack(spacing: 8) {
                     ForEach(GuideEntry.all) { entry in
@@ -107,12 +107,12 @@ struct ArkLearnContent: View {
                 }
             }
 
-            section("rules", icon: .record, color: Ink.chain, title: "この サーバーの きまり",
+            section("rules", icon: .record, color: Ink.ink, title: "この サーバーの きまり",
                     detail: "ラウンドの 間隔や 期限の 長さ（じっさいの 数字）") {
                 rules
             }
 
-            section("quiz", icon: .check, color: Ink.good, title: "クイズで たしかめる",
+            section("quiz", icon: .check, color: Ink.ink, title: "クイズで たしかめる",
                     detail: "\(ArkQuiz.count)もん。どうがを 見たあとに どうぞ") {
                 ArkQuiz()
             }
@@ -148,10 +148,8 @@ struct ArkLearnContent: View {
                             .multilineTextAlignment(.leading)
                     }
                     Spacer(minLength: 0)
-                    InkIcon(kind: .back, size: 12, lineWidth: 2.6, color: color)
+                    InkIcon(kind: .back, size: 13, lineWidth: 2.6, color: Ink.sub)
                         .rotationEffect(.degrees(expanded ? 90 : -90))
-                        .frame(width: 30, height: 30)
-                        .background(color.opacity(0.14), in: Circle())
                 }
                 .contentShape(Rectangle())
             }
@@ -163,7 +161,7 @@ struct ArkLearnContent: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
-        .inkCard(padding: 14)
+        .inkCard(padding: 16)
     }
 
     private var scenePicker: some View {
@@ -183,23 +181,22 @@ struct ArkLearnContent: View {
                             HStack(spacing: 6) {
                                 Text("\(index + 1)")
                                     .font(Brush.bold(11))
-                                    .foregroundStyle(selected ? Ink.server : Ink.sub)
+                                    .foregroundStyle(selected ? Ink.ink : Ink.sub)
                                     .frame(width: 20, height: 20)
-                                    .background(selected ? Color.white : Ink.wash, in: Circle())
+                                    .background(selected ? Ink.onTint : Ink.wash, in: Circle())
                                 Text(item.title)
                                     .font(Brush.bold(14))
-                                    .foregroundStyle(selected ? Ink.onColor : Ink.ink)
+                                    .foregroundStyle(selected ? Ink.onTint : Ink.ink)
                             }
                             .padding(.leading, 8)
                             .padding(.trailing, 14)
                             .frame(height: 38)
                             .background {
                                 if selected {
-                                    Capsule().fill(Ink.server)
+                                    Capsule().fill(Ink.tint)
                                         .matchedGeometryEffect(id: "scene", in: pickerSpace)
-                                        .shadow(color: Ink.server.opacity(0.35), radius: 8, y: 4)
                                 } else {
-                                    Capsule().fill(Ink.paper)
+                                    Capsule().fill(Ink.wash)
                                 }
                             }
                         }
@@ -363,10 +360,10 @@ private struct GuideCard: View {
                         .foregroundStyle(Ink.ink)
                         .multilineTextAlignment(.leading)
                     Spacer()
-                    InkIcon(kind: .back, size: 12, lineWidth: 2.6, color: Ink.server)
+                    InkIcon(kind: .back, size: 12, lineWidth: 2.6, color: Ink.sub)
                         .rotationEffect(.degrees(expanded ? 90 : -90))
                         .frame(width: 28, height: 28)
-                        .background(Ink.serverSoft, in: Circle())
+                        .background(Ink.wash, in: Circle())
                 }
                 .contentShape(Rectangle())
             }
@@ -376,7 +373,7 @@ private struct GuideCard: View {
             if expanded {
                 VStack(alignment: .leading, spacing: 10) {
                     labeled("たとえると", entry.picture, color: Ink.orange)
-                    labeled("ほんとうは", entry.real, color: Ink.server)
+                    labeled("ほんとうは", entry.real, color: Ink.ink)
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
             }
@@ -389,7 +386,7 @@ private struct GuideCard: View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
                 .font(Brush.bold(11))
-                .foregroundStyle(Ink.onColor)
+                .foregroundStyle(color == Ink.ink ? Ink.onTint : Ink.onColor)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
                 .background(color, in: Capsule())

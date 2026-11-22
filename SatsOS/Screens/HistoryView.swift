@@ -33,7 +33,7 @@ struct HistoryView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("きろく")
-                        .font(Brush.bold(30, relativeTo: .title))
+                        .font(Brush.bold(34, relativeTo: .largeTitle))
                         .foregroundStyle(Ink.ink)
                         .accessibilityAddTraits(.isHeader)
                     Text("\(store.movements.count) 件")
@@ -89,8 +89,7 @@ struct HistoryView: View {
                     }
                     .padding(.vertical, 4)
                     .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-                    .overlay(BrushFrame())
-                    .softShadow()
+                    
                     .id(filter)
                     .transition(.opacity)
                 }
@@ -109,7 +108,7 @@ struct HistoryView: View {
             MovementDetailView(movement: movement)
                 .presentationDetents([.medium, .large])
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(32)
+                .presentationCornerRadius(28)
         }
     }
 }
@@ -215,14 +214,14 @@ struct CopyBlock: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        InkIcon(kind: copied ? .check : .copy, size: 14, lineWidth: 2.2, color: copied ? Ink.onColor : Ink.server)
+                        InkIcon(kind: copied ? .check : .copy, size: 14, lineWidth: 2.2, color: copied ? Ink.onColor : Ink.ink)
                         Text(copied ? "コピーした" : "コピー")
                     }
                     .font(Brush.bold(12))
-                    .foregroundStyle(copied ? Ink.onColor : Ink.server)
+                    .foregroundStyle(copied ? Ink.onColor : Ink.ink)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 32)
-                    .background(copied ? Ink.good : Ink.serverSoft, in: Capsule())
+                    .background(copied ? Ink.good : Ink.wash, in: Capsule())
                     .animation(Motion.press, value: copied)
                 }
                 .buttonStyle(PressableStyle())

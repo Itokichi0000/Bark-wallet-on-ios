@@ -743,8 +743,8 @@ struct ArkScenePlayer: View {
                         let fill = Tween.clamp((p - item.at) / max(end - item.at, 0.001))
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
-                                Capsule().fill(Ink.serverSoft)
-                                Capsule().fill(Ink.server).frame(width: geo.size.width * fill)
+                                Capsule().fill(Ink.wash)
+                                Capsule().fill(Ink.tint).frame(width: geo.size.width * fill)
                             }
                         }
                         .frame(height: 5)
@@ -771,9 +771,9 @@ struct ArkScenePlayer: View {
         HStack(alignment: .top, spacing: 10) {
             Text("\(beat + 1)")
                 .font(Brush.bold(13))
-                .foregroundStyle(Ink.onColor)
+                .foregroundStyle(Ink.onTint)
                 .frame(width: 24, height: 24)
-                .background(Ink.server, in: Circle())
+                .background(Ink.tint, in: Circle())
                 .contentTransition(.numericText(value: Double(beat)))
             Text(scene.beats[beat].text)
                 .font(Brush.bold(15))
@@ -785,7 +785,7 @@ struct ArkScenePlayer: View {
                                         removal: .move(edge: .top).combined(with: .opacity)))
         }
         .padding(12)
-        .background(Ink.serverSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+        .background(Ink.bg, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
         .clipped()
     }
 
@@ -798,13 +798,13 @@ struct ArkScenePlayer: View {
                 } label: {
                     HStack(alignment: .top, spacing: 10) {
                         ZStack {
-                            Circle().fill(active ? Ink.server : (index < current ? Ink.serverSoft : Ink.wash))
+                            Circle().fill(active ? Ink.tint : (index < current ? Ink.wash : Ink.wash))
                             if index < current {
-                                InkIcon(kind: .check, size: 11, lineWidth: 3, color: Ink.server)
+                                InkIcon(kind: .check, size: 11, lineWidth: 3, color: Ink.tint)
                             } else {
                                 Text("\(index + 1)")
                                     .font(Brush.bold(11))
-                                    .foregroundStyle(active ? Ink.onColor : Ink.sub)
+                                    .foregroundStyle(active ? Ink.onTint : Ink.sub)
                             }
                         }
                         .frame(width: 22, height: 22)
@@ -818,7 +818,7 @@ struct ArkScenePlayer: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
-                    .background(Ink.serverSoft.opacity(active ? 0.7 : 0),
+                    .background(Ink.wash.opacity(active ? 0.7 : 0),
                                 in: RoundedRectangle(cornerRadius: Radius.small + 2, style: .continuous))
                     .contentShape(Rectangle())
                 }
@@ -852,10 +852,10 @@ struct ArkScenePlayer: View {
             Haptics.tap()
             action()
         } label: {
-            InkIcon(kind: icon, size: 15, lineWidth: 2.4, color: Ink.server)
+            InkIcon(kind: icon, size: 15, lineWidth: 2.4, color: Ink.tint)
                 .rotationEffect(.degrees(flipped ? 180 : 0))
                 .frame(width: 44, height: 36)
-                .background(Ink.serverSoft, in: Capsule())
+                .background(Ink.wash, in: Capsule())
         }
         .buttonStyle(PressableStyle(scale: 0.88))
         .accessibilityLabel(label)
