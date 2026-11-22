@@ -152,6 +152,12 @@ struct MainView: View {
         .padding(.top, 6)
         .padding(.bottom, 4)
         .frame(maxWidth: 520)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity)        .background(alignment: .bottom) {
+            // the page dissolves into the background under the bar
+            LinearGradient(colors: [Ink.bg.opacity(0), Ink.bg], startPoint: .top, endPoint: .center)
+                .padding(.top, -24)
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
+        }
     }
 }

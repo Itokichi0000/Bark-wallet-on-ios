@@ -218,6 +218,7 @@ extension View {
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .background(Ink.paper.opacity(0.45), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
     }
 
