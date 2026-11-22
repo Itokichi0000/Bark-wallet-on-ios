@@ -122,18 +122,18 @@ struct AquariumView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationBackground { PaperBackground() }
-            .presentationCornerRadius(32)
+            .presentationCornerRadius(28)
         }
         .sheet(item: $plan) { plan in
             RefreshSheet(plan: plan)
                 .presentationDetents([.medium, .large])
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(32)
+                .presentationCornerRadius(28)
         }
         .sheet(isPresented: $showGuide) {
             ArkGuideView()
                 .presentationBackground { PaperBackground() }
-                .presentationCornerRadius(32)
+                .presentationCornerRadius(28)
         }
     }
 
@@ -165,7 +165,7 @@ struct AquariumView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("すいそう")
-                    .font(Brush.bold(30, relativeTo: .title))
+                    .font(Brush.bold(34, relativeTo: .largeTitle))
                     .foregroundStyle(Ink.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text("VTXO を さかなで 見てみよう")
@@ -192,19 +192,19 @@ struct AquariumView: View {
                 HStack(alignment: .top) {
                     Text("さかな \(school.count)ひき")
                         .font(Brush.bold(13))
-                        .foregroundStyle(Ink.onColor)
+                        .foregroundStyle(Ink.ink)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Ink.orange, in: Capsule())
+                        .background(.ultraThinMaterial, in: Capsule())
                         .contentTransition(.numericText(value: Double(school.count)))
                     Spacer()
                     if let height {
                         Text("ブロック #\(SatFormat.sats(height))")
                             .font(Brush.bold(12))
-                            .foregroundStyle(Ink.chain)
+                            .foregroundStyle(Ink.ink)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Ink.paper.opacity(0.92), in: Capsule())
+                            .background(.ultraThinMaterial, in: Capsule())
                             .contentTransition(.numericText())
                     }
                 }
@@ -231,8 +231,7 @@ struct AquariumView: View {
         .frame(height: 320)
         .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .overlay(BrushFrame(color: Color.white.opacity(0.5)))
-        .shadow(color: Color(hex: 0x2B8FC4, opacity: 0.3), radius: 18, y: 10)
+        
         .animation(.easeInOut(duration: 1.2), value: murk)
     }
 
@@ -312,7 +311,6 @@ struct AquariumView: View {
             .padding(.vertical, 4)
             .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             .overlay(BrushFrame())
-            .softShadow()
             .animation(Motion.bounce, value: school.map(\.id))
         }
     }

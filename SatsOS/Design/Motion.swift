@@ -87,7 +87,7 @@ private struct AppearInModifier: ViewModifier {
 /// Three ink dots bobbing in turn.
 struct InkDots: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var color: Color = Ink.server
+    var color: Color = Ink.sub
     var size: CGFloat = 7
 
     var body: some View {
@@ -214,13 +214,12 @@ struct HoldToSendButton: View {
                     .frame(width: proxy.size.width * progress)
             }
             Text(holding ? holdingTitle : title)
-                .font(Brush.bold(16))
-                .foregroundStyle(Ink.onColor)
+                .font(Brush.bold(17))
+                .foregroundStyle(Ink.onTint)
                 .frame(maxWidth: .infinity, minHeight: 52)
         }
-        .background(LinearGradient(colors: [Ink.server, Ink.serverDeep], startPoint: .top, endPoint: .bottom))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
-        .shadow(color: Ink.server.opacity(holding ? 0.5 : 0.25), radius: holding ? 18 : 8, y: 5)
+        .background(Ink.tint)
+        .clipShape(Capsule())
         .scaleEffect(holding ? 0.97 : 1)
         .animation(Motion.press, value: holding)
         .opacity(isEnabled ? 1 : 0.4)
@@ -348,7 +347,7 @@ struct LiquidWave: View {
 /// A ring that fills smoothly; `progress` 0...1.
 struct RingProgress<Center: View>: View {
     var progress: Double
-    var color: Color = Ink.server
+    var color: Color = Ink.tint
     var track: Color = Ink.wash
     var lineWidth: CGFloat = 7
     @ViewBuilder var center: () -> Center

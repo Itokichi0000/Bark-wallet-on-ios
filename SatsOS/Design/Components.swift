@@ -17,70 +17,42 @@ struct PressableStyle: ButtonStyle {
     }
 }
 
-/// A chunky button that sits on a darker ledge and presses down into it.
+/// A flat pill button.
 struct InkButtonStyle: ButtonStyle {
     enum Kind { case primary, secondary, quiet, danger }
     var kind: Kind = .primary
     var height: CGFloat = 56
 
-    static let ledge: CGFloat = 4
-
     func makeBody(configuration: Configuration) -> some View {
         let down = configuration.isPressed
         return configuration.label
-            .font(Brush.bold(16))
+            .font(Brush.bold(17))
             .foregroundStyle(Self.text(kind))
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 18)
             .frame(maxWidth: .infinity, minHeight: min(height, 52))
             .background { face }
-            .offset(y: down ? Self.ledge - 1 : 0)
-            .background {
-                RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
-                    .fill(ledgeColor)
-                    .offset(y: Self.ledge)
-            }
-            .padding(.bottom, Self.ledge)
-            .scaleEffect(down ? 0.985 : 1)
+            .scaleEffect(down ? 0.97 : 1)
+            .opacity(down ? 0.8 : 1)
             .animation(Motion.press, value: down)
     }
 
     static func text(_ kind: Kind) -> Color {
         switch kind {
-        case .primary: return Ink.onColor
-        case .secondary: return Ink.server
-        case .quiet: return Ink.ink
+        case .primary: return Ink.onTint
+        case .secondary, .quiet: return Ink.ink
         case .danger: return Ink.alert
         }
     }
 
     @ViewBuilder
     private var face: some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
         switch kind {
-        case .primary:
-            shape.fill(LinearGradient(colors: [Ink.server, Ink.serverDeep], startPoint: .top, endPoint: .bottom))
-                .overlay(alignment: .top) {
-                    // a soft highlight along the top edge
-                    shape.strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                        .mask(LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center))
-                }
-        case .secondary:
-            shape.fill(Ink.serverSoft)
-        case .quiet:
-            shape.fill(Ink.paper).overlay(shape.strokeBorder(Ink.line, lineWidth: 1.5))
-        case .danger:
-            shape.fill(Ink.alertSoft)
-        }
-    }
-
-    private var ledgeColor: Color {
-        switch kind {
-        case .primary: return Color(light: 0x3A22AE, dark: 0x3E2BB8)
-        case .secondary: return Color(light: 0xD3CBFA, dark: 0x1D1940)
-        case .quiet: return Ink.line
-        case .danger: return Color(light: 0xF8C6D5, dark: 0x2A0F1A)
+        case .primary: Capsule().fill(Ink.tint)
+        case .secondary: Capsule().fill(Ink.wash)
+        case .quiet: Capsule().strokeBorder(Ink.line, lineWidth: 1)
+        case .danger: Capsule().fill(Ink.alertSoft)
         }
     }
 }
@@ -113,7 +85,7 @@ struct InkButton: View {
         } label: {
             HStack(spacing: 8) {
                 if let icon {
-                    InkIcon(kind: icon, size: 18, lineWidth: 2.4, color: InkButtonStyle.text(kind))
+                    InkIcon(kind: icon, size: 17, lineWidth: 2.4, color: InkButtonStyle.text(kind))
                 }
                 Text(title)
             }
@@ -124,7 +96,7 @@ struct InkButton: View {
     }
 }
 
-/// One choice in a segmented row; the chosen one lifts off the track.
+/// One choice in a segmented row; the chosen one is a white tile on the track.
 struct InkChip: View {
     var title: String
     var selected: Bool
@@ -138,13 +110,12 @@ struct InkChip: View {
         } label: {
             Text(title)
                 .font(Brush.bold(14))
-                .foregroundStyle(selected ? Ink.onColor : Ink.sub)
+                .foregroundStyle(selected ? Ink.onTint : Ink.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, minHeight: 36)
-                .background(selected ? Ink.server : Ink.wash, in: Capsule())
-                .shadow(color: Ink.server.opacity(selected ? 0.3 : 0), radius: 6, y: 3)
+                .background(selected ? Ink.tint : Ink.wash, in: Capsule())
                 .animation(Motion.press, value: selected)
         }
         .buttonStyle(PressableStyle())
@@ -164,10 +135,9 @@ struct CircleIconButton: View {
             Haptics.tap()
             action()
         } label: {
-            InkIcon(kind: icon, size: 18, lineWidth: 2)
-                .frame(width: 42, height: 42)
-                .background(Ink.paper, in: Circle())
-                .softShadow()
+            InkIcon(kind: icon, size: 16, lineWidth: 2.4, color: Ink.sub)
+                .frame(width: 36, height: 36)
+                .background(Ink.wash, in: Circle())
                 .contentShape(Circle())
                 .frame(width: 44, height: 44)
         }
@@ -189,127 +159,71 @@ struct InkIcon: View {
     var lineWidth: CGFloat = 1.6
     var color: Color?
 
-    var body: some View {
-        Canvas { gc, canvasSize in
-            let s = canvasSize.width / 24
-            func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
-            var path = Path()
-            switch kind {
-            case .send:
-                path.move(to: p(7, 17)); path.addLine(to: p(17, 7))
-                path.move(to: p(9, 7)); path.addLine(to: p(17, 7)); path.addLine(to: p(17, 15))
-            case .receive:
-                path.move(to: p(17, 7)); path.addLine(to: p(7, 17))
-                path.move(to: p(15, 17)); path.addLine(to: p(7, 17)); path.addLine(to: p(7, 9))
-            case .gear:
-                path.addEllipse(in: CGRect(x: 8.8 * s, y: 8.8 * s, width: 6.4 * s, height: 6.4 * s))
-                for i in 0..<8 {
-                    let a = Double(i) * .pi / 4
-                    path.move(to: p(12 + 6.2 * cos(a), 12 + 6.2 * sin(a)))
-                    path.addLine(to: p(12 + 9 * cos(a), 12 + 9 * sin(a)))
-                }
-            case .close:
-                path.move(to: p(6, 6)); path.addLine(to: p(18, 18))
-                path.move(to: p(18, 6)); path.addLine(to: p(6, 18))
-            case .back:
-                path.move(to: p(15, 5)); path.addLine(to: p(8, 12)); path.addLine(to: p(15, 19))
-            case .home:
-                path.move(to: p(4, 11)); path.addLine(to: p(12, 4)); path.addLine(to: p(20, 11))
-                path.move(to: p(6, 10)); path.addLine(to: p(6, 20)); path.addLine(to: p(18, 20)); path.addLine(to: p(18, 10))
-            case .record:
-                path.move(to: p(6, 4)); path.addLine(to: p(16, 4)); path.addLine(to: p(19, 7))
-                path.addLine(to: p(19, 20)); path.addLine(to: p(6, 20)); path.closeSubpath()
-                path.move(to: p(9, 10)); path.addLine(to: p(16, 10))
-                path.move(to: p(9, 14)); path.addLine(to: p(16, 14))
-                path.move(to: p(9, 18)); path.addLine(to: p(13, 18))
-            case .rabbit:
-                path.move(to: p(9, 10)); path.addQuadCurve(to: p(8, 2), control: p(6, 5))
-                path.addQuadCurve(to: p(11, 9.5), control: p(11, 5))
-                path.move(to: p(13, 9.5)); path.addQuadCurve(to: p(16, 2), control: p(13, 4))
-                path.addQuadCurve(to: p(15, 10), control: p(18, 6))
-                path.addEllipse(in: CGRect(x: 6 * s, y: 9 * s, width: 12 * s, height: 11 * s))
-            case .scan:
-                for (x, y, dx, dy) in [(4.0, 4.0, 1.0, 1.0), (20.0, 4.0, -1.0, 1.0), (4.0, 20.0, 1.0, -1.0), (20.0, 20.0, -1.0, -1.0)] {
-                    path.move(to: p(x, y + 5 * dy)); path.addLine(to: p(x, y)); path.addLine(to: p(x + 5 * dx, y))
-                }
-                path.move(to: p(7, 12)); path.addLine(to: p(17, 12))
-            case .paste:
-                path.addRoundedRect(in: CGRect(x: 6 * s, y: 5 * s, width: 12 * s, height: 15 * s), cornerSize: CGSize(width: 2 * s, height: 2 * s))
-                path.move(to: p(9, 5)); path.addLine(to: p(9, 3.5)); path.addLine(to: p(15, 3.5)); path.addLine(to: p(15, 5))
-                path.move(to: p(9, 11)); path.addLine(to: p(15, 11))
-                path.move(to: p(9, 15)); path.addLine(to: p(13, 15))
-            case .copy:
-                path.addRoundedRect(in: CGRect(x: 8 * s, y: 8 * s, width: 11 * s, height: 12 * s), cornerSize: CGSize(width: 2 * s, height: 2 * s))
-                path.move(to: p(5, 15)); path.addLine(to: p(5, 5)); path.addLine(to: p(15, 5))
-            case .share:
-                path.move(to: p(12, 15)); path.addLine(to: p(12, 3))
-                path.move(to: p(8, 7)); path.addLine(to: p(12, 3)); path.addLine(to: p(16, 7))
-                path.move(to: p(8, 11)); path.addLine(to: p(5, 11)); path.addLine(to: p(5, 20))
-                path.addLine(to: p(19, 20)); path.addLine(to: p(19, 11)); path.addLine(to: p(16, 11))
-            case .check:
-                path.move(to: p(5, 12.5)); path.addLine(to: p(10, 17)); path.addLine(to: p(19, 7))
-            case .alert:
-                path.addEllipse(in: CGRect(x: 3 * s, y: 3 * s, width: 18 * s, height: 18 * s))
-                path.move(to: p(12, 7.5)); path.addLine(to: p(12, 13))
-                path.move(to: p(12, 16.5)); path.addLine(to: p(12, 16.6))
-            case .refresh:
-                path.addArc(center: p(12, 12), radius: 7 * s, startAngle: .degrees(-60), endAngle: .degrees(240), clockwise: false)
-                path.move(to: p(15.5, 5.9)); path.addLine(to: p(16, 2.5))
-                path.move(to: p(15.5, 5.9)); path.addLine(to: p(19, 6.5))
-            case .fish:
-                path.move(to: p(3.5, 12)); path.addQuadCurve(to: p(17, 12), control: p(10, 3.5))
-                path.addQuadCurve(to: p(3.5, 12), control: p(10, 20.5))
-                path.move(to: p(17, 12)); path.addLine(to: p(21, 8)); path.addLine(to: p(21, 16)); path.closeSubpath()
-                path.move(to: p(7.6, 10.6)); path.addLine(to: p(7.7, 10.7))
-            case .sound, .mute:
-                path.move(to: p(4, 10)); path.addLine(to: p(8, 10)); path.addLine(to: p(12.5, 6))
-                path.addLine(to: p(12.5, 18)); path.addLine(to: p(8, 14)); path.addLine(to: p(4, 14)); path.closeSubpath()
-                if kind == .sound {
-                    path.move(to: p(15.5, 9.5)); path.addQuadCurve(to: p(15.5, 14.5), control: p(17.5, 12))
-                    path.move(to: p(18, 7)); path.addQuadCurve(to: p(18, 17), control: p(22, 12))
-                } else {
-                    path.move(to: p(16, 9.5)); path.addLine(to: p(21, 14.5))
-                    path.move(to: p(21, 9.5)); path.addLine(to: p(16, 14.5))
-                }
-            case .play:
-                path.move(to: p(8, 5)); path.addLine(to: p(19, 12)); path.addLine(to: p(8, 19)); path.closeSubpath()
-            case .pause:
-                path.move(to: p(9, 5)); path.addLine(to: p(9, 19))
-                path.move(to: p(15, 5)); path.addLine(to: p(15, 19))
-            case .book:
-                path.move(to: p(12, 6)); path.addQuadCurve(to: p(3, 5), control: p(7, 3.5))
-                path.addLine(to: p(3, 19)); path.addQuadCurve(to: p(12, 20), control: p(7, 17.5)); path.closeSubpath()
-                path.move(to: p(12, 6)); path.addQuadCurve(to: p(21, 5), control: p(17, 3.5))
-                path.addLine(to: p(21, 19)); path.addQuadCurve(to: p(12, 20), control: p(17, 17.5)); path.closeSubpath()
-            }
-            gc.stroke(path, with: .color(color ?? Ink.ink),
-                      style: StrokeStyle(lineWidth: lineWidth * s, lineCap: .round, lineJoin: .round))
+    private var symbol: String {
+        switch kind {
+        case .send: return "arrow.up.right"
+        case .receive: return "arrow.down.left"
+        case .gear: return "gearshape"
+        case .close: return "xmark"
+        case .back: return "chevron.left"
+        case .home: return "house"
+        case .record: return "list.bullet"
+        case .rabbit: return "hare"
+        case .scan: return "qrcode.viewfinder"
+        case .paste: return "doc.on.clipboard"
+        case .copy: return "doc.on.doc"
+        case .share: return "square.and.arrow.up"
+        case .check: return "checkmark"
+        case .alert: return "exclamationmark.circle"
+        case .refresh: return "arrow.clockwise"
+        case .fish: return "fish"
+        case .book: return "book"
+        case .play: return "play.fill"
+        case .pause: return "pause.fill"
+        case .sound: return "speaker.wave.2.fill"
+        case .mute: return "speaker.slash.fill"
         }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+    }
+
+    /// SF Symbols, sized to sit in a `size` square; `lineWidth` picks the weight.
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: size * 0.82, weight: lineWidth >= 2.4 ? .semibold : (lineWidth >= 2 ? .medium : .regular)))
+            .foregroundStyle(color ?? Ink.ink)
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
     }
 }
 
 // MARK: - Cards & rows
 
 extension View {
-    /// A soft, borderless card floating a little above the page.
-    func inkCard(padding: CGFloat = 18, radius: CGFloat = Radius.card, border: Color? = nil,
+    /// A flat white card; no border unless one is asked for.
+    func inkCard(padding: CGFloat = 20, radius: CGFloat = Radius.card, border: Color? = nil,
                  fill: Color = Ink.paper) -> some View {
         self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(fill, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(border ?? Ink.line.opacity(0.6), lineWidth: border == nil ? 1 : 2)
-            )
-            .softShadow()
+            .overlay {
+                if let border {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(border, lineWidth: 1)
+                }
+            }
     }
 
-    /// The gentle violet-tinted shadow under cards and floating controls.
+    /// A frosted-glass card, for things that sit over colour.
+    func glassCard(padding: CGFloat = 20, radius: CGFloat = Radius.card) -> some View {
+        self
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+    }
+
+    /// A barely-there shadow for things that float (toasts, the tab bar).
     func softShadow(_ strength: Double = 1) -> some View {
-        shadow(color: Color(hex: 0x3A2A9E, opacity: 0.09 * strength), radius: 14, y: 6)
+        shadow(color: Color.black.opacity(0.06 * strength), radius: 16, y: 6)
     }
 }
 
@@ -317,7 +231,7 @@ extension View {
 
 /// A hairline rounded border; stretches to any size.
 struct BrushFrame: View {
-    var color: Color = Ink.line.opacity(0.6)
+    var color: Color = .clear
     var radius: CGFloat = Radius.card
 
     var body: some View {
@@ -330,7 +244,7 @@ struct BrushFrame: View {
 
 /// A solid rounded block.
 struct InkBlock: View {
-    var color: Color = Ink.server
+    var color: Color = Ink.tint
 
     var body: some View {
         RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
@@ -340,38 +254,43 @@ struct InkBlock: View {
     }
 }
 
-/// The page behind every screen: a pale wash with three big, slow blobs of
-/// colour (violet, orange, teal) drifting through it.
+/// The plain page colour behind every screen.
 struct PaperBackground: View {
+    var body: some View {
+        Ink.bg
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
+    }
+}
+
+/// A soft glow of colour for glass to sit over: two blurred orbs drifting
+/// very slowly.
+struct Aurora: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
+    var colors: [Color] = [Color(hex: 0xFF9F0A), Color(hex: 0xFF375F), Color(hex: 0x5E5CE6)]
     @State private var drift = false
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
             ZStack {
-                Ink.bg
-                blob(Ink.server, size: w * 1.1)
-                    .position(x: drift ? w * 0.05 : w * 0.3, y: drift ? h * 0.02 : h * 0.12)
-                blob(Ink.orange, size: w * 0.9)
-                    .position(x: drift ? w * 1.0 : w * 0.8, y: drift ? h * 0.35 : h * 0.22)
-                blob(Ink.chain, size: w * 1.0)
-                    .position(x: drift ? w * 0.35 : w * 0.1, y: drift ? h * 0.85 : h * 0.98)
+                orb(colors[0], size: w * 0.9).position(x: drift ? w * 0.2 : w * 0.38, y: drift ? h * 0.3 : h * 0.42)
+                orb(colors[1], size: w * 0.8).position(x: drift ? w * 0.85 : w * 0.68, y: drift ? h * 0.55 : h * 0.4)
+                orb(colors[2], size: w * 0.7).position(x: drift ? w * 0.5 : w * 0.6, y: drift ? h * 0.85 : h * 0.72)
             }
             .onAppear {
                 guard !reduceMotion, !drift else { return }
-                withAnimation(.easeInOut(duration: 11).repeatForever(autoreverses: true)) { drift = true }
+                withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) { drift = true }
             }
         }
-        .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    private func blob(_ color: Color, size: CGFloat) -> some View {
+    private func orb(_ color: Color, size: CGFloat) -> some View {
         Circle()
-            .fill(RadialGradient(colors: [color.opacity(scheme == .dark ? 0.2 : 0.16), color.opacity(0)],
+            .fill(RadialGradient(colors: [color.opacity(scheme == .dark ? 0.5 : 0.42), color.opacity(0)],
                                  center: .center, startRadius: 0, endRadius: size / 2))
             .frame(width: size, height: size)
     }
@@ -387,11 +306,7 @@ struct SealStamp: View {
             .font(Brush.bold(size * 0.55))
             .foregroundStyle(Color.white)
             .frame(width: size, height: size)
-            .background(
-                LinearGradient(colors: [Color(hex: 0xFFB13D), Color(hex: 0xF7831A)], startPoint: .top, endPoint: .bottom),
-                in: RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
-            )
-            .shadow(color: Ink.orange.opacity(0.35), radius: 5, y: 3)
+            .background(Ink.orange, in: RoundedRectangle(cornerRadius: size * 0.26, style: .continuous))
             .accessibilityHidden(true)
     }
 }
@@ -407,7 +322,7 @@ struct InkBadge: View {
             .foregroundStyle(color)
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(color.opacity(0.14), in: Capsule())
+            .background(color.opacity(0.12), in: Capsule())
             .fixedSize()
     }
 }
@@ -415,13 +330,13 @@ struct InkBadge: View {
 /// A round tinted bubble with an icon: what kind of thing a row or card is.
 struct IconBubble: View {
     var icon: InkIcon.Kind
-    var color: Color = Ink.server
+    var color: Color = Ink.ink
     var size: CGFloat = 38
 
     var body: some View {
         InkIcon(kind: icon, size: size * 0.5, lineWidth: 2.2, color: color)
             .frame(width: size, height: size)
-            .background(color.opacity(0.15), in: Circle())
+            .background(color.opacity(0.12), in: Circle())
             .accessibilityHidden(true)
     }
 }
@@ -498,7 +413,7 @@ struct SheetHeader: View {
                 .transition(.scale.combined(with: .opacity))
             }
             Text(title)
-                .font(Brush.bold(22, relativeTo: .title2))
+                .font(Brush.bold(24, relativeTo: .title2))
                 .foregroundStyle(Ink.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
@@ -522,24 +437,24 @@ struct StepLabels: View {
             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
                 if index > 0 {
                     Capsule()
-                        .fill(index <= current ? Ink.server : Ink.line)
+                        .fill(index <= current ? Ink.tint : Ink.line)
                         .frame(height: 3)
                         .frame(maxWidth: 28)
                 }
                 HStack(spacing: 5) {
                     ZStack {
-                        Circle().fill(index <= current ? Ink.server : Ink.wash)
+                        Circle().fill(index <= current ? Ink.tint : Ink.wash)
                         if index < current {
-                            InkIcon(kind: .check, size: 11, lineWidth: 3, color: Ink.onColor)
+                            InkIcon(kind: .check, size: 11, lineWidth: 3, color: Ink.onTint)
                                 .transition(.scale)
                         } else {
                             Text("\(index + 1)")
                                 .font(Brush.bold(11))
-                                .foregroundStyle(index == current ? Ink.onColor : Ink.sub)
+                                .foregroundStyle(index == current ? Ink.onTint : Ink.sub)
                         }
                     }
                     .frame(width: 20, height: 20)
-                    .scaleEffect(index == current ? 1.15 : 1)
+                    .scaleEffect(index == current ? 1.08 : 1)
                     Text(step)
                         .font(Brush.bold(13))
                         .foregroundStyle(index == current ? Ink.ink : Ink.sub)
@@ -606,7 +521,7 @@ struct TransactionRow: View {
             VStack(alignment: .trailing, spacing: 1) {
                 Text(amountText)
                     .font(Brush.bold(16))
-                    .foregroundStyle(movement.isFailed ? Ink.sub : (movement.isIncoming ? Ink.orange : Ink.ink))
+                    .foregroundStyle(movement.isFailed ? Ink.sub : (movement.isIncoming ? Ink.good : Ink.ink))
                     .strikethrough(movement.isFailed)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -627,9 +542,9 @@ struct TransactionRow: View {
         } else if movement.isFailed {
             IconBubble(icon: .alert, color: Ink.alert)
         } else if movement.isIncoming {
-            IconBubble(icon: .receive, color: Ink.orange)
+            IconBubble(icon: .receive, color: Ink.good)
         } else {
-            IconBubble(icon: .send, color: Ink.server)
+            IconBubble(icon: .send, color: Ink.ink)
         }
     }
 
@@ -664,9 +579,8 @@ struct ToastView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .background(Ink.paper, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .overlay(BrushFrame())
-        .softShadow(1.8)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .softShadow(2)
         .padding(.horizontal, 16)
         .accessibilityElement(children: .combine)
     }
@@ -674,8 +588,8 @@ struct ToastView: View {
     @ViewBuilder
     private var marker: some View {
         switch toast.style {
-        case .incoming: IconBubble(icon: .receive, color: Ink.orange)
-        case .outgoing: IconBubble(icon: .send, color: Ink.server)
+        case .incoming: IconBubble(icon: .receive, color: Ink.good)
+        case .outgoing: IconBubble(icon: .send, color: Ink.ink)
         case .info: IconBubble(icon: .check, color: Ink.good)
         case .error: IconBubble(icon: .alert, color: Ink.alert)
         }

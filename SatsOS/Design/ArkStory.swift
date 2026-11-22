@@ -545,7 +545,7 @@ struct ArkStoryPlayer: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            InkBadge(text: "1分 どうが", color: Ink.server)
+            InkBadge(text: "1分 どうが", color: Ink.tint)
             Text("Ark って なに？")
                 .font(Brush.bold(20))
                 .foregroundStyle(Ink.ink)
@@ -555,9 +555,9 @@ struct ArkStoryPlayer: View {
                 narration.toggle()
                 if !narration { Narrator.shared.stop() }
             } label: {
-                InkIcon(kind: narration ? .sound : .mute, size: 18, lineWidth: 2, color: narration ? Ink.server : Ink.sub)
+                InkIcon(kind: narration ? .sound : .mute, size: 18, lineWidth: 2, color: narration ? Ink.tint : Ink.sub)
                     .frame(width: 40, height: 36)
-                    .background(narration ? Ink.serverSoft : Ink.wash, in: Capsule())
+                    .background(narration ? Ink.wash : Ink.wash, in: Capsule())
             }
             .buttonStyle(PressableStyle(scale: 0.88))
             .accessibilityLabel(narration ? "よみあげ オン" : "よみあげ オフ")
@@ -570,8 +570,8 @@ struct ArkStoryPlayer: View {
                 let fill: Double = chapter.id < index ? 1 : (chapter.id == index && started ? progress : 0)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Ink.serverSoft)
-                        Capsule().fill(Ink.server).frame(width: geo.size.width * fill)
+                        Capsule().fill(Ink.wash)
+                        Capsule().fill(Ink.tint).frame(width: geo.size.width * fill)
                     }
                 }
                 .frame(height: 5)
@@ -619,15 +619,14 @@ struct ArkStoryPlayer: View {
 
     private var poster: some View {
         VStack(spacing: 10) {
-            InkIcon(kind: .play, size: 30, lineWidth: 2.6, color: Ink.onColor)
+            InkIcon(kind: .play, size: 30, lineWidth: 2.6, color: Ink.onTint)
                 .offset(x: 2)
                 .frame(width: 84, height: 84)
-                .background(LinearGradient(colors: [Ink.server, Ink.serverDeep], startPoint: .top, endPoint: .bottom), in: Circle())
-                .shadow(color: Ink.server.opacity(0.45), radius: 18, y: 8)
+                .background(Ink.tint, in: Circle())
                 .floating(4, period: 2.4)
             Text("タップして 見る")
                 .font(Brush.bold(15))
-                .foregroundStyle(Ink.server)
+                .foregroundStyle(Ink.tint)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
                 .background(Ink.paper, in: Capsule())
@@ -641,9 +640,9 @@ struct ArkStoryPlayer: View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(chapter.id + 1)")
                 .font(Brush.bold(15))
-                .foregroundStyle(Ink.onColor)
+                .foregroundStyle(Ink.onTint)
                 .frame(width: 30, height: 30)
-                .background(Ink.server, in: Circle())
+                .background(Ink.tint, in: Circle())
                 .contentTransition(.numericText(value: Double(chapter.id)))
             VStack(alignment: .leading, spacing: 4) {
                 Text(started ? chapter.title : "10の ばめんで ぜんぶ わかる")
@@ -661,7 +660,7 @@ struct ArkStoryPlayer: View {
                                     removal: .move(edge: .leading).combined(with: .opacity)))
         }
         .padding(14)
-        .background(Ink.serverSoft.opacity(0.55), in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
+        .background(Ink.bg, in: RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: Radius.control, style: .continuous))
         .accessibilityElement(children: .combine)
     }
@@ -699,15 +698,14 @@ struct ArkStoryPlayer: View {
             Haptics.tap()
             action()
         } label: {
-            InkIcon(kind: icon, size: size * 0.38, lineWidth: 2.6, color: solid ? Ink.onColor : Ink.server)
+            InkIcon(kind: icon, size: size * 0.38, lineWidth: 2.6, color: solid ? Ink.onTint : Ink.tint)
                 .rotationEffect(.degrees(flipped ? 180 : 0))
                 .frame(width: size, height: size)
                 .background {
                     if solid {
-                        Circle().fill(LinearGradient(colors: [Ink.server, Ink.serverDeep], startPoint: .top, endPoint: .bottom))
-                            .shadow(color: Ink.server.opacity(0.4), radius: 10, y: 5)
+                        Circle().fill(Ink.tint)
                     } else {
-                        Circle().fill(Ink.serverSoft)
+                        Circle().fill(Ink.wash)
                     }
                 }
         }

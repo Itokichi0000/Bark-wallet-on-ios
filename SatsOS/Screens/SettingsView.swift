@@ -346,7 +346,7 @@ struct InkToggle: View {
                 Spacer()
                 ZStack(alignment: isOn ? .trailing : .leading) {
                     Capsule()
-                        .fill(isOn ? Ink.server : Ink.wash)
+                        .fill(isOn ? Ink.good : Ink.wash)
                         .frame(width: 54, height: 32)
                     Circle()
                         .fill(Color.white)
