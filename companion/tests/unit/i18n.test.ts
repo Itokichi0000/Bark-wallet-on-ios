@@ -63,7 +63,7 @@ describe("i18n", () => {
 
   it("carries the safety-critical messages in both languages", () => {
     const critical = [
-      "net.signetLong", "seed.warning", "send.unknown.noResend", "send.pending.body", "review.irreversible",
+      "net.signetLong", "net.mainnetLong", "settings.mainnetWarning", "settings.switch.toMainnetBody", "seed.warning", "send.unknown.noResend", "send.pending.body", "review.irreversible",
       "recovery.seedOnly.limits", "backup.explain1", "backup.explain2", "assets.maintenance.caveat",
       "assets.ops.notEnabled", "voice.secretRefused", "boot.error.noAutoCreate", "mock.banner", "status.backupNotExported",
     ];
@@ -71,6 +71,16 @@ describe("i18n", () => {
       expect(ja[key]?.length ?? 0).toBeGreaterThan(8);
       expect(en[key]?.length ?? 0).toBeGreaterThan(8);
     }
+  });
+
+  it("has a Signet wording for every Mainnet variant, and switches only on Mainnet", () => {
+    const variants = Object.keys(ja).filter((k) => k.endsWith(".mainnet"));
+    expect(variants.length).toBeGreaterThan(5);
+    for (const v of variants) expect([v, v.slice(0, -".mainnet".length) in ja]).toEqual([v, true]);
+    expect(translate("en", "receive.method", undefined, false)).toBe("Ark (Signet)");
+    expect(translate("en", "receive.method", undefined, true)).toBe("Ark (Mainnet)");
+    expect(translate("en", "common.back", undefined, true)).toBe("Back");
+    expect(ja["net.mainnetLong"]).toContain("本物");
   });
 
   it("substitutes parameters and falls back to the key", () => {

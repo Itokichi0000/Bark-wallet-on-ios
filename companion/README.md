@@ -1,10 +1,11 @@
-# Bark Companion Wallet (Signet)
+# Bark Companion Wallet
 
 キャラクターが案内する、Bitcoin / Ark（Bark）のセルフカストディ・ウォレット。Expo + React Native + TypeScript。
 設計書「Bark Companion Wallet 詳細設計書」の M0 / M1-A を対象にした実装です。
 
-> **Signet 専用です。** 本物のビットコインは扱えません。本番用の SwiftUI アプリ（リポジトリ直下の `SatsOS/`）とは
-> バンドル ID もデータ領域も別で、互いに影響しません。
+> **既定は Signet（テスト）です。** 設定画面で Mainnet に切り替えられますが、実機での検証はまだです。
+> 本番では少額に限ってください。ウォレットとシードはネットワークごとに別です。
+> TestFlight では既存の Sats-OS の枠（`com.itokichi0000.satsos`）に配信されます。
 
 ## 動かし方
 

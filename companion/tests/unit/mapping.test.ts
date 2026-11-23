@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BARK_SDK_VERSION, SIGNET } from "@/infrastructure/bark/barkConfig";
+import { ACTIVE_NETWORK, netKey } from "@/config/network";
+import { BARK_SDK_VERSION, NETWORKS, SIGNET } from "@/infrastructure/bark/barkConfig";
 import { type SdkMovementLike, maintenanceSeverity, mapMovement, mapMovementStatus, vtxoHealth } from "@/infrastructure/bark/mapping";
 import { ENABLED_SEND_METHODS } from "@/domain/wallet";
 
@@ -55,9 +56,13 @@ describe("build configuration", () => {
     expect(BARK_SDK_VERSION).toBe(pkg.version);
   });
 
-  it("is Signet-only: no mainnet endpoint or network constant anywhere in the app", () => {
+  it("defaults to Signet and keeps mainnet values in exactly the files that own them", () => {
     expect(SIGNET.serverAddress).toBe("https://ark.signet.2nd.dev");
     expect(SIGNET.esploraAddress).toBe("https://esplora.signet.2nd.dev");
+    expect(NETWORKS.mainnet.serverAddress).toBe("https://ark.second.tech");
+    expect(NETWORKS.mainnet.datadirName).not.toBe(NETWORKS.signet.datadirName);
+    expect(ACTIVE_NETWORK).toBe("signet");
+    expect(netKey("seed.v1")).toBe("bcw.signet.seed.v1");
     const { readdirSync, statSync } = require("node:fs") as typeof import("node:fs");
     const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => {
       const p = join(dir, n);
@@ -66,8 +71,12 @@ describe("build configuration", () => {
     const offenders = [...walk(join(root, "src")), ...walk(join(root, "app")), join(root, "app.config.ts")].filter((p) => {
       const text = readFileSync(p, "utf8");
       return /Network\.Bitcoin|ark\.second\.tech|mempool\.second\.tech/.test(text);
-    });
-    expect(offenders).toEqual([]);
+    }).map((p) => p.slice(root.length + 1)).sort();
+    expect(offenders).toEqual([
+      "src/infrastructure/backup/BackupManager.ts",
+      "src/infrastructure/bark/BarkWalletAdapter.ts",
+      "src/infrastructure/bark/barkConfig.ts",
+    ]);
   });
 
   it("only enables the Ark rail", () => {

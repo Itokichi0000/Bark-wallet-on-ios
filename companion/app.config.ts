@@ -1,12 +1,13 @@
 import type { ExpoConfig } from "expo/config";
 
-// Signet-only build. There is deliberately no mainnet switch in this app:
-// see docs/SECURITY_MODEL.md. A mainnet build would need a different bundle
-// id and data directory, after the review gates in the design document.
+// Ships in the existing Sats-OS TestFlight slot (same bundle ID), replacing the
+// SwiftUI app, at the owner's request. Signet is the default network; Mainnet
+// is a deliberate switch in Settings with its own seed and data directory
+// (docs/ADR/0003-network-switch-and-replacing-sats-os.md).
 const config: ExpoConfig = {
-  name: "Bark Companion (Signet)",
+  name: "Bark Companion",
   slug: "bark-companion-wallet",
-  version: "0.1.0",
+  version: "2.0.0",
   scheme: "barkcompanion",
   orientation: "portrait",
   userInterfaceStyle: "dark",
@@ -14,7 +15,7 @@ const config: ExpoConfig = {
   icon: "./assets/icon.png",
   ios: {
     buildNumber: process.env.BUILD_NUMBER ?? "1",
-    bundleIdentifier: "com.itokichi0000.barkcompanion.signet",
+    bundleIdentifier: "com.itokichi0000.satsos",
     supportsTablet: false,
     infoPlist: {
       NSCameraUsageDescription:

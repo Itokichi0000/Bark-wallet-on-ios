@@ -1,3 +1,4 @@
+import { ACTIVE_NETWORK } from "@/config/network";
 import { WalletError } from "@/domain/errors";
 import { fromMoney, toMoney } from "@/domain/money";
 import type {
@@ -99,7 +100,7 @@ export class MockWalletAdapter implements WalletAdapter {
   }
   async info(): Promise<WalletInfo> {
     this.requireOpen();
-    return { network: "signet", fingerprint: "mock0000", serverAddress: "mock://no-server", sdkVersion: "mock", isMock: true };
+    return { network: ACTIVE_NETWORK, fingerprint: "mock0000", serverAddress: "mock://no-server", sdkVersion: "mock", isMock: true };
   }
   async sync(): Promise<void> {
     this.requireOpen();
@@ -142,7 +143,7 @@ export class MockWalletAdapter implements WalletAdapter {
     const total = amount + this.fee;
     if (total > this.spendable) throw new WalletError("insufficient-funds", toMoney(total - this.spendable));
     return {
-      method: draft.method, network: "signet", destination: draft.destination,
+      method: draft.method, network: ACTIVE_NETWORK, destination: draft.destination,
       amountSats: toMoney(amount), feeSats: toMoney(this.fee), totalDebitSats: toMoney(total),
       balanceAfterSats: toMoney(this.spendable - total), feeIsEstimate: false, quotedAt: this.now().toISOString(),
     };

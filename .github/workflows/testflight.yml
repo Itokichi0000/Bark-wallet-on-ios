@@ -13,17 +13,11 @@ name: TestFlight
 #
 # The first run registers the bundle ID and stops if the app doesn't exist in
 # App Store Connect yet; the job summary says what to click. Run it again after.
+# Manual only: pushes to main now ship the React Native companion app into this
+# same app record (companion-testflight.yml). Run this by hand to put the
+# SwiftUI app back.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "licenses/**"
-      # The React Native companion app has its own workflow (companion-testflight.yml).
-      - "companion/**"
-      - "scripts/companion-testflight.sh"
-      - ".github/workflows/**"
 
 concurrency:
   group: testflight

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Archive Bark Companion (Signet, React Native app in companion/) and upload it to TestFlight using an App Store Connect API key.
+# Archive Bark Companion (React Native app in companion/) and upload it to TestFlight using an App Store Connect API key.
 #
 # Signing uses Xcode "cloud signing": with -allowProvisioningUpdates and an API
 # key that has the Admin role, Xcode creates the distribution certificate and
@@ -12,7 +12,7 @@ set -euo pipefail
 : "${ASC_KEY_ID:?set ASC_KEY_ID}"
 : "${ASC_ISSUER_ID:?set ASC_ISSUER_ID}"
 : "${ASC_PRIVATE_KEY:?set ASC_PRIVATE_KEY}"
-BUNDLE_ID="${BUNDLE_ID:-com.itokichi0000.barkcompanion.signet}"
+BUNDLE_ID="${BUNDLE_ID:-com.itokichi0000.satsos}"
 # yymmddHHMM: always increasing, unique per minute
 BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%y%m%d%H%M)}"
 
@@ -31,7 +31,7 @@ trap 'rm -f "${KEY_PATH}"' EXIT
 echo "==> Checking App Store Connect"
 # Registers the bundle ID if needed; stops here (exit 3) with instructions in
 # the job summary when the app hasn't been created in App Store Connect yet.
-PREPARE=$(python3 scripts/asc.py prepare --key "${KEY_PATH}" --bundle-id "${BUNDLE_ID}" --name "Bark Companion Signet")
+PREPARE=$(python3 scripts/asc.py prepare --key "${KEY_PATH}" --bundle-id "${BUNDLE_ID}")
 API_TEAM_ID=$(printf '%s\n' "${PREPARE}" | sed -n 's/^team_id=//p')
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-${API_TEAM_ID}}"
 if [ -z "${APPLE_TEAM_ID}" ]; then
@@ -46,9 +46,11 @@ AUTH=(
   -authenticationKeyIssuerID "${ASC_ISSUER_ID}"
 )
 ARCHIVE=build/BarkCompanion.xcarchive
+WORKSPACE=$(ls -d companion/ios/*.xcworkspace | head -1)
+SCHEME=$(basename "${WORKSPACE}" .xcworkspace)
 COMMON=(
-  -workspace companion/ios/BarkCompanionSignet.xcworkspace
-  -scheme BarkCompanionSignet
+  -workspace "${WORKSPACE}"
+  -scheme "${SCHEME}"
   -configuration Release
   -destination "generic/platform=iOS"
   -archivePath "${ARCHIVE}"
@@ -106,11 +108,11 @@ fi
 tail -5 build/export.log
 
 echo "==> Adding you as a TestFlight tester"
-python3 scripts/asc.py testers --key "${KEY_PATH}" --bundle-id "${BUNDLE_ID}" --group "Bark Companion me" \
+python3 scripts/asc.py testers --key "${KEY_PATH}" --bundle-id "${BUNDLE_ID}" \
   || echo "::warning::テスターの自動登録に失敗しました。App Store Connect の TestFlight → 内部テストで自分を追加してください。"
 
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleShortVersionString" "${ARCHIVE}/Info.plist" 2>/dev/null || echo "?")
-echo "==> Uploaded Bark Companion (Signet) ${VERSION} (${BUILD_NUMBER})"
+echo "==> Uploaded Bark Companion ${VERSION} (${BUILD_NUMBER})"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo "### Uploaded to TestFlight"

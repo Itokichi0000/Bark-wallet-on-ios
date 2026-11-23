@@ -4,9 +4,9 @@
 |---|---|
 | パッケージ | `@secondts/bark-react-native` **0.28.0**（bark 0.9.0） |
 | Expo SDK / React Native / React | 58 / 0.88.1 / 19.3 （New Architecture, Hermes） |
-| ネットワーク | Signet のみ |
-| Ark サーバー | `https://ark.signet.2nd.dev` |
-| Esplora | `https://esplora.signet.2nd.dev` |
+| ネットワーク | Signet（既定）/ Mainnet |
+| Ark サーバー | `https://ark.signet.2nd.dev` / `https://ark.second.tech` |
+| Esplora | `https://esplora.signet.2nd.dev` / `https://mempool.second.tech/api` |
 | faucet | `https://signet.2nd.dev/` |
 
 `BARK_SDK_VERSION` 定数とインストール済みパッケージの版が一致することを単体テストで検査しています。

@@ -1,7 +1,10 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 
-const SEED_KEY = "bcw.signet.seed.v1";
+import { netKey } from "@/config/network";
+
+/** One seed per network: a Signet seed is never used for real funds. */
+const SEED_KEY = netKey("seed.v1");
 
 const OPTIONS: SecureStore.SecureStoreOptions = {
   // Keychain / Keystore, readable only while unlocked, never migrated to another device.

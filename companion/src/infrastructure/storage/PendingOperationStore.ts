@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { PendingOperation } from "@/domain/payment";
 
-const KEY = "bcw.signet.pendingOps.v1";
 const KEEP_RESOLVED = 50;
 
 export interface KeyValueStore {
@@ -15,10 +14,10 @@ export interface KeyValueStore {
  * Contains destinations and amounts but no secrets.
  */
 export class PendingOperationStore {
-  constructor(private readonly kv: KeyValueStore = AsyncStorage) {}
+  constructor(private readonly kv: KeyValueStore = AsyncStorage, private readonly key = "bcw.signet.pendingOps.v1") {}
 
   async all(): Promise<PendingOperation[]> {
-    const raw = await this.kv.getItem(KEY);
+    const raw = await this.kv.getItem(this.key);
     if (!raw) return [];
     try {
       const parsed: unknown = JSON.parse(raw);
@@ -37,7 +36,7 @@ export class PendingOperationStore {
     ops.push(op);
     const open = ops.filter((o) => o.status !== "succeeded" && o.status !== "failed");
     const closed = ops.filter((o) => o.status === "succeeded" || o.status === "failed").slice(-KEEP_RESOLVED);
-    await this.kv.setItem(KEY, JSON.stringify([...closed, ...open]));
+    await this.kv.setItem(this.key, JSON.stringify([...closed, ...open]));
   }
 
   async get(operationId: string): Promise<PendingOperation | undefined> {

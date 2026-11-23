@@ -1,12 +1,10 @@
 name: Companion TestFlight
 
-# Builds the React Native "Bark Companion (Signet)" app in companion/ and
-# uploads it to TestFlight. It is a separate app from Sats-OS: its own bundle
-# ID (com.itokichi0000.barkcompanion.signet), Signet only, separate data.
-# Uses the same App Store Connect secrets as the TestFlight workflow.
-#
-# The first run registers the bundle ID and stops if the app doesn't exist in
-# App Store Connect yet; the job summary says what to click. Run it again after.
+# Builds the React Native "Bark Companion" app in companion/ and uploads it to
+# TestFlight in the existing Sats-OS app record (com.itokichi0000.satsos),
+# replacing the SwiftUI app there. Uses the same App Store Connect secrets.
+# The SwiftUI app's own workflow (testflight.yml) is now manual-only so the two
+# never overwrite each other by accident.
 on:
   workflow_dispatch:
   push:
@@ -30,7 +28,7 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      BUNDLE_ID: com.itokichi0000.barkcompanion.signet
+      BUNDLE_ID: ${{ vars.BUNDLE_ID || 'com.itokichi0000.satsos' }}
     steps:
       - uses: actions/checkout@v4
 

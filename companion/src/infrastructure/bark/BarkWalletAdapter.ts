@@ -33,7 +33,8 @@ import {
   type WalletMovement,
   type WalletVtxo,
 } from "@/domain/wallet";
-import { BARK_SDK_VERSION, SIGNET } from "./barkConfig";
+import { ACTIVE_NETWORK, NET } from "@/config/network";
+import { BARK_SDK_VERSION } from "./barkConfig";
 import { maintenanceSeverity, mapMovement, mapMovementStatus, vtxoHealth } from "./mapping";
 
 /**
@@ -51,11 +52,16 @@ export class BarkWalletAdapter implements WalletAdapter {
   private exclusive: Promise<unknown> = Promise.resolve();
 
   private datadir(): string {
-    return new Directory(Paths.document, SIGNET.datadirName).uri;
+    return new Directory(Paths.document, NET.datadirName).uri;
+  }
+
+  /** The one place the app's network choice becomes an SDK network. */
+  private sdkNetwork(): Network {
+    return ACTIVE_NETWORK === "mainnet" ? Network.Bitcoin : Network.Signet;
   }
 
   private config(): Config {
-    return Config.create({ serverAddress: SIGNET.serverAddress, esploraAddress: SIGNET.esploraAddress });
+    return Config.create({ serverAddress: NET.serverAddress, esploraAddress: NET.esploraAddress });
   }
 
   private require(): WalletLike {
@@ -78,10 +84,10 @@ export class BarkWalletAdapter implements WalletAdapter {
     const present = walletExists(this.datadir());
     if (opts.create && present) throw new WalletError("already-exists");
     if (!opts.create && !present) throw new WalletError("no-wallet");
-    const dir = new Directory(Paths.document, SIGNET.datadirName);
+    const dir = new Directory(Paths.document, NET.datadirName);
     if (!dir.exists) dir.create({ intermediates: true });
     this.wallet = await Wallet.open(
-      Network.Signet,
+      this.sdkNetwork(),
       mnemonic,
       this.config(),
       WalletOpenArgs.create({
@@ -93,12 +99,12 @@ export class BarkWalletAdapter implements WalletAdapter {
       }),
     );
     const network = await this.wallet.network();
-    if (network !== Network.Signet) {
+    if (network !== this.sdkNetwork()) {
       // Never operate a wallet on a network this build was not made for.
       const w = this.wallet;
       this.wallet = undefined;
       await w.stopDaemonWait().catch(() => undefined);
-      throw new WalletError("sdk", "The wallet database is not a Signet wallet.");
+      throw new WalletError("sdk", `The wallet database is not a ${ACTIVE_NETWORK} wallet.`);
     }
   }
 
@@ -111,9 +117,9 @@ export class BarkWalletAdapter implements WalletAdapter {
   async info(): Promise<WalletInfo> {
     const props = await this.require().properties();
     return {
-      network: "signet",
+      network: ACTIVE_NETWORK,
       fingerprint: props.fingerprint,
-      serverAddress: SIGNET.serverAddress,
+      serverAddress: NET.serverAddress,
       sdkVersion: BARK_SDK_VERSION,
       isMock: false,
     };
@@ -126,7 +132,7 @@ export class BarkWalletAdapter implements WalletAdapter {
   }
 
   private async fetchTipHeight(): Promise<number> {
-    const res = await fetch(`${SIGNET.esploraAddress}/blocks/tip/height`);
+    const res = await fetch(`${NET.esploraAddress}/blocks/tip/height`);
     if (!res.ok) throw new Error(`esplora ${res.status}`);
     const height = Number.parseInt((await res.text()).trim(), 10);
     if (!Number.isSafeInteger(height) || height <= 0) throw new Error("bad tip height");
@@ -222,7 +228,7 @@ export class BarkWalletAdapter implements WalletAdapter {
     if (total > spendable) throw new WalletError("insufficient-funds", toMoney(total - spendable));
     return {
       method: draft.method,
-      network: "signet",
+      network: ACTIVE_NETWORK,
       destination: draft.destination,
       amountSats: toMoney(amount),
       feeSats: toMoney(fee),

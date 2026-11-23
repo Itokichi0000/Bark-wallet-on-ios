@@ -6,14 +6,15 @@ import { errorMessage } from "@/domain/errors";
 import type { EventBus } from "@/domain/events";
 import type { WalletAdapter } from "@/domain/wallet";
 import type { BackupView, WalletView } from "@/state/walletStore";
-import { SIGNET } from "../bark/barkConfig";
+import { ACTIVE_NETWORK, NET, netKey } from "@/config/network";
 import { BackupError, type BackupHeader, decideRestore, openBackup, peekBackupHeader, sealBackup } from "./BackupEnvelope";
 
 /** Loaded lazily so a mock build never touches the native module. */
 const sdk = () => require("@secondts/bark-react-native") as typeof import("@secondts/bark-react-native");
 
-const META_KEY = "bcw.signet.backupMeta.v1";
-const BACKUP_DIR = "backups";
+const META_KEY = netKey("backupMeta.v1");
+/** Signet keeps the original directory name; other networks get their own. */
+const BACKUP_DIR = ACTIVE_NETWORK === "signet" ? "backups" : `backups-${ACTIVE_NETWORK}`;
 const KEEP_GENERATIONS = 5;
 const DEBOUNCE_MS = 1500;
 
@@ -205,10 +206,10 @@ export class BackupManager {
       return { ok: false, reason: "corrupt", detail: errorMessage(e) };
     }
     const { readDatadirInfo, walletExists, Network } = sdk();
-    const datadir = new Directory(Paths.document, SIGNET.datadirName);
+    const datadir = new Directory(Paths.document, NET.datadirName);
     const existingInfo = datadir.exists && walletExists(datadir.uri) ? readDatadirInfo(datadir.uri) : undefined;
     const decision = decideRestore(opened.header, {
-      network: SIGNET.network,
+      network: ACTIVE_NETWORK,
       existing: existingInfo ? { fingerprint: existingInfo.fingerprint } : undefined,
     });
     if (!decision.ok) return { ok: false, reason: decision.reason };
@@ -220,7 +221,7 @@ export class BackupManager {
       target.create();
       target.write(opened.db);
       const info = readDatadirInfo(datadir.uri);
-      if (!info || info.fingerprint !== opened.header.fingerprint || info.network !== Network.Signet) {
+      if (!info || info.fingerprint !== opened.header.fingerprint || info.network !== (ACTIVE_NETWORK === "mainnet" ? Network.Bitcoin : Network.Signet)) {
         target.delete();
         return { ok: false, reason: "verify-failed" };
       }

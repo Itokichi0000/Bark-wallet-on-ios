@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Button, H, Notice, P, Panel, Row, Screen } from "@/components/ui";
+import { Button, H, Notice, P, Panel, Row, Screen, NET_LONG_KEY } from "@/components/ui";
 import { backup, wallet } from "@/container";
 import type { PendingOperation } from "@/domain/payment";
 import { useT } from "@/i18n";
-import { BARK_SDK_VERSION, SIGNET } from "@/infrastructure/bark/barkConfig";
+import { ACTIVE_NETWORK, IS_MAINNET, NET, switchNetworkAndReload } from "@/config/network";
+import { BARK_SDK_VERSION, type NetworkId } from "@/infrastructure/bark/barkConfig";
 import { authenticateUser } from "@/infrastructure/secure/SecureSeedRepository";
 import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
@@ -60,6 +61,36 @@ export default function SettingsScene() {
     else if (auth.reason === "failed") setAuthError(t("seed.authFailed"));
   };
 
+  const [switching, setSwitching] = useState(false);
+  const doSwitch = async (target: NetworkId) => {
+    setAuthError(undefined);
+    const auth = await authenticateUser(t("settings.switch.authPrompt"));
+    if (!auth.ok && auth.reason !== "not-enrolled") {
+      if (auth.reason === "failed") setAuthError(t("seed.authFailed"));
+      return;
+    }
+    setSwitching(true);
+    try {
+      // The open wallet is closed first; the app then restarts with everything built for the other network.
+      await wallet.shutdown();
+      await switchNetworkAndReload(target);
+    } catch (e) {
+      setSwitching(false);
+      setAuthError(t("settings.switch.failed", { detail: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+  const askSwitch = (target: NetworkId) => {
+    if (target === ACTIVE_NETWORK || switching) return;
+    Alert.alert(
+      t(target === "mainnet" ? "settings.switch.toMainnetTitle" : "settings.switch.toSignetTitle"),
+      t(target === "mainnet" ? "settings.switch.toMainnetBody" : "settings.switch.toSignetBody"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        { text: t("settings.switch.confirm"), style: target === "mainnet" ? "destructive" : "default", onPress: () => void doSwitch(target) },
+      ],
+    );
+  };
+
   const backupNow = async () => {
     setBusy("backup");
     await backup.backupNow();
@@ -77,7 +108,14 @@ export default function SettingsScene() {
     <Screen title={t("settings.title")} subtitle="SETTINGS">
       <Panel>
         <H>{t("settings.network")}</H>
-        <Row label={t("review.network")} value={t("net.signetLong")} valueStyle={{ color: theme.colors.warning }} />
+        <Row label={t("review.network")} value={t(NET_LONG_KEY)} valueStyle={{ color: IS_MAINNET ? theme.colors.danger : theme.colors.warning }} />
+        <Choice<NetworkId>
+          label={t("settings.switch.label")}
+          value={ACTIVE_NETWORK}
+          options={[{ id: "signet", label: "Signet" }, { id: "mainnet", label: "Mainnet" }]}
+          onChange={askSwitch}
+        />
+        {IS_MAINNET ? <Notice tone="danger">{t("settings.mainnetWarning")}</Notice> : null}
         <P muted>{t("settings.networkNote")}</P>
       </Panel>
 
@@ -124,8 +162,8 @@ export default function SettingsScene() {
         <H>{t("settings.details")}</H>
         <Row label={t("settings.mode")} value={info?.isMock ? "MOCK" : "Bark SDK"} />
         <Row label="Bark SDK" value={`@secondts/bark-react-native ${BARK_SDK_VERSION}`} />
-        <Row label={t("settings.server")} value={info?.serverAddress ?? SIGNET.serverAddress} mono />
-        <Row label="Esplora" value={SIGNET.esploraAddress} mono />
+        <Row label={t("settings.server")} value={info?.serverAddress ?? NET.serverAddress} mono />
+        <Row label="Esplora" value={NET.esploraAddress} mono />
         <Row label={t("settings.fingerprint")} value={info?.fingerprint ?? "—"} mono />
         <Row label={t("settings.openOps")} value={String(open.length)} />
         {lastSyncError ? <Row label={t("settings.lastSyncError")} value={lastSyncError} /> : null}

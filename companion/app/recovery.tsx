@@ -2,7 +2,7 @@ import { useState } from "react";
 import { StyleSheet, TextInput } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
-import { Button, H, Notice, P, Panel, Row, Screen } from "@/components/ui";
+import { Button, H, Notice, P, Panel, Row, Screen, NET_LONG_KEY } from "@/components/ui";
 import { adapter, isValidMnemonic, normalizeMnemonic, wallet } from "@/container";
 import { errorMessage } from "@/domain/errors";
 import { useT } from "@/i18n";
@@ -95,7 +95,7 @@ export default function RecoveryScene() {
 
   return (
     <Screen title={t("recovery.title")} subtitle="RECOVERY" onBack={mode === "choose" ? undefined : () => setMode("choose")}>
-      <Notice tone="warning">{t("net.signetLong")}</Notice>
+      <Notice tone="warning">{t(NET_LONG_KEY)}</Notice>
       {adapter.isMock ? <Notice tone="info">{t("backup.mock")}</Notice> : null}
 
       {mode === "choose" && (

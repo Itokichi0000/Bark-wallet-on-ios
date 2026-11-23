@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { ACTIVE_NETWORK } from "@/config/network";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 export type Language = "ja" | "en";
@@ -38,6 +39,7 @@ export const useSettings = create<Settings>()(
       update: (patch) => set(patch),
       completeQuest: (id) => set((s) => (s.questsDone[id] ? s : { questsDone: { ...s.questsDone, [id]: true } })),
     }),
-    { name: "bcw.settings.v1", storage: createJSONStorage(() => AsyncStorage) },
+    // Per network: "seed written down", onboarding and quests belong to one wallet. Signet keeps the original key.
+    { name: ACTIVE_NETWORK === "signet" ? "bcw.settings.v1" : `bcw.settings.${ACTIVE_NETWORK}.v1`, storage: createJSONStorage(() => AsyncStorage) },
   ),
 );

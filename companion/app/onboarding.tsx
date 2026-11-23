@@ -1,8 +1,9 @@
+import { IS_MAINNET } from "@/config/network";
 import { useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { usePreventScreenCapture } from "expo-screen-capture";
-import { Button, H, Notice, P, Panel, Screen } from "@/components/ui";
+import { Button, H, Notice, P, Panel, Screen, NET_LONG_KEY } from "@/components/ui";
 import { generateMnemonic, wallet } from "@/container";
 import { errorMessage } from "@/domain/errors";
 import { IDLE_CUE } from "@/domain/avatar";
@@ -82,7 +83,8 @@ export default function OnboardingScene() {
 
   return (
     <Screen title={t("onb.title")} subtitle="ONBOARDING" onBack={step === "intro" || step === "creating" ? () => undefined : back}>
-      <Notice tone="warning">{t("net.signetLong")}</Notice>
+      <Notice tone={IS_MAINNET ? "danger" : "warning"}>{t(NET_LONG_KEY)}</Notice>
+      {IS_MAINNET ? <Notice tone="danger">{t("settings.mainnetWarning")}</Notice> : null}
 
       {step === "intro" && (
         <>

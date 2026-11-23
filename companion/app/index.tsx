@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { Button, ModeBanner, Notice, P } from "@/components/ui";
+import { Button, ModeBanner, Notice, P, NET_LONG_KEY } from "@/components/ui";
 import { wallet } from "@/container";
 import { useReduceMotion } from "@/game/useAvatarCue";
 import { useT } from "@/i18n";
@@ -51,7 +51,7 @@ export default function BootScene() {
       <Animated.View style={[styles.ring, ring]} />
       <Text style={styles.brand}>BARK//COMPANION</Text>
       <Text style={styles.status} accessibilityLiveRegion="polite">{t(`boot.${lifecycle}`)}</Text>
-      <Text style={styles.net}>{t("net.signetLong")}</Text>
+      <Text style={styles.net}>{t(NET_LONG_KEY)}</Text>
       {slow ? <P muted style={{ textAlign: "center" }}>{t("boot.slow")}</P> : null}
     </View>
   );

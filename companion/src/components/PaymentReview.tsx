@@ -1,3 +1,4 @@
+import { NET_LONG_KEY } from "@/components/ui";
 import { useState } from "react";
 import { Pressable, Text } from "react-native";
 import type { SendQuote } from "@/domain/wallet";
@@ -14,7 +15,7 @@ export function PaymentReview({ quote, unit }: { quote: SendQuote; unit: Unit })
   return (
     <Panel>
       <H>{t("review.title")}</H>
-      <Row label={t("review.network")} value={t("net.signetLong")} valueStyle={{ color: theme.colors.warning }} />
+      <Row label={t("review.network")} value={t(NET_LONG_KEY)} valueStyle={{ color: theme.colors.warning }} />
       <Row label={t("review.method")} value={t(`method.${quote.method}`)} />
       <Row label={t("review.destination")} value={full ? chunkAddress(quote.destination) : shorten(quote.destination)} mono />
       <Pressable onPress={() => setFull((f) => !f)} accessibilityRole="button" hitSlop={8}>

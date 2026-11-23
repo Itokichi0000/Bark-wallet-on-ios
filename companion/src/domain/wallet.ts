@@ -5,7 +5,7 @@ import type { MoneySats } from "./money";
  * cases depend on this, and `BarkWalletAdapter` is the only file that
  * translates it to the SDK.
  */
-export type NetworkName = "signet";
+export type NetworkName = "signet" | "mainnet";
 export type PaymentMethod = "ark" | "lightning";
 
 export interface WalletBalance {

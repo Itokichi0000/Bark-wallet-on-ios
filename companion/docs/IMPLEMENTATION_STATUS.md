@@ -1,6 +1,6 @@
 # 実装状況
 
-最終更新: 2026-11-24 ／ 対象: M0 + M1-A（Signet）
+最終更新: 2026-11-24 ／ 対象: M0 + M1-A（既定は Signet、設定で Mainnet に切り替え可）
 
 凡例: **verified** = 自動テストまたは実行で確認済み ／ **implemented** = 実装済みだが実機未確認 ／
 **mock** = MOCK のみ ／ **blocked** = 着手不可 ／ **untested** = 未検証
@@ -12,12 +12,18 @@ Android SDK がなかったためです。確認できているのは「型検�
 「iOS ネイティブのコンパイル」までです（詳細は TEST_REPORT.md）。Signet での実際の受取・送金・バックアップ・復元は
 **すべて untested** です。実機で確認するまで、動くものとして扱わないでください。
 
+## Mainnet について
+
+所有者の指示で、設定画面に Signet / Mainnet の切り替えを入れ、既存の Sats-OS の TestFlight 枠に配信しています（ADR-0003）。
+**本番での作成・受取・送金・バックアップ・復元はどれも untested です。** 少額に限ってください。
+ウォレット・シード・バックアップはネットワークごとに別です。
+
 ## マイルストーン
 
 | 項目 | 状態 | 備考 |
 |---|---|---|
 | M0: Expo/TS strict/expo-router/Bark SDK 導入 | verified | 型検査・バンドル・expo-doctor 20/20 |
-| M0: Signet 設定のみ（Mainnet なし） | verified | テストで `Network.Bitcoin` と本番エンドポイントの不在を検査 |
+| M0: 既定は Signet、Mainnet は明示的な切り替え | verified（切替ロジックは untested）| テストで既定値と、本番の値がある 3 ファイルを固定 |
 | M0: MockWalletAdapter / プレースホルダーアバター | verified | 単体テスト |
 | M0: ウォレット作成・オープン・同期・残高（実 SDK） | **untested** | BarkWalletAdapter は実装済み、実機未確認 |
 | M1-A: 起動 / オンボーディング / ホーム | implemented | 画面は未起動 |

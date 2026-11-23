@@ -1,3 +1,4 @@
+import { IS_MAINNET } from "@/config/network";
 import type { ReactNode } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { router } from "expo-router";
@@ -36,12 +37,14 @@ export function Screen({ title, subtitle, children, scroll = true, onBack, foote
   );
 }
 
+export const NET_LONG_KEY = IS_MAINNET ? "net.mainnetLong" : "net.signetLong";
+
 /** Always visible: which network this is, and whether the numbers are a mock. */
 export function NetworkTag() {
   const t = useT();
   return (
-    <View style={styles.netTag} accessible accessibilityLabel={t("net.signetLong")}>
-      <Text style={styles.netTagText}>SIGNET</Text>
+    <View style={[styles.netTag, IS_MAINNET && { borderColor: theme.colors.danger }]} accessible accessibilityLabel={t(NET_LONG_KEY)}>
+      <Text style={[styles.netTagText, IS_MAINNET && { color: theme.colors.danger }]}>{IS_MAINNET ? "MAINNET" : "SIGNET"}</Text>
     </View>
   );
 }

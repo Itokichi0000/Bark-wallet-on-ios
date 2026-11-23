@@ -1,3 +1,4 @@
+import { netKey } from "@/config/network";
 import { EventBus } from "@/domain/events";
 import type { WalletAdapter } from "@/domain/wallet";
 import { AvatarOrchestrator } from "@/game/AvatarOrchestrator";
@@ -35,7 +36,7 @@ export const wallet = new WalletService({
   adapter,
   bus,
   seeds: SecureSeedRepository,
-  ops: new PendingOperationStore(),
+  ops: new PendingOperationStore(undefined, netKey("pendingOps.v1")),
   backup,
   view,
 });

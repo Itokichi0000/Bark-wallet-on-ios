@@ -6,7 +6,9 @@ import { Button, H, Notice, P, Panel, Screen } from "@/components/ui";
 import { avatar, bus, wallet } from "@/container";
 import { errorMessage } from "@/domain/errors";
 import { useT } from "@/i18n";
-import { SIGNET } from "@/infrastructure/bark/barkConfig";
+import { NET } from "@/config/network";
+
+const faucetUrl = NET.faucetUrl;
 import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
 import { theme } from "@/theme";
@@ -56,7 +58,7 @@ export default function ReceiveScene() {
 
   return (
     <Screen title={t("menu.receive")} subtitle="RECEIVE">
-      <Notice tone="warning">{t("receive.networkNote")}</Notice>
+      <Notice tone={NET.network === "mainnet" ? "danger" : "warning"}>{t("receive.networkNote")}</Notice>
       {received ? (
         <Panel tone="success">
           <H>{t("receive.got.title")}</H>
@@ -84,11 +86,13 @@ export default function ReceiveScene() {
         <Button label={t("home.syncNow")} kind="secondary" busy={syncing} onPress={() => void wallet.refresh()} />
         <P muted>{t("receive.feeNote")}</P>
       </Panel>
-      <Panel>
-        <H>{t("receive.faucet.title")}</H>
-        <P muted>{t("receive.faucet.body")}</P>
-        <Button label={t("receive.faucet.open")} kind="secondary" onPress={() => void Linking.openURL(SIGNET.faucetUrl)} />
-      </Panel>
+      {faucetUrl ? (
+        <Panel>
+          <H>{t("receive.faucet.title")}</H>
+          <P muted>{t("receive.faucet.body")}</P>
+          <Button label={t("receive.faucet.open")} kind="secondary" onPress={() => void Linking.openURL(faucetUrl)} />
+        </Panel>
+      ) : null}
       <P muted>{t("receive.notYet")}</P>
     </Screen>
   );
