@@ -30,6 +30,7 @@ const config: ExpoConfig = {
     permissions: ["android.permission.CAMERA"],
   },
   plugins: [
+    "./plugins/withAdoptLegacyScene",
     "expo-router",
     "@secondts/bark-react-native",
     "expo-secure-store",
