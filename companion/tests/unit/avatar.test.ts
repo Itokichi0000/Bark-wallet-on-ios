@@ -160,3 +160,25 @@ describe("illustrated avatar frames", () => {
     expect(frameForCue({ emotion: "concerned", action: "sending" })).toBe("concerned");
   });
 });
+
+describe("motion clips", () => {
+  const { clipForCue } = require("@/game/avatarMotion") as typeof import("@/game/avatarMotion");
+  it("plays the celebration only for a celebrate cue", () => {
+    const actions = ["idle", "blink", "float", "wave", "point-left", "point-right", "listen", "speak", "inspect", "prepare-send", "sending", "receive", "warn", "rest"] as const;
+    for (const action of actions) {
+      for (const emotion of ["neutral", "happy", "curious", "thinking", "focused", "surprised", "sleepy", "concerned"] as const) {
+        expect(clipForCue({ action, emotion })).not.toBe("celebrate");
+      }
+    }
+    expect(clipForCue({ action: "celebrate", emotion: "happy" })).toBe("celebrate");
+  });
+  it("shows worry for warnings and never a cheerful clip", () => {
+    expect(clipForCue({ action: "warn", emotion: "concerned" })).toBe("worry");
+    expect(clipForCue({ action: "idle", emotion: "concerned" })).toBe("worry");
+  });
+  it("falls back to a still for poses without a clip", () => {
+    expect(clipForCue({ action: "rest", emotion: "sleepy" })).toBeUndefined();
+    expect(clipForCue({ action: "idle", emotion: "surprised" })).toBeUndefined();
+    expect(clipForCue({ action: "idle", emotion: "neutral" })).toBe("idle");
+  });
+});

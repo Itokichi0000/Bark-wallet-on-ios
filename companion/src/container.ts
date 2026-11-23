@@ -1,9 +1,9 @@
-import { netKey } from "@/config/network";
+import { IS_MAINNET, netKey } from "@/config/network";
 import { EventBus } from "@/domain/events";
 import type { WalletAdapter } from "@/domain/wallet";
 import { AvatarOrchestrator } from "@/game/AvatarOrchestrator";
 import { BackupManager } from "@/infrastructure/backup/BackupManager";
-import { SecureSeedRepository } from "@/infrastructure/secure/SecureSeedRepository";
+import { type AuthResult, SecureSeedRepository, authenticateUser } from "@/infrastructure/secure/SecureSeedRepository";
 import { PendingOperationStore } from "@/infrastructure/storage/PendingOperationStore";
 import { useWalletStore } from "@/state/walletStore";
 import { WalletService } from "@/usecases/WalletService";
@@ -30,6 +30,18 @@ export const adapter = createAdapter();
 export const avatar = new AvatarOrchestrator();
 bus.on((e) => avatar.handle(e));
 
+/**
+ * The one device-owner check every screen uses (sending, seed reveal, network switch).
+ * Policy: on Mainnet a device with no screen lock is refused. On Signet, where the
+ * coins have no value, it is let through so the app stays usable on such a device
+ * (and in the simulator); `unprotected` tells the screen to say so.
+ */
+export async function authorize(prompt: string): Promise<AuthResult | { ok: true; unprotected: true }> {
+  const result = await authenticateUser(prompt).catch((): AuthResult => ({ ok: false, reason: "failed" }));
+  if (!result.ok && result.reason === "not-enrolled" && !IS_MAINNET) return { ok: true, unprotected: true };
+  return result;
+}
+
 const view = { get: () => useWalletStore.getState() };
 export const backup = new BackupManager(adapter, () => SecureSeedRepository.read(), bus, view);
 export const wallet = new WalletService({
@@ -39,6 +51,7 @@ export const wallet = new WalletService({
   ops: new PendingOperationStore(undefined, netKey("pendingOps.v1")),
   backup,
   view,
+  authorize,
 });
 
 /** A new 12-word BIP 39 phrase. The Bark build uses the SDK's generator, as its documentation prescribes. */

@@ -1,13 +1,16 @@
+import { authorize as authenticateUser } from "@/container";
+import { TermHelp } from "@/components/TermHelp";
+import { Disclosure } from "@/components/Disclosure";
 import { IS_MAINNET } from "@/config/network";
-import { useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { usePreventScreenCapture } from "expo-screen-capture";
 import { Button, H, Notice, P, Panel, Screen, NET_LONG_KEY } from "@/components/ui";
 import { generateMnemonic, wallet } from "@/container";
 import { errorMessage } from "@/domain/errors";
 import { IDLE_CUE } from "@/domain/avatar";
-import { IllustratedAvatarRenderer } from "@/game/IllustratedAvatarRenderer";
+import { AnimatedAvatarRenderer } from "@/game/AnimatedAvatarRenderer";
 import { useReduceMotion } from "@/game/useAvatarCue";
 import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
@@ -32,9 +35,11 @@ function WordsStep({ words }: { words: string[] }) {
 /** S01 Onboarding. A wallet is created only by the explicit last step here. */
 export default function OnboardingScene() {
   const t = useT();
+  usePreventScreenCapture();
   const reduceMotion = useReduceMotion();
   const settings = useSettings();
   const [step, setStep] = useState<Step>("intro");
+  const [authBusy, setAuthBusy] = useState(false);
   const [error, setError] = useState<string>();
   // Held only for the length of this flow, in a ref so it never lands in a persisted store or devtools.
   const mnemonic = useRef<string>("");
@@ -53,12 +58,38 @@ export default function OnboardingScene() {
   }, [words]);
   const quizPassed = quiz.length > 0 && quiz.every((q) => picked[q.pos] === q.answer);
 
-  const startCreate = () => {
-    mnemonic.current = generateMnemonic();
-    setWords(mnemonic.current.split(" "));
-    setPicked({});
-    setStep("words");
+  const startCreate = async () => {
+    if (authBusy) return;
+    setError(undefined);
+    setAuthBusy(true);
+    try {
+      const auth = await authenticateUser(t("seed.authPrompt"));
+      if (!auth.ok) {
+        if (auth.reason !== "cancelled") setError(t(auth.reason === "not-enrolled" ? "seed.noLock" : "seed.authFailed"));
+        return;
+      }
+      mnemonic.current = generateMnemonic();
+      setWords(mnemonic.current.split(" "));
+      setPicked({});
+      setStep("words");
+    } catch {
+      setError(t("seed.authFailed"));
+    } finally {
+      setAuthBusy(false);
+    }
   };
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active" && (step === "words" || step === "quiz" || step === "backup")) {
+        mnemonic.current = "";
+        setWords([]);
+        setPicked({});
+        setStep("choose");
+      }
+    });
+    return () => sub.remove();
+  }, [step]);
 
   const create = async () => {
     setStep("creating");
@@ -82,25 +113,30 @@ export default function OnboardingScene() {
   };
 
   return (
-    <Screen title={t("onb.title")} subtitle="ONBOARDING" onBack={step === "intro" || step === "creating" ? () => undefined : back}>
-      <Notice tone={IS_MAINNET ? "danger" : "warning"}>{t(NET_LONG_KEY)}</Notice>
+    <Screen title={t(step === "words" || step === "quiz" ? "seed.title" : "onb.title")} subtitle="ONBOARDING" hideBack={step === "intro" || step === "creating" || authBusy} onBack={step === "intro" || step === "creating" ? () => undefined : back}>
+      {!IS_MAINNET ? <Notice tone="warning">{t(NET_LONG_KEY)}</Notice> : null}
       {IS_MAINNET ? <Notice tone="danger">{t("settings.mainnetWarning")}</Notice> : null}
 
+      {step !== "intro" ? <P muted>{t("onb.progress", { step: ({ choose: 1, words: 2, quiz: 3, backup: 4, creating: 4 } as const)[step], total: 4 })}</P> : null}
       {step === "intro" && (
         <>
-          <View style={{ alignItems: "center" }}>
-            <IllustratedAvatarRenderer cue={{ ...IDLE_CUE, id: "onb", emotion: "happy", action: "wave" }} height={260} reduceMotion={reduceMotion} />
+          <View style={styles.hero}>
+            <AnimatedAvatarRenderer cue={{ ...IDLE_CUE, id: "onb", emotion: "happy", action: "wave" }} height={210} reduceMotion={reduceMotion} />
           </View>
+          <Text style={styles.welcome} accessibilityRole="header">{t("onb.welcome")}</Text>
           <P>{t("onb.intro1")}</P>
           <P muted>{t("onb.intro2")}</P>
-          <Button label={t("common.next")} onPress={() => setStep("choose")} />
+          <Button label={t("onb.start")} icon="caret-right" onPress={() => setStep("choose")} />
+          <Disclosure title={t("common.details")}><TermHelp term="network" /><TermHelp term="ark" /></Disclosure>
         </>
       )}
 
       {step === "choose" && (
         <>
           <H>{t("onb.choose")}</H>
-          <Button label={t("onb.create")} onPress={startCreate} />
+          <TermHelp term="seed" />
+          <Button label={t("onb.create")} icon="wallet" onPress={() => void startCreate()} busy={authBusy} />
+          {error ? <Notice tone="danger">{error}</Notice> : null}
           <Button label={t("onb.restore")} kind="secondary" onPress={() => router.push("/recovery")} />
           <P muted>{t("onb.chooseNote")}</P>
         </>
@@ -127,7 +163,7 @@ export default function OnboardingScene() {
                   const on = picked[q.pos] === o;
                   return (
                     <Pressable key={o} onPress={() => setPicked((p) => ({ ...p, [q.pos]: o }))} accessibilityRole="radio" accessibilityState={{ selected: on }} style={[styles.option, on && styles.optionOn]}>
-                      <Text style={styles.optionText}>{o}</Text>
+                      <Text style={[styles.optionText, on && { color: theme.colors.background }]}>{o}</Text>
                     </Pressable>
                   );
                 })}
@@ -142,9 +178,10 @@ export default function OnboardingScene() {
       {(step === "backup" || step === "creating") && (
         <>
           <H>{t("onb.backupTitle")}</H>
-          <P>{t("backup.explain1")}</P>
-          <P>{t("backup.explain2")}</P>
-          <P muted>{t("backup.explain3")}</P>
+          <P>{t("backup.summary")}</P>
+          <Notice tone="warning">{t("backup.explain2")}</Notice>
+          <TermHelp term="backup" />
+          <Disclosure title={t("common.details")}><P>{t("backup.explain1")}</P><P muted>{t("backup.explain3")}</P></Disclosure>
           {error ? <Notice tone="danger">{t("onb.createFailed", { detail: error })}</Notice> : null}
           <Button label={t("onb.createNow")} onPress={() => void create()} busy={step === "creating"} />
         </>
@@ -154,12 +191,14 @@ export default function OnboardingScene() {
 }
 
 const styles = StyleSheet.create({
+  hero: { alignItems: "center", backgroundColor: theme.colors.backgroundRaised, borderRadius: 28, padding: 12, borderWidth: 1, borderColor: theme.colors.outline },
+  welcome: { color: theme.colors.text, fontSize: 26, lineHeight: 36, fontWeight: "700" },
   words: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   word: { width: "31%", flexDirection: "row", gap: 6, alignItems: "center", borderWidth: 1, borderColor: theme.colors.outline, borderRadius: theme.radius.sm, paddingVertical: 10, paddingHorizontal: 8, backgroundColor: theme.colors.backgroundRaised },
   wordIndex: { color: theme.colors.textMuted, fontSize: 11, width: 16, textAlign: "right" },
   wordText: { color: theme.colors.text, fontSize: 15, fontWeight: "600" },
   options: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  option: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: theme.radius.pill, paddingHorizontal: 14, paddingVertical: 10, minHeight: 44, justifyContent: "center" },
+  option: { borderWidth: 1, borderColor: theme.colors.controlBorder, borderRadius: theme.radius.pill, paddingHorizontal: 14, paddingVertical: 10, minHeight: 44, justifyContent: "center" },
   optionOn: { backgroundColor: theme.colors.primaryStrong, borderColor: theme.colors.primaryStrong },
   optionText: { color: theme.colors.text, fontSize: 15 },
 });

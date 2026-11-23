@@ -1,3 +1,5 @@
+import { TermHelp } from "@/components/TermHelp";
+import { Disclosure } from "@/components/Disclosure";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -44,13 +46,15 @@ export default function AssetsScene() {
   return (
     <Screen title={t("menu.assets")} subtitle="ASSETS">
       <Panel>
-        <Row label={t("assets.total")} value={show(balance?.totalSats)} strong />
+        <Row label={t("assets.spendable")} value={show(balance?.spendableSats)} valueStyle={{ fontSize: 32, fontWeight: "700" }} />
+        <Disclosure title={t("common.details")}>
+        <Row label={t("assets.total")} value={show(balance?.totalSats)} />
         <P muted>{t("assets.totalNote")}</P>
-        <Row label={t("assets.spendable")} value={show(balance?.spendableSats)} />
         <Row label={t("assets.pending")} value={show(balance?.pendingSats)} />
         <Row label={t("assets.needsRefresh")} value={show(balance?.needsRefreshSats)} />
         <Row label={t("assets.asOf")} value={balance?.lastSyncedAt ? formatTime(balance.lastSyncedAt, language) : t("status.neverSynced")} />
-        <Button label={t("home.syncNow")} kind="secondary" busy={syncing} onPress={() => void wallet.refresh()} />
+        </Disclosure>
+        <Button label={t("home.syncNow")} icon="refresh" busy={syncing} onPress={() => void wallet.refresh()} />
       </Panel>
 
       {maintenance && maintenance.severity !== "none" ? (
@@ -61,13 +65,17 @@ export default function AssetsScene() {
 
       <Panel>
         <H>{t("assets.maintenance.title")}</H>
+        <TermHelp term="expiry" />
+        <Disclosure title={t("common.details")}>
         <Row label={t("assets.maintenance.tip")} value={maintenance?.tipHeight !== undefined ? String(maintenance.tipHeight) : t("assets.unknown")} />
         <Row label={t("assets.maintenance.toRefresh")} value={maintenance ? String(maintenance.vtxosToRefresh) : t("assets.unknown")} />
         <Row label={t("assets.maintenance.nextRefresh")} value={maintenance?.nextRequiredRefreshHeight !== undefined ? String(maintenance.nextRequiredRefreshHeight) : t("assets.none")} />
         <Row label={t("assets.maintenance.firstExpiry")} value={maintenance?.firstExpiryHeight !== undefined ? String(maintenance.firstExpiryHeight) : t("assets.none")} />
+        </Disclosure>
         <P muted>{t("assets.maintenance.caveat")}</P>
       </Panel>
 
+      <TermHelp term="vtxo" />
       <Button label={advanced ? t("assets.hideVtxos") : t("assets.showVtxos", { n: vtxos.length })} kind="secondary" onPress={() => setAdvanced((a) => !a)} />
       {advanced && (
         <Panel>
@@ -99,13 +107,12 @@ export default function AssetsScene() {
         </Panel>
       )}
 
-      <Panel>
-        <H>{t("assets.ops.title")}</H>
+      <Disclosure title={t("assets.ops.title")}>
         <P>{t("assets.ops.refresh")}</P>
         <P>{t("assets.ops.offboard")}</P>
         <P>{t("assets.ops.exit")}</P>
         <Notice tone="info">{t("assets.ops.notEnabled")}</Notice>
-      </Panel>
+      </Disclosure>
     </Screen>
   );
 }

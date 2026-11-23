@@ -1,18 +1,19 @@
+import { useReduceMotion } from "@/game/useAvatarCue";
 import { useState } from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useT } from "@/i18n";
 import { theme } from "@/theme";
-import { Button, P } from "./ui";
+import { Button, P, Screen } from "./ui";
 
 export function QrScanner({ visible, onClose, onScanned }: { visible: boolean; onClose(): void; onScanned(data: string): void }) {
   const t = useT();
+  const reduceMotion = useReduceMotion();
   const [permission, request] = useCameraPermissions();
   const [done, setDone] = useState(false);
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} onShow={() => setDone(false)}>
-      <View style={styles.wrap}>
-        <Text style={styles.title}>{t("scan.title")}</Text>
+    <Modal visible={visible} animationType={reduceMotion ? "none" : "slide"} onRequestClose={onClose} onShow={() => setDone(false)}>
+      <Screen title={t("scan.title")} scroll={false} onBack={onClose}>
         {permission?.granted ? (
           <CameraView
             style={styles.camera}
@@ -31,7 +32,7 @@ export function QrScanner({ visible, onClose, onScanned }: { visible: boolean; o
         )}
         <P muted>{t("scan.hint")}</P>
         <Button label={t("common.close")} kind="secondary" onPress={onClose} />
-      </View>
+      </Screen>
     </Modal>
   );
 }

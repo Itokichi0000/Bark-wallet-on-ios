@@ -43,3 +43,22 @@ interface AvatarRendererProps { cue: AvatarCue; height: number; reduceMotion: bo
 - `reduceMotion` が true のときは静止画＋表情差分のみ。
 - 状態は色だけで伝えない（文字のセリフ・ラベルを併用）。
 - 権利が確認できた素材だけを入れる。既存作品のキャラクターに似せない。
+
+## Motion clips (added 2026-11-24)
+
+`assets/avatar/motion/*.webp` — transparent animated WebP, 480x858, 76 frames at 15 fps (about 3 MB each).
+
+| Clip | Loop | Played for |
+| --- | --- | --- |
+| `idle` | forever | neutral / happy idle: breathing, blinking |
+| `wave` | once | greeting |
+| `celebrate` | once | a confirmed success only |
+| `focus` | once | listening, inspecting, preparing or sending |
+| `worry` | once | warnings, concerned |
+| `guide` | once | pointing, speaking, receive |
+
+How they were made: the neutral still (GPT Image) was placed on a flat green background and animated
+image-to-video with Kling 4.0 (start frame = end frame, so each clip returns to the standing pose);
+the green was keyed out with ffmpeg (`chromakey`, then green clamped to `max(r, b)` so the cyan trim
+survives) and the frames packed with `img2webp`. The cue-to-clip table is `src/game/avatarMotion.ts`
+(tested); `AnimatedAvatarRenderer.tsx` plays them with `expo-image`. Reduce Motion shows the stills only.

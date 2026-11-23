@@ -1,3 +1,4 @@
+import { useReduceMotion } from "@/game/useAvatarCue";
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import * as Haptics from "expo-haptics";
@@ -14,6 +15,7 @@ import { useWalletStore } from "@/state/walletStore";
 import { theme } from "@/theme";
 
 export default function RootLayout() {
+  const reduceMotion = useReduceMotion();
   useEffect(() => {
     void backup.load().then(() => wallet.boot());
 
@@ -53,7 +55,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background }, animation: "fade" }} />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background }, animation: reduceMotion ? "none" : "fade" }} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

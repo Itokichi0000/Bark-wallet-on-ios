@@ -1,3 +1,4 @@
+import { BitcoinIcon } from "./BitcoinIcon";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import type { NetworkAmbientState } from "@/game/SceneBackground";
@@ -28,7 +29,7 @@ export function StatusStrip() {
   const age = minutesSince(synced);
   const stale = age === undefined || age >= STALE_MINUTES;
 
-  const glyph = state === "online" ? "●" : state === "syncing" ? "◌" : state === "maintenanceRequired" ? "▲" : "○";
+  const icon = state === "online" ? "globe" : state === "syncing" ? "refresh" : "alert";
   const color = state === "online" ? theme.colors.success : state === "syncing" ? theme.colors.primary : theme.colors.warning;
   const warnings: { key: string; text: string; to: "/assets" | "/settings" }[] = [];
   if (v.maintenance && v.maintenance.severity !== "none") {
@@ -43,7 +44,7 @@ export function StatusStrip() {
   return (
     <View style={styles.wrap}>
       <View style={styles.line} accessible accessibilityLabel={`${t(`status.${state}`)} ${t("status.lastSync", { time: formatTime(synced, language) })}`}>
-        <Text style={[styles.glyph, { color }]}>{glyph}</Text>
+        <BitcoinIcon name={icon} size={18} color={color} />
         <Text style={styles.text}>{t(`status.${state}`)}</Text>
         <Text style={[styles.text, stale && { color: theme.colors.warning }]}>
           {synced ? t("status.lastSync", { time: formatTime(synced, language) }) : t("status.neverSynced")}
@@ -51,7 +52,7 @@ export function StatusStrip() {
       </View>
       {warnings.map((w) => (
         <Pressable key={w.key} onPress={() => router.push(w.to)} accessibilityRole="button" style={styles.warning}>
-          <Text style={styles.warningText}>▲ {w.text}</Text>
+          <BitcoinIcon name="alert" size={18} color={theme.colors.warning} /><Text style={styles.warningText}>{w.text}</Text>
         </Pressable>
       ))}
     </View>
@@ -63,6 +64,6 @@ const styles = StyleSheet.create({
   line: { flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", flexWrap: "wrap" },
   glyph: { fontSize: 12 },
   text: { color: theme.colors.textMuted, fontSize: 12 },
-  warning: { borderWidth: 1, borderColor: theme.colors.warning, borderRadius: theme.radius.sm, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: theme.colors.backgroundRaised },
-  warningText: { color: theme.colors.warning, fontSize: 12, lineHeight: 17 },
+  warning: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: theme.colors.warning, borderRadius: theme.radius.sm, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: theme.colors.backgroundRaised },
+  warningText: { flex: 1, color: theme.colors.warning, fontSize: 12, lineHeight: 17 },
 });

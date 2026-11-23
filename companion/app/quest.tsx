@@ -1,3 +1,5 @@
+import { BitcoinIcon } from "@/components/BitcoinIcon";
+import { Disclosure } from "@/components/Disclosure";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
@@ -14,6 +16,7 @@ export default function QuestScene() {
   const t = useT();
   const { questsDone, completeQuest } = useSettings();
   const [reading, setReading] = useState(false);
+  const nextQuest = QUEST_IDS.find((q) => !questsDone[q] && GO[q]);
   const done = QUEST_IDS.filter((q) => questsDone[q]).length;
 
   return (
@@ -24,14 +27,14 @@ export default function QuestScene() {
         const complete = !!questsDone[q];
         const go = GO[q];
         return (
-          <Panel key={q} tone={complete ? "success" : undefined}>
+          <Panel key={q} tone="default">
             <View style={styles.head}>
-              <Text style={[styles.mark, { color: complete ? theme.colors.success : theme.colors.textMuted }]}>{complete ? "✓" : "○"}</Text>
+              <BitcoinIcon name={complete ? "star" : "clock"} color={complete ? theme.colors.primary : theme.colors.textMuted} />
               <Text style={styles.title}>{t(`quest.${q}.title`)}</Text>
             </View>
-            <P muted>{t(`quest.${q}.body`)}</P>
+            <Disclosure title={t("quest.more")}><P muted>{t(`quest.${q}.body`)}</P></Disclosure>
             <Text style={styles.state}>{complete ? t("quest.done") : t("quest.todo")}</Text>
-            {!complete && go ? <Button label={t("quest.go")} kind="secondary" onPress={() => router.push(go)} /> : null}
+            {!complete && go ? <Button label={t("quest.go")} kind={q === nextQuest && !reading ? "primary" : "secondary"} onPress={() => router.push(go)} /> : null}
             {q === "q5" ? (
               <>
                 <Button label={reading ? t("common.close") : t("quest.q5.read")} kind="secondary" onPress={() => setReading((r) => !r)} />
@@ -48,7 +51,7 @@ export default function QuestScene() {
           </Panel>
         );
       })}
-      <P muted>{t("quest.rewardNote")}</P>
+      <Disclosure title={t("common.details")}><P muted>{t("quest.rewardNote")}</P></Disclosure>
     </Screen>
   );
 }

@@ -1,3 +1,5 @@
+import { TermHelp } from "@/components/TermHelp";
+import { Disclosure } from "@/components/Disclosure";
 import { useEffect, useState } from "react";
 import { Linking, Platform, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -54,12 +56,12 @@ export default function ReceiveScene() {
   };
 
   const received = receivedId ? movements.find((m) => m.id === receivedId) : undefined;
-  const qrSize = Math.min(width - 96, 280);
+  const qrSize = Math.max(120, Math.min(width - 144, 260));
 
   return (
     <Screen title={t("menu.receive")} subtitle="RECEIVE">
       <Notice tone={NET.network === "mainnet" ? "danger" : "warning"}>{t("receive.networkNote")}</Notice>
-      {received ? (
+      {received?.status === "succeeded" ? (
         <Panel tone="success">
           <H>{t("receive.got.title")}</H>
           <P>{t("receive.got.body", { amount: formatAmount(received.amountSats, unit) })}</P>
@@ -79,13 +81,16 @@ export default function ReceiveScene() {
         )}
         {address ? <Text selectable style={styles.address}>{chunkAddress(address)}</Text> : null}
       </Panel>
-      <Button label={copied ? t("receive.copied") : t("receive.copy")} onPress={() => void copy()} disabled={!address} />
-      <Button label={t("receive.share")} kind="secondary" onPress={() => address && void Share.share({ message: address })} disabled={!address} />
+      <Button label={copied ? t("receive.copied") : t("receive.copy")} icon="copy" onPress={() => void copy()} disabled={!address} />
+      <Button label={t("receive.share")} icon="share" kind="secondary" onPress={() => address && void Share.share({ message: address })} disabled={!address} />
       <Panel>
-        <P>{syncing ? t("receive.waitingSyncing") : t("receive.waiting")}</P>
+        {received?.status !== "succeeded" ? <P>{syncing ? t("receive.waitingSyncing") : t("receive.waiting")}</P> : null}
         <Button label={t("home.syncNow")} kind="secondary" busy={syncing} onPress={() => void wallet.refresh()} />
-        <P muted>{t("receive.feeNote")}</P>
+        <TermHelp term="sync" />
       </Panel>
+      <Disclosure title={t("common.details")}>
+      <TermHelp term="ark" /><TermHelp term="fee" />
+      <P muted>{t("receive.feeNote")}</P>
       {faucetUrl ? (
         <Panel>
           <H>{t("receive.faucet.title")}</H>
@@ -94,6 +99,7 @@ export default function ReceiveScene() {
         </Panel>
       ) : null}
       <P muted>{t("receive.notYet")}</P>
+      </Disclosure>
     </Screen>
   );
 }

@@ -1,3 +1,5 @@
+import { usePreventScreenCapture } from "expo-screen-capture";
+import { TermHelp } from "@/components/TermHelp";
 import { useState } from "react";
 import { StyleSheet, TextInput } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
@@ -15,6 +17,7 @@ type Mode = "choose" | "backup" | "seed-only";
 /** S09 Recovery: restore from an encrypted database backup plus the seed, or from the seed alone with its limits spelled out. */
 export default function RecoveryScene() {
   const t = useT();
+  usePreventScreenCapture();
   const update = useSettings((s) => s.update);
   const [mode, setMode] = useState<Mode>("choose");
   const [phrase, setPhrase] = useState("");
@@ -74,17 +77,18 @@ export default function RecoveryScene() {
   const phraseInput = (
     <Panel>
       <H>{t("recovery.phrase")}</H>
+      <TermHelp term="seed" />
       <TextInput
         value={phrase}
         onChangeText={setPhrase}
         placeholder={t("recovery.phrasePlaceholder")}
-        placeholderTextColor={theme.colors.disabled}
+        placeholderTextColor={theme.colors.textMuted}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="off"
         spellCheck={false}
-        secureTextEntry={false}
-        multiline
+        secureTextEntry
+        textContentType="none"
         style={styles.input}
         accessibilityLabel={t("recovery.phrase")}
       />
@@ -100,7 +104,7 @@ export default function RecoveryScene() {
 
       {mode === "choose" && (
         <>
-          <Panel tone="success">
+          <Panel>
             <H>{t("recovery.withBackup.title")}</H>
             <P>{t("recovery.withBackup.body")}</P>
             <Button label={t("recovery.withBackup.go")} onPress={() => setMode("backup")} disabled={adapter.isMock} />
@@ -111,6 +115,7 @@ export default function RecoveryScene() {
             <P muted>{t("recovery.seedOnly.limits")}</P>
             <Button label={t("recovery.seedOnly.go")} kind="secondary" onPress={() => setMode("seed-only")} />
           </Panel>
+          <TermHelp term="backup" />
           <P muted>{t("recovery.noOverwrite")}</P>
         </>
       )}
@@ -141,5 +146,5 @@ export default function RecoveryScene() {
 }
 
 const styles = StyleSheet.create({
-  input: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: theme.radius.sm, color: theme.colors.text, fontSize: 16, lineHeight: 24, padding: 12, minHeight: 96, textAlignVertical: "top" },
+  input: { borderWidth: 1, borderColor: theme.colors.controlBorder, borderRadius: theme.radius.sm, color: theme.colors.text, fontSize: 16, lineHeight: 24, padding: 12, minHeight: 96, textAlignVertical: "top" },
 });

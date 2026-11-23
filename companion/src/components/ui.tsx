@@ -1,16 +1,18 @@
 import { IS_MAINNET } from "@/config/network";
 import type { ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { container } from "@/components/containerHooks";
 import { useT } from "@/i18n";
 import { theme } from "@/theme";
 
+import { BitcoinIcon, type BitcoinIconName } from "./BitcoinIcon";
+
 const c = theme.colors;
 
-export function Screen({ title, subtitle, children, scroll = true, onBack, footer }: {
-  title: string; subtitle?: string; children: ReactNode; scroll?: boolean; onBack?: () => void; footer?: ReactNode;
+export function Screen({ title, children, scroll = true, onBack, footer, hideBack = false }: {
+  title: string; subtitle?: string; children: ReactNode; scroll?: boolean; onBack?: () => void; footer?: ReactNode; hideBack?: boolean;
 }) {
   const t = useT();
   const body = scroll ? (
@@ -22,16 +24,16 @@ export function Screen({ title, subtitle, children, scroll = true, onBack, foote
     <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
       <ModeBanner />
       <View style={styles.header}>
-        <Pressable onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.replace("/home")))} accessibilityRole="button" accessibilityLabel={t("common.back")} hitSlop={12} style={styles.back}>
-          <Text style={styles.backText}>‹ {t("common.back")}</Text>
-        </Pressable>
+        {!hideBack ? <Pressable onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.replace("/home")))} accessibilityRole="button" accessibilityLabel={t("common.back")} hitSlop={12} style={styles.back}>
+          <BitcoinIcon name="caret-left" />
+        </Pressable> : null}
         <View style={{ flex: 1 }}>
           <Text style={styles.title} accessibilityRole="header">{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
         <NetworkTag />
       </View>
-      {body}
+      {IS_MAINNET ? <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}><Notice tone="danger">{t("net.mainnetLong")}</Notice></View> : null}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>{body}</KeyboardAvoidingView>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
     </SafeAreaView>
   );
@@ -64,8 +66,8 @@ export function Panel({ children, style, tone }: { children: ReactNode; style?: 
   return <View style={[styles.panel, { borderColor: border }, style]}>{children}</View>;
 }
 
-export function Button({ label, onPress, kind = "primary", disabled, busy, accessibilityHint }: {
-  label: string; onPress(): void; kind?: "primary" | "secondary" | "danger"; disabled?: boolean; busy?: boolean; accessibilityHint?: string;
+export function Button({ label, onPress, kind = "primary", disabled, busy, accessibilityHint, icon }: {
+  label: string; onPress(): void; kind?: "primary" | "secondary" | "danger"; disabled?: boolean; busy?: boolean; accessibilityHint?: string; icon?: BitcoinIconName;
 }) {
   const off = disabled || busy;
   const bg = off ? c.disabled : kind === "primary" ? c.primaryStrong : kind === "danger" ? c.danger : "transparent";
@@ -74,11 +76,13 @@ export function Button({ label, onPress, kind = "primary", disabled, busy, acces
       onPress={off ? undefined : onPress}
       disabled={off}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: !!off, busy: !!busy }}
       accessibilityHint={accessibilityHint}
-      style={({ pressed }) => [styles.button, { backgroundColor: bg, borderColor: kind === "secondary" ? c.outline : bg, opacity: pressed ? 0.8 : 1 }]}
+      style={({ pressed }) => [styles.button, { backgroundColor: bg, borderColor: kind === "secondary" ? c.controlBorder : bg, opacity: pressed ? 0.8 : 1 }]}
     >
-      {busy ? <ActivityIndicator color={c.text} /> : <Text style={[styles.buttonText, kind === "danger" && { color: c.background }]}>{label}</Text>}
+      {icon && !busy ? <BitcoinIcon name={icon} color={kind === "primary" || kind === "danger" ? c.background : c.primary} /> : null}
+      {busy ? <ActivityIndicator color={c.text} /> : <Text style={[styles.buttonText, (kind === "danger" || kind === "primary") && !off && { color: c.background }]}>{label}</Text>}
     </Pressable>
   );
 }
@@ -103,10 +107,10 @@ export function H({ children }: { children: ReactNode }) {
 /** Icon + words, never colour alone. */
 export function Notice({ tone, children }: { tone: "info" | "warning" | "danger" | "success"; children: ReactNode }) {
   const color = tone === "warning" ? c.warning : tone === "danger" ? c.danger : tone === "success" ? c.success : c.primary;
-  const glyph = tone === "warning" ? "▲" : tone === "danger" ? "✕" : tone === "success" ? "✓" : "ℹ";
+  const icon = tone === "warning" ? "alert" : tone === "danger" ? "alert" : tone === "success" ? "check" : "info-circle";
   return (
     <View style={[styles.notice, { borderColor: color }]} accessibilityRole={tone === "danger" || tone === "warning" ? "alert" : undefined}>
-      <Text style={[styles.noticeGlyph, { color }]}>{glyph}</Text>
+      <BitcoinIcon name={icon} size={20} color={color} />
       <Text style={styles.noticeText}>{children}</Text>
     </View>
   );
@@ -114,27 +118,24 @@ export function Notice({ tone, children }: { tone: "info" | "warning" | "danger"
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: c.background },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  back: { paddingVertical: 6, paddingRight: 4 },
-  backText: { color: c.primary, fontSize: 16 },
-  title: { color: c.text, fontSize: 20, fontWeight: "700" },
-  subtitle: { color: c.textMuted, fontSize: 11, letterSpacing: 2 },
-  body: { padding: 16, gap: 14 },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  back: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  title: { color: c.text, fontSize: 22, fontWeight: "700" },
+  body: { padding: 20, paddingBottom: 32, gap: 18, width: "100%", maxWidth: 620, alignSelf: "center" },
   footer: { padding: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.outline },
-  netTag: { borderWidth: 1, borderColor: c.warning, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  netTag: { borderWidth: 1, borderColor: c.warning, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
   netTagText: { color: c.warning, fontSize: 10, fontWeight: "700", letterSpacing: 1 },
   mock: { backgroundColor: c.warning, paddingVertical: 4, paddingHorizontal: 12 },
   mockText: { color: c.background, fontSize: 12, fontWeight: "700", textAlign: "center" },
-  panel: { backgroundColor: c.panel, borderWidth: 1, borderRadius: theme.radius.md, padding: 14, gap: 8 },
-  button: { minHeight: 50, borderRadius: theme.radius.pill, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
-  buttonText: { color: c.text, fontSize: 16, fontWeight: "700" },
-  row: { gap: 2 },
+  panel: { backgroundColor: c.panel, borderWidth: 1, borderRadius: theme.radius.md, padding: 18, gap: 14 },
+  button: { minHeight: 54, flexDirection: "row", gap: 8, paddingVertical: 12, borderRadius: theme.radius.md, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
+  buttonText: { color: c.text, fontSize: 16, fontWeight: "700", textAlign: "center", flexShrink: 1 },
+  row: { gap: 5 },
   rowLabel: { color: c.textMuted, fontSize: 12 },
   rowValue: { color: c.text, fontSize: 15, fontVariant: ["tabular-nums"] },
   mono: { fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }), fontSize: 13, lineHeight: 20 },
   p: { color: c.text, fontSize: 15, lineHeight: 22 },
-  h: { color: c.primary, fontSize: 13, fontWeight: "700", letterSpacing: 1.5 },
-  notice: { flexDirection: "row", gap: 10, borderWidth: 1, borderRadius: theme.radius.sm, padding: 12, backgroundColor: c.backgroundRaised },
-  noticeGlyph: { fontSize: 15, fontWeight: "700" },
+  h: { color: c.text, fontSize: 16, fontWeight: "700" },
+  notice: { flexDirection: "row", gap: 10, borderLeftWidth: 3, borderRadius: theme.radius.sm, padding: 12, backgroundColor: c.backgroundRaised },
   noticeText: { color: c.text, fontSize: 14, lineHeight: 20, flex: 1 },
 });

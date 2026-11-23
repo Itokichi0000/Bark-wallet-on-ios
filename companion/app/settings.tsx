@@ -1,3 +1,5 @@
+import { TermHelp } from "@/components/TermHelp";
+import { Disclosure } from "@/components/Disclosure";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
@@ -6,8 +8,8 @@ import { backup, wallet } from "@/container";
 import type { PendingOperation } from "@/domain/payment";
 import { useT } from "@/i18n";
 import { ACTIVE_NETWORK, IS_MAINNET, NET, switchNetworkAndReload } from "@/config/network";
-import { BARK_SDK_VERSION, type NetworkId } from "@/infrastructure/bark/barkConfig";
-import { authenticateUser } from "@/infrastructure/secure/SecureSeedRepository";
+import type { NetworkName as NetworkId } from "@/domain/wallet";
+import { authorize as authenticateUser } from "@/container";
 import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
 import { theme } from "@/theme";
@@ -20,7 +22,7 @@ function Toggle({ label, note, value, onChange }: { label: string; note?: string
         <Text style={styles.toggleLabel}>{label}</Text>
         {note ? <Text style={styles.toggleNote}>{note}</Text> : null}
       </View>
-      <Switch value={value} onValueChange={onChange} accessibilityLabel={label} trackColor={{ true: theme.colors.primaryStrong, false: theme.colors.disabled }} />
+      <Switch hitSlop={{ top: 8, bottom: 8 }} value={value} onValueChange={onChange} accessibilityLabel={label} trackColor={{ true: theme.colors.primaryStrong, false: theme.colors.disabled }} />
     </View>
   );
 }
@@ -29,10 +31,10 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
   return (
     <View style={{ gap: 6 }}>
       <Text style={styles.toggleLabel}>{label}</Text>
-      <View style={{ flexDirection: "row", gap: 8 }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {options.map((o) => (
           <Pressable key={o.id} onPress={() => onChange(o.id)} accessibilityRole="radio" accessibilityState={{ selected: value === o.id }} style={[styles.choice, value === o.id && styles.choiceOn]}>
-            <Text style={styles.choiceText}>{o.label}</Text>
+            <Text style={[styles.choiceText, value === o.id && { color: theme.colors.background }]}>{o.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -53,13 +55,6 @@ export default function SettingsScene() {
     void wallet.unresolvedOperations().then(setOpen);
   }, []);
 
-  const revealSeed = async () => {
-    setAuthError(undefined);
-    const auth = await authenticateUser(t("seed.authPrompt"));
-    if (auth.ok) router.push("/seed");
-    else if (auth.reason === "not-enrolled") setAuthError(t("seed.noLock"));
-    else if (auth.reason === "failed") setAuthError(t("seed.authFailed"));
-  };
 
   const [switching, setSwitching] = useState(false);
   const doSwitch = async (target: NetworkId) => {
@@ -93,8 +88,7 @@ export default function SettingsScene() {
 
   const backupNow = async () => {
     setBusy("backup");
-    await backup.backupNow();
-    setBusy(null);
+    try { await backup.backupNow(); } finally { setBusy(null); }
   };
   const exportBackup = async () => {
     setBusy("export");
@@ -106,26 +100,6 @@ export default function SettingsScene() {
 
   return (
     <Screen title={t("settings.title")} subtitle="SETTINGS">
-      <Panel>
-        <H>{t("settings.network")}</H>
-        <Row label={t("review.network")} value={t(NET_LONG_KEY)} valueStyle={{ color: IS_MAINNET ? theme.colors.danger : theme.colors.warning }} />
-        <Choice<NetworkId>
-          label={t("settings.switch.label")}
-          value={ACTIVE_NETWORK}
-          options={[{ id: "signet", label: "Signet" }, { id: "mainnet", label: "Mainnet" }]}
-          onChange={askSwitch}
-        />
-        {IS_MAINNET ? <Notice tone="danger">{t("settings.mainnetWarning")}</Notice> : null}
-        <P muted>{t("settings.networkNote")}</P>
-      </Panel>
-
-      <Panel>
-        <H>{t("settings.security")}</H>
-        <Button label={t("settings.showSeed")} kind="secondary" onPress={() => void revealSeed()} disabled={info?.isMock} />
-        {authError ? <Notice tone="warning">{authError}</Notice> : null}
-        {!s.seedBackupConfirmed && !info?.isMock ? <Notice tone="warning">{t("status.seedNotConfirmed")}</Notice> : null}
-      </Panel>
-
       <Panel tone={b.status === "failed" ? "danger" : undefined}>
         <H>{t("settings.backup")}</H>
         {b.status === "unsupported" ? (
@@ -133,17 +107,28 @@ export default function SettingsScene() {
         ) : (
           <>
             <Notice tone={backupTone}>{t(`backup.status.${b.status}`)}</Notice>
-            <Row label={t("backup.generation")} value={String(b.generation)} />
-            <Row label={t("backup.lastSuccess")} value={b.lastSuccessAt ? formatTime(b.lastSuccessAt, s.language) : t("assets.none")} />
             <Row label={t("backup.exported")} value={b.generation === 0 ? t("assets.none") : b.exportedGeneration >= b.generation ? t("backup.exportedYes") : t("backup.exportedNo")} />
             {b.lastError ? <P muted>{b.lastError}</P> : null}
-            <Button label={t("backup.now")} kind="secondary" busy={busy === "backup"} onPress={() => void backupNow()} />
-            <Button label={t("backup.export")} busy={busy === "export"} disabled={b.generation === 0} onPress={() => void exportBackup()} />
-            <P muted>{t("backup.explain2")}</P>
+            <Button label={t("backup.now")} kind={b.generation === 0 ? "primary" : "secondary"} disabled={busy !== null} busy={busy === "backup"} onPress={() => void backupNow()} />
+            <Button label={t("backup.export")} icon="share" kind={b.generation === 0 ? "secondary" : "primary"} busy={busy === "export"} disabled={b.generation === 0 || busy !== null} onPress={() => void exportBackup()} />
+            <TermHelp term="backup" />
+            <Disclosure title={t("common.details")}>
+              <Row label={t("backup.generation")} value={String(b.generation)} />
+              <Row label={t("backup.lastSuccess")} value={b.lastSuccessAt ? formatTime(b.lastSuccessAt, s.language) : t("assets.none")} />
+              <P muted>{t("backup.explain2")}</P>
+            </Disclosure>
             <P muted>{t("backup.restoreUntested")}</P>
           </>
         )}
         <Button label={t("quest.q5.read")} kind="secondary" onPress={() => router.push("/quest")} />
+      </Panel>
+
+      <Panel>
+        <H>{t("settings.security")}</H>
+        <TermHelp term="seed" />
+        <Button label={t("settings.showSeed")} kind="secondary" onPress={() => router.push("/seed")} disabled={info?.isMock} />
+        {authError ? <Notice tone="warning">{authError}</Notice> : null}
+        {!s.seedBackupConfirmed && !info?.isMock ? <Notice tone="warning">{t("status.seedNotConfirmed")}</Notice> : null}
       </Panel>
 
       <Panel>
@@ -159,16 +144,29 @@ export default function SettingsScene() {
       </Panel>
 
       <Panel>
-        <H>{t("settings.details")}</H>
+        <H>{t("settings.network")}</H>
+        <Row label={t("review.network")} value={t(NET_LONG_KEY)} valueStyle={{ color: IS_MAINNET ? theme.colors.danger : theme.colors.warning }} />
+        <Choice<NetworkId>
+          label={t("settings.switch.label")}
+          value={ACTIVE_NETWORK}
+          options={[{ id: "signet", label: "Signet" }, { id: "mainnet", label: "Mainnet" }]}
+          onChange={askSwitch}
+        />
+        {IS_MAINNET ? <Notice tone="danger">{t("settings.mainnetWarning")}</Notice> : null}
+        <P muted>{t("settings.networkNote")}</P>
+        <TermHelp term="network" />
+      </Panel>
+
+      <Disclosure title={t("settings.details")}>
         <Row label={t("settings.mode")} value={info?.isMock ? "MOCK" : "Bark SDK"} />
-        <Row label="Bark SDK" value={`@secondts/bark-react-native ${BARK_SDK_VERSION}`} />
+        <Row label="Bark SDK" value={info?.sdkVersion ?? t("assets.unknown")} />
         <Row label={t("settings.server")} value={info?.serverAddress ?? NET.serverAddress} mono />
         <Row label="Esplora" value={NET.esploraAddress} mono />
         <Row label={t("settings.fingerprint")} value={info?.fingerprint ?? "—"} mono />
         <Row label={t("settings.openOps")} value={String(open.length)} />
         {lastSyncError ? <Row label={t("settings.lastSyncError")} value={lastSyncError} /> : null}
         <P muted>{t("settings.logNote")}</P>
-      </Panel>
+      </Disclosure>
     </Screen>
   );
 }
@@ -177,7 +175,7 @@ const styles = StyleSheet.create({
   toggle: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48 },
   toggleLabel: { color: theme.colors.text, fontSize: 15 },
   toggleNote: { color: theme.colors.textMuted, fontSize: 12, lineHeight: 17 },
-  choice: { borderWidth: 1, borderColor: theme.colors.outline, borderRadius: theme.radius.pill, paddingHorizontal: 16, minHeight: 44, justifyContent: "center" },
+  choice: { borderWidth: 1, borderColor: theme.colors.controlBorder, borderRadius: theme.radius.pill, paddingHorizontal: 16, minHeight: 44, justifyContent: "center" },
   choiceOn: { backgroundColor: theme.colors.primaryStrong, borderColor: theme.colors.primaryStrong },
   choiceText: { color: theme.colors.text, fontSize: 15 },
 });

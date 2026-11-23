@@ -1,8 +1,10 @@
+import { SafeAreaView } from "react-native-safe-area-context";
+import { IS_MAINNET } from "@/config/network";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { Button, ModeBanner, Notice, P, NET_LONG_KEY } from "@/components/ui";
+import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import { Button, ModeBanner, NetworkTag, Notice, P, NET_LONG_KEY } from "@/components/ui";
 import { wallet } from "@/container";
 import { useReduceMotion } from "@/game/useAvatarCue";
 import { useT } from "@/i18n";
@@ -19,9 +21,10 @@ export default function BootScene() {
   const [slow, setSlow] = useState(false);
 
   useEffect(() => {
-    if (!reduceMotion) spin.value = withRepeat(withTiming(1, { duration: 2400, easing: Easing.linear }), -1, false);
+    if (reduceMotion) { cancelAnimation(spin); spin.value = 0; }
+    else spin.value = withRepeat(withTiming(1, { duration: 2400, easing: Easing.linear }), -1, false);
     const timer = setTimeout(() => setSlow(true), 8000);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); cancelAnimation(spin); };
   }, [reduceMotion, spin]);
 
   useEffect(() => {
@@ -34,26 +37,30 @@ export default function BootScene() {
   if (lifecycle === "error") {
     const known = fatal === "orphan-database" || fatal === "seed-without-database";
     return (
-      <View style={styles.wrap}>
+      <SafeAreaView style={styles.wrap}>
         <ModeBanner />
+        <NetworkTag />
+        {IS_MAINNET ? <Notice tone="danger">{t("net.mainnetLong")}</Notice> : null}
         <Text style={styles.brand}>BARK//COMPANION</Text>
         <Notice tone="danger">{known ? t(`boot.error.${fatal}`) : t("boot.error.generic", { detail: fatal ?? "" })}</Notice>
         <P muted>{t("boot.error.noAutoCreate")}</P>
         <Button label={t("common.retry")} onPress={() => void wallet.boot()} />
         {fatal === "seed-without-database" ? <Button label={t("boot.toRecovery")} kind="secondary" onPress={() => router.push("/recovery")} /> : null}
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.wrap}>
+    <SafeAreaView style={styles.wrap}>
       <ModeBanner />
+        <NetworkTag />
+        {IS_MAINNET ? <Notice tone="danger">{t("net.mainnetLong")}</Notice> : null}
       <Animated.View style={[styles.ring, ring]} />
       <Text style={styles.brand}>BARK//COMPANION</Text>
       <Text style={styles.status} accessibilityLiveRegion="polite">{t(`boot.${lifecycle}`)}</Text>
       <Text style={styles.net}>{t(NET_LONG_KEY)}</Text>
       {slow ? <P muted style={{ textAlign: "center" }}>{t("boot.slow")}</P> : null}
-    </View>
+    </SafeAreaView>
   );
 }
 

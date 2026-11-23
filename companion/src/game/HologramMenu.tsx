@@ -1,3 +1,4 @@
+import { BitcoinIcon, type BitcoinIconName } from "@/components/BitcoinIcon";
 import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue } from "react-native-reanimated";
@@ -9,7 +10,7 @@ export interface MenuItem {
   id: MenuId;
   label: string;
   sublabel: string;
-  glyph: string;
+  glyph?: string;
   hint: string;
 }
 
@@ -23,6 +24,7 @@ interface Props {
 
 /** Base angle of each slot on the ellipse, in degrees (0 = right, clockwise). Fixed quadrants per the design doc. */
 const SLOT_ANGLE: Record<MenuId, number> = { send: 212, receive: 328, assets: 148, archive: 32 };
+const MENU_ICON: Record<MenuId, BitcoinIconName> = { send: "send", receive: "receive", assets: "wallet", archive: "transactions" };
 const DRIFT_DEG = 7;
 const ITEM_W = 92;
 const ITEM_H = 60;
@@ -50,7 +52,7 @@ function Item({ item, cx, cy, rx, ry, phase, onSelect }: {
         hitSlop={8}
         style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
       >
-        <Text style={styles.glyph}>{item.glyph}</Text>
+        <BitcoinIcon name={MENU_ICON[item.id]} size={20} />
         <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit>{item.label}</Text>
         <Text style={styles.sublabel}>{item.sublabel}</Text>
       </Pressable>

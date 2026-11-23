@@ -12,7 +12,8 @@ afterEach(() => { for (const a of avatars.splice(0)) a.dispose(); });
 
 const MNEMONIC = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 
-function setup(opts: { initialSats?: bigint; feeSats?: bigint } = {}) {
+function setup(opts: { initialSats?: bigint; feeSats?: bigint; auth?: { ok: true } | { ok: false; reason: "cancelled" | "not-enrolled" | "failed" } } = {}) {
+  let authCalls = 0;
   const adapter = new MockWalletAdapter({ initialSats: opts.initialSats ?? 10_000n, feeSats: opts.feeSats ?? 0n });
   const bus = new EventBus();
   const events: DomainEvent[] = [];
@@ -38,10 +39,11 @@ function setup(opts: { initialSats?: bigint; feeSats?: bigint } = {}) {
     },
     backup: { stateChanged: (r) => void backups.push(r) },
     view: { get: () => state },
+    authorize: async () => { authCalls += 1; return opts.auth ?? { ok: true }; },
   });
   const types = () => events.map((e) => e.type);
   const quoteFor = (destination: string, amount = "500") => service.quoteSend({ method: "ark", destination, amountSats: amount });
-  return { adapter, bus, events, types, avatar, ops, service, state, backups, quoteFor, seedValue: () => seed };
+  return { adapter, bus, events, types, avatar, ops, service, state, backups, quoteFor, seedValue: () => seed, authCalls: () => authCalls };
 }
 
 describe("WalletService lifecycle", () => {
@@ -235,5 +237,32 @@ describe("WalletService sending", () => {
     t.bus.emit({ type: "PAYMENT_RECEIVED", id: "dup", movementId: m.id });
     expect(celebrations).toBe(1);
     expect(t.backups).toContain("movement-created");
+  });
+});
+
+describe("WalletService seed reveal", () => {
+  it("authenticates on every call and returns the words only on success", async () => {
+    const t = setup();
+    await t.service.create(MNEMONIC);
+    const first = await t.service.revealSeed("p");
+    const second = await t.service.revealSeed("p");
+    expect(first).toEqual({ ok: true, words: MNEMONIC.split(" ") });
+    expect(second.ok).toBe(true);
+    expect(t.authCalls()).toBe(2);
+  });
+
+  it("returns nothing when authentication is cancelled, fails, or the device has no lock", async () => {
+    for (const reason of ["cancelled", "failed", "not-enrolled"] as const) {
+      const t = setup({ auth: { ok: false, reason } });
+      await t.service.create(MNEMONIC);
+      const r = await t.service.revealSeed("p");
+      expect(r).toEqual({ ok: false, reason });
+      expect(JSON.stringify(r)).not.toContain("abandon");
+    }
+  });
+
+  it("reports a missing seed instead of inventing one", async () => {
+    const t = setup();
+    expect(await t.service.revealSeed("p")).toEqual({ ok: false, reason: "missing" });
   });
 });

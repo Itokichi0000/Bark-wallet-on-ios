@@ -32,8 +32,14 @@ export interface WalletServiceDeps {
   ops: OperationLog;
   backup: BackupTrigger;
   view: { get(): WalletView };
+  /** Device-owner check (biometrics / passcode) with the app's lock policy applied. */
+  authorize?: (prompt: string) => Promise<{ ok: true } | { ok: false; reason: "cancelled" | "not-enrolled" | "failed" }>;
   now?: () => Date;
 }
+
+export type SeedReveal =
+  | { ok: true; words: string[] }
+  | { ok: false; reason: "cancelled" | "not-enrolled" | "failed" | "missing" };
 
 /**
  * The single owner of the wallet's lifecycle. Screens call this; nothing
@@ -287,6 +293,20 @@ export class WalletService {
 
   unresolvedOperations(): Promise<PendingOperation[]> {
     return this.d.ops.unresolved();
+  }
+
+  /**
+   * The only way a screen can obtain the stored seed. Authentication happens
+   * here, on every call, so reaching the seed route directly cannot skip it.
+   * The words are returned to the caller and kept nowhere else.
+   */
+  async revealSeed(prompt: string): Promise<SeedReveal> {
+    if (!this.d.authorize) return { ok: false, reason: "failed" };
+    const auth = await this.d.authorize(prompt);
+    if (!auth.ok) return auth;
+    const mnemonic = await this.d.seeds.read();
+    if (!mnemonic) return { ok: false, reason: "missing" };
+    return { ok: true, words: mnemonic.split(" ") };
   }
 
   async shutdown(): Promise<void> {
