@@ -1,0 +1,78 @@
+name: Companion TestFlight
+
+# Builds the React Native "Bark Companion (Signet)" app in companion/ and
+# uploads it to TestFlight. It is a separate app from Sats-OS: its own bundle
+# ID (com.itokichi0000.barkcompanion.signet), Signet only, separate data.
+# Uses the same App Store Connect secrets as the TestFlight workflow.
+#
+# The first run registers the bundle ID and stops if the app doesn't exist in
+# App Store Connect yet; the job summary says what to click. Run it again after.
+on:
+  workflow_dispatch:
+  push:
+    branches: [companion-wallet]
+    paths:
+      - "companion/**"
+      - "scripts/companion-testflight.sh"
+      - ".github/workflows/companion-testflight.yml"
+      - "!**.md"
+
+concurrency:
+  group: companion-testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      BUNDLE_ID: com.itokichi0000.barkcompanion.signet
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: scripts/select-xcode.sh
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: companion/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: companion
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck and unit tests
+        working-directory: companion
+        run: |
+          pnpm typecheck
+          pnpm test
+
+      - name: Set build number
+        run: echo "BUILD_NUMBER=$(date -u +%y%m%d%H%M)" >> "$GITHUB_ENV"
+
+      - name: Generate iOS project
+        working-directory: companion
+        run: |
+          npx expo prebuild --platform ios --no-install
+          cd ios && pod install
+
+      - name: Archive and upload to TestFlight
+        run: scripts/companion-testflight.sh
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: companion-testflight-logs
+          path: build/*.log
+          if-no-files-found: ignore

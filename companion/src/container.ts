@@ -1,0 +1,61 @@
+import { EventBus } from "@/domain/events";
+import type { WalletAdapter } from "@/domain/wallet";
+import { AvatarOrchestrator } from "@/game/AvatarOrchestrator";
+import { BackupManager } from "@/infrastructure/backup/BackupManager";
+import { SecureSeedRepository } from "@/infrastructure/secure/SecureSeedRepository";
+import { PendingOperationStore } from "@/infrastructure/storage/PendingOperationStore";
+import { useWalletStore } from "@/state/walletStore";
+import { WalletService } from "@/usecases/WalletService";
+
+export const WALLET_MODE: "bark" | "mock" = process.env.EXPO_PUBLIC_WALLET_MODE === "mock" ? "mock" : "bark";
+
+function createAdapter(): WalletAdapter {
+  if (WALLET_MODE === "mock") {
+    const { MockWalletAdapter } = require("@/infrastructure/mock/MockWalletAdapter") as typeof import("@/infrastructure/mock/MockWalletAdapter");
+    return new MockWalletAdapter({ initialSats: 0n });
+  }
+  // Required lazily so a mock build never loads the native module.
+  const { BarkWalletAdapter } = require("@/infrastructure/bark/BarkWalletAdapter") as typeof import("@/infrastructure/bark/BarkWalletAdapter");
+  return new BarkWalletAdapter();
+}
+
+/**
+ * Composition root. Note what is *not* wired together: the avatar and the
+ * voice layer receive the event bus only. They hold no reference to the
+ * adapter, the seed repository or the wallet service's send method.
+ */
+export const bus = new EventBus();
+export const adapter = createAdapter();
+export const avatar = new AvatarOrchestrator();
+bus.on((e) => avatar.handle(e));
+
+const view = { get: () => useWalletStore.getState() };
+export const backup = new BackupManager(adapter, () => SecureSeedRepository.read(), bus, view);
+export const wallet = new WalletService({
+  adapter,
+  bus,
+  seeds: SecureSeedRepository,
+  ops: new PendingOperationStore(),
+  backup,
+  view,
+});
+
+/** A new 12-word BIP 39 phrase. The Bark build uses the SDK's generator, as its documentation prescribes. */
+export function generateMnemonic(): string {
+  if (WALLET_MODE === "mock") {
+    const { generateMnemonic: gen } = require("@scure/bip39") as typeof import("@scure/bip39");
+    const { wordlist } = require("@scure/bip39/wordlists/english.js") as typeof import("@scure/bip39/wordlists/english.js");
+    return gen(wordlist, 128);
+  }
+  return (require("@secondts/bark-react-native") as typeof import("@secondts/bark-react-native")).generateMnemonic();
+}
+
+export function isValidMnemonic(phrase: string): boolean {
+  const { validateMnemonic } = require("@scure/bip39") as typeof import("@scure/bip39");
+  const { wordlist } = require("@scure/bip39/wordlists/english.js") as typeof import("@scure/bip39/wordlists/english.js");
+  return validateMnemonic(normalizeMnemonic(phrase), wordlist);
+}
+
+export function normalizeMnemonic(phrase: string): string {
+  return phrase.trim().toLowerCase().split(/\s+/).join(" ");
+}
