@@ -1,6 +1,6 @@
 import { TermHelp } from "@/components/TermHelp";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
 import { PaymentReview } from "@/components/PaymentReview";
@@ -178,7 +178,10 @@ export default function SendScene() {
           </Panel>
 
           <Panel>
-            <H>{t("send.amount")}</H>
+            <View style={styles.amountHeading}>
+              <H>{t("send.amount")}</H>
+              <Text style={styles.available}>{t("send.available", { amount: balance ? formatAmount(balance.spendableSats, unit) : t("home.balanceUnknown") })}</Text>
+            </View>
             <View style={styles.amountRow}>
               <TextInput
                 value={fixed ?? state.amountInput}
@@ -192,11 +195,11 @@ export default function SendScene() {
                 accessibilityLabel={t("send.amount")}
               />
               <Text style={styles.unit}>sats</Text>
+              {fixed === undefined ? <Pressable onPress={() => void fillMax()} disabled={busyMax} accessibilityRole="button" accessibilityLabel={t("send.max")} accessibilityHint={t("send.maxHint")} accessibilityState={{ disabled: busyMax, busy: busyMax }} style={({ pressed }) => [styles.max, { opacity: pressed || busyMax ? 0.6 : 1 }]}>
+                {busyMax ? <ActivityIndicator color={theme.colors.primary} /> : <Text style={styles.maxText}>{t("send.max")}</Text>}
+              </Pressable> : null}
             </View>
-            {fixed !== undefined ? <P muted>{t("send.amountFixed")}</P> : (
-              <Button label={t("send.max")} kind="secondary" busy={busyMax} onPress={() => void fillMax()} accessibilityHint={t("send.maxHint")} />
-            )}
-            <Row label={t("home.spendable")} value={balance ? formatAmount(balance.spendableSats, unit) : t("home.balanceUnknown")} />
+            {fixed !== undefined ? <P muted>{t("send.amountFixed")}</P> : null}
           </Panel>
 
           {state.formError ? <Notice tone="danger">{state.formError}</Notice> : null}
@@ -282,6 +285,10 @@ export default function SendScene() {
 const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: theme.colors.controlBorder, borderRadius: theme.radius.sm, color: theme.colors.text, fontSize: 16, padding: 12, minHeight: 48 },
   mono: { fontSize: 14, lineHeight: 20, minHeight: 84, textAlignVertical: "top" },
+  amountHeading: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  available: { color: theme.colors.textMuted, fontSize: 12, flexShrink: 1 },
+  max: { minWidth: 44, minHeight: 44, paddingHorizontal: 10, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.controlBorder, alignItems: "center", justifyContent: "center" },
+  maxText: { color: theme.colors.primary, fontSize: 13, fontWeight: "600" },
   amountRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   amount: { flex: 1, fontSize: 36, fontWeight: "700", fontVariant: ["tabular-nums"] },
   unit: { color: theme.colors.textMuted, fontSize: 16 },

@@ -33,3 +33,14 @@ docs/                実装状況・SDK 互換性・セキュリティ・バッ�
 ```
 
 現状と未検証項目は必ず [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) を見てください。
+
+## Reviewing every screen without tapping
+
+A mock build with demo data opens straight onto any screen, which is how the screens are reviewed in the simulator:
+
+```sh
+EXPO_PUBLIC_WALLET_MODE=mock EXPO_PUBLIC_MOCK_DEMO=1 xcodebuild ... build   # Release, simulator
+xcrun simctl launch <udid> com.itokichi0000.satsos -reviewRoute send        # home, receive, send, assets, archive, settings, quest, seed, recovery
+```
+
+Demo mode exists only in mock builds: it keeps a pretend seed in memory, never touches the Keychain or the SDK, and every screen carries the MOCK banner.

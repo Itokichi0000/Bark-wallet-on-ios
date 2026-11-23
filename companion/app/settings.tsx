@@ -125,8 +125,9 @@ export default function SettingsScene() {
 
       <Panel>
         <H>{t("settings.security")}</H>
-        <TermHelp term="seed" />
         <Button label={t("settings.showSeed")} kind="secondary" onPress={() => router.push("/seed")} disabled={info?.isMock} />
+        {info?.isMock ? <P muted>{t("seed.mockUnavailable")}</P> : null}
+        <TermHelp term="seed" />
         {authError ? <Notice tone="warning">{authError}</Notice> : null}
         {!s.seedBackupConfirmed && !info?.isMock ? <Notice tone="warning">{t("status.seedNotConfirmed")}</Notice> : null}
       </Panel>

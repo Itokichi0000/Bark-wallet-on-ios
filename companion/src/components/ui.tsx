@@ -1,6 +1,6 @@
 import { IS_MAINNET } from "@/config/network";
 import type { ReactNode } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { container } from "@/components/containerHooks";
@@ -11,12 +11,12 @@ import { BitcoinIcon, type BitcoinIconName } from "./BitcoinIcon";
 
 const c = theme.colors;
 
-export function Screen({ title, children, scroll = true, onBack, footer, hideBack = false }: {
-  title: string; subtitle?: string; children: ReactNode; scroll?: boolean; onBack?: () => void; footer?: ReactNode; hideBack?: boolean;
+export function Screen({ title, children, scroll = true, onBack, footer, hideBack = false, onRefresh, refreshing = false }: {
+  title: string; subtitle?: string; children: ReactNode; scroll?: boolean; onBack?: () => void; footer?: ReactNode; hideBack?: boolean; onRefresh?: () => void; refreshing?: boolean;
 }) {
   const t = useT();
   const body = scroll ? (
-    <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+    <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} /> : undefined}>{children}</ScrollView>
   ) : (
     <View style={[styles.body, { flex: 1 }]}>{children}</View>
   );
@@ -118,10 +118,10 @@ export function Notice({ tone, children }: { tone: "info" | "warning" | "danger"
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: c.background },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 6, gap: 8 },
   back: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   title: { color: c.text, fontSize: 22, fontWeight: "700" },
-  body: { padding: 20, paddingBottom: 32, gap: 18, width: "100%", maxWidth: 620, alignSelf: "center" },
+  body: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 14, width: "100%", maxWidth: 620, alignSelf: "center" },
   footer: { padding: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.outline },
   netTag: { borderWidth: 1, borderColor: c.warning, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
   netTagText: { color: c.warning, fontSize: 10, fontWeight: "700", letterSpacing: 1 },

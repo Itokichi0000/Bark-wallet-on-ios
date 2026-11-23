@@ -1,66 +1,58 @@
-# UI refresh — handoff to Claude
+# UI refresh — handoff to Claude, 2026-11-24
 
-Implemented in the Codex-owned UI paths. No commit, push, prebuild, package/script/config change, or internals edit. `SatsOS/` is untouched. The existing avatar illustrations and room background remain local and unchanged.
+Current implementation, superseding the previous card-heavy Home. Initial findings are in [UX_REVIEW.md](UX_REVIEW.md). All seven supplied findings were accepted; automatic updates still show stale/offline state and allow an intentional pull-to-refresh.
 
-## Important integration limitation
-
-**Saved-seed display is reconnected (Claude).** `app/seed.tsx` now gets the words only from `wallet.revealSeed`, which authenticates on every call; see `UI_REQUESTS.md`.
-
-New-wallet seed generation and confirmation remain available. They now require device authentication before words are generated/shown; words and quiz answers are cleared when the app becomes inactive. Existing recovery methods and wallet/backup method signatures are unchanged.
+Only Codex-owned screens/components/wording and these UI notes were edited. Claude's already-dirty `_layout.tsx`, container, services, mock adapter, `homeHint`, scheduler and tests were preserved. `SatsOS/`, packages, native projects and scripts were not changed. No commit, push, prebuild, build or upload.
 
 ## Screen changes
 
-| Screen | Change and primary action |
+| Screen | Current behavior |
 | --- | --- |
-| Boot | Network tag and Mainnet warning also appear in error state; safe area used; spinning indicator cancels immediately with Reduce Motion. Retry remains primary on error. |
-| Onboarding | Compact full-body avatar in a room-colored panel, shorter welcome, one “Get started” button, four-step progress after introduction. Network/Ark explanations are optional. Backup distinction has a short summary with expanded details. Seed safety notices remain visible. No dead back button on intro/creation/authentication. |
-| Home | Large spendable balance in a card, explicit visibility and unit controls, stable send/receive buttons above the companion. Receive is primary with zero/unknown balance; Send is primary when there are spendable coins. Assets/activity move below the companion. Content scrolls on smaller devices; action rows stack with larger text. Sync is a separate button, avoiding nested press targets around status warnings. |
-| Send | Destination, scan/paste icons, large sats amount, short Ark-only note, and a clear two-step path. Review remains mandatory; destination validation uses an informational indicator rather than a success tick. Final send requires successful device authentication; no-lock bypass removed. Pending/unknown retain do-not-resend text and only status-check/navigation actions. |
-| Review | Full destination always visible, never collapsed. Network is read from the quote, with red Mainnet text. Method, amount, fee, total, and balance after remain visible. Total has its own inset panel; optional fee help. |
-| Receive | High-contrast local QR with quiet zone, full address, one primary copy action and secondary share. Sync help is inline; faucet/unsupported rails/fee context are in Details. Receipt styling requires `status === "succeeded"`; waiting copy is hidden for that confirmed receipt. |
-| Assets | Spendable amount first; total and balance breakdown under Details. Maintenance alert and expiry caveat remain visible; block-height detail is optional. VTXO help beside the coin list. Unsupported manual operations remain explanation-only. |
-| Activity | SVG direction/status icons with text labels. Every pending/unknown card shows do-not-resend copy even while collapsed. Technical record fields expand per card; sync and payment-status help are available. |
-| Settings | Backup first: create is primary when no backup exists, export is primary afterward. Export status and unverified-device-restore warning stay visible. Generation/time details collapse. Preferences and network switching follow; connection details are folded. SDK version comes from store info rather than a Bark-infrastructure import. |
-| Seed | Shows nothing until the user taps reveal and passes device authentication; words are dropped on blur/background. No seed repository import. |
-| Recovery | Shorter choice labels and backup/seed help; seed-only recovery limits remain visible. Input is masked, autocomplete/spellcheck off, and screen capture prevention enabled. Recovery calls retain their existing APIs. |
-| Getting started / quests | Real icons, compact expandable task descriptions, next navigable task emphasized; completion uses a purple star, not payment-success styling. |
-| QR scanner / command sheet | Network and MOCK indicators are present within overlays. Reduced Motion disables modal animations. Command content scrolls, respects bottom safe area, and example targets are at least 44pt. |
+| Home | Slim network/guide/settings header; amount switches sats/BTC on tap, separate eye and small breakdown link. No balance card or duplicate unit row. Noa is the main visual, with full cue text or `homeHint`, navigable when the hint supplies a route. Small Ask Noa and mock-only demo controls sit beside the bubble. Two recent payments (or loading/error/empty text) precede pinned Receive/Send actions. Hidden balance also masks recent amounts. Pending/unknown previews explicitly say not to resend. |
+| Updates | `SyncStatus` shows last-update age or an offline/cache warning. Its 44pt question control opens a scrollable explanation with network/MOCK indicators; age updates every 30 seconds. No manual sync buttons on Home/Receive/Assets/Activity. Home/Assets/Activity support pull-to-refresh; the pull spinner belongs only to the user's gesture, so background sync does not repeatedly present a primary loading control. |
+| Receive | Focus-scoped event listener is installed before `autoSync.watch()`; both are released on blur. QR, live waiting/offline/confirmed row, complete address and Copy share one panel. Retry appears for address-generation errors. Share and optional explanations follow. A receipt checkmark/amount requires `received.status === "succeeded"`. QR retains black/white contrast and 12pt quiet zone. |
+| Send | Spendable balance sits beside the amount label; Max is a 44pt chip next to the field. Destination validation, quote, full review, final action, authentication, outcome and reconciliation paths stay intact. |
+| Assets | Spendable number first, then a plain health sentence. Cached/offline information is explicit; urgent maintenance notices remain visible. Long expiry caveat and block details are folded. Coin list distinguishes loading, unavailable and empty. |
+| Activity | Removed the primary update panel. Quiet age/offline line followed by records. Direction labels are neutral Incoming/Outgoing (入金/出金), and actual status stays explicit. Existing pending/unknown warnings remain visible even when details are closed. |
+| Guide | One checklist with task icons, purple completion ticks, Try links and details opened by tapping the task. Backup learning stays inside its item; no payment-success styling or amount-based rewards. It is a local checklist, not a remote list needing fabricated loading states. |
+| Settings | Security puts the seed action before optional glossary help and explains why it is unavailable in mock. Export-not-saved and unverified-device-restore warnings remain. |
+| Seed | Explain authentication before revealing; disable reveal in mock, including direct route entry. Still uses only `wallet.revealSeed`. Ignore results after blur/background or a newer request; handle thrown errors without exposing exception content. Words clear on leave/inactivity and use 3/2/1 columns for width/text size. Capture prevention remains. |
+| Recovery | Both recovery methods disabled in mock to match its explanatory notice. Clear phrase on screen blur. Seed-only limitations remain visible; existing restore APIs unchanged. Container-facing restore follow-up is in UI_REQUESTS. |
+| Shared | Consistent 56pt default header (44pt back target + 6pt vertical padding), 20pt horizontal body inset and 14pt content gaps. New controls have 44pt minimum targets and opacity feedback where useful. Avatar uses the existing Reduce Motion-aware renderer; the help modal disables its fade with Reduce Motion. |
 
-## Shared design and resources
+## Home layout arithmetic
 
-- [Bitcoin Design Guide](https://bitcoin.design/guide/) — design-pattern reference, not a claim that this Ark app implements the guide's Lightning features. Applied [send/review](https://bitcoin.design/guide/daily-spending-wallet/sending/), [request/QR](https://bitcoin.design/guide/daily-spending-wallet/requesting/), and [manual backup](https://bitcoin.design/guide/daily-spending-wallet/backup-and-recovery/manual-backup/) principles: readable amount/unit, deliberate final review, unambiguous payment states, and distinct keys/backup explanations. Guide repository is [MIT or Apache-2.0](https://bitcoin.design/LICENSE); no Guide images or UI Kit artwork were copied.
-- [Bitcoin Icons](https://github.com/BitcoinDesign/Bitcoin-Icons), MIT for the selected outline icons. Vendored from commit `bd5a9b0334073d4bb8899effeb06bcc400127700`. SVG strings live in `assets/bitcoin-icons/icons.ts`; original permission text is included as `assets/bitcoin-icons/LICENSE-MIT`. No Satoshi-symbol assets with separate licensing are included.
-- `BitcoinIcon` renders these local SVGs using existing `react-native-svg` 15.16.0 (MIT). No added package or native module. No runtime remote image/font fetches. Existing `react-native-qrcode-svg` remains in use.
-- Dark purple room colors retained. Stronger amount hierarchy, calmer panel borders, contrasting control borders, lavender primary buttons with dark labels, consistent 54pt buttons, and 44pt-or-larger help/navigation targets.
-- `Disclosure` and `TermHelp` use inline expanded content: no animation, extra native dependency, navigation, external URL, or modal focus trap. Existing native controls remain; this change does not require regenerating native projects.
+At default text size the scroll container is exactly its available height (pull-down bounce is still enabled). The hero gets the remaining flex height. At `fontScale > 1`, content and the action row become scrollable, allowing full text instead of truncation. Speech is never line-clamped. Amount may shrink within its single line at default size; enlarged text may wrap.
 
-## Glossary
+Conservative budget: safe areas + 23pt MOCK banner + 44pt header + 70pt actions + 12pt content padding + 66pt balance + 44pt update line + 164pt recent section (two 60pt wrapped pending rows plus 44pt heading). Mainnet reserves another 26pt red warning. Empty/two ordinary rows leave more room.
 
-`TermHelp` accepts only a `GlossaryTerm`, never wallet data, amounts, addresses, or secret words. Each translated entry is 1–3 short sentences. All keys exist in both `ja.ts` and `en.ts`.
+| Viewport | Safe area used | Hero remaining, MOCK | With Mainnet warning | Longest EN speech + controls estimate |
+| --- | ---: | ---: | ---: | ---: |
+| 390×844 | 47 top + 34 bottom | 340pt | 314pt | 180pt |
+| 375×667 | 20 top + 0 bottom | 224pt | 198pt | 180pt |
 
-| Term | Entry points |
-| --- | --- |
-| Sync / 同期 | Home, Receive, Activity |
-| Signet / Mainnet | Onboarding Details, Settings |
-| Ark | Onboarding Details, Send, Receive Details |
-| VTXO | Assets |
-| Refresh / expiry | Assets |
-| Fee | Payment review, Receive Details |
-| Seed phrase | Onboarding, Settings, Seed, Recovery |
-| Database backup versus seed | Onboarding, Settings, Seed, Recovery |
-| Pending / unknown payment | Send results, Activity |
+Text estimates checked all current ja/en `hint.*`, `avatar.*`, `voice.*` strings with macOS system-font measurement, the actual speech-column width and explicit 18pt line heights. This is a layout estimate, not an iOS render. The avatar is capped by both stage height and its 48% column width / `AVATAR_ASPECT` (about 300pt tall at 390pt width), so it does not overlap speech. Large amounts and enlarged text still need native visual review.
 
-## Verification
+Receive uses a 210pt QR (234pt including quiet zone) at 844pt height and 152pt QR (176pt including quiet zone) at 667pt height. Long real addresses remain fully visible in text and may require scrolling; scan readability needs device verification.
+
+## Safety and boundary checks
+
+- Network tag and red Mainnet warning remain; MOCK banner is always visible, including update-help modal.
+- PaymentReview still shows network, method, full destination, amount, fee, total and balance after. No review/authentication bypass or send-again option was added for unresolved payments.
+- Only confirmed receipts use success styling. Guide ticks are purple task completion, not money confirmation.
+- No seed is copied, shared, logged, spoken or passed to a tooltip. No unsupported payment rail or manual refresh/exit/offboard action was enabled.
+- Backup warnings remain in Settings. New strings have matching ja/en keys and placeholders; existing Claude hint strings were preserved.
+- Recovery's pre-existing direct BackupManager import needs a container-facing operation from Claude; see [UI_REQUESTS.md](UI_REQUESTS.md).
+
+## Verification and remaining handoff
 
 - `cd companion && pnpm typecheck`: passed.
-- `cd companion && pnpm test`: 9 suites / 92 tests passed, including i18n key/placeholder parity and forbidden logging checks.
-- Temporary isolated device-auth harness: 7 mocked platform cases passed (no enrolled lock, success, three cancellation results, authentication failure, thrown platform error). This does not verify real Face ID/passcode behavior. No Claude-owned test files were changed.
+- `cd companion && pnpm test`: 10 suites / 106 tests passed, including i18n parity, service safety and scheduler tests. No Claude-owned test file was edited.
 - `git diff --check`: passed.
+- Layout arithmetic/font estimates: both target sizes, ja/en, Mainnet + MOCK and two wrapped pending rows fit at default text size.
 
-## Not verified here / simulator and device handoff
+Not launched or rendered in a simulator/device here. Claude should verify both languages, larger text, Reduce Motion, long amounts/addresses, focus-scoped Receive watching, offline/error/empty lists, pending/unknown, hidden balance, and real authentication/QR behavior. The unit suite does not render the changed screens. No actual payment, export or restore result is claimed.
 
-The app was not launched, rendered, or exercised in a simulator/device in this task; Claude owns that validation. The supplied screenshot was the starting reference, not evidence of the new layout. No screenshots of the changed UI are claimed.
+## Retained resources
 
-Check Japanese and English at small iPhone width and large Dynamic Type; confirm QR quiet-zone fit, full-address wrapping, keyboard access to review/restore, sheet scrolling, VoiceOver names/expanded states, and real 44pt targets. Check Reduce Motion while the app is already running, foreground/background during onboarding and authentication, cancellation/no passcode, direct `/seed` entry, MOCK and Mainnet overlays, stale/offline balances, zero balance, pending/unknown reconciliation, and confirmed-only receipt visuals. Validate QR scan/share and the masked recovery input on the actual platforms.
-
-The existing unit suite does not render these screens or cover the full payment UI. This handoff is working source plus passing static/unit checks; visual quality, platform behavior, genuine payments, backup export, and restore success are not certified by those checks.
+Existing local avatar/motion assets and room background were reused. No generated art or remote fonts were added. Existing Bitcoin Icons remain under their bundled MIT license (`assets/bitcoin-icons/LICENSE-MIT`, upstream commit `bd5a9b0334073d4bb8899effeb06bcc400127700`) using installed react-native-svg. The previous [Bitcoin Design Guide](https://bitcoin.design/guide/) reference remains provenance for the send/review, QR and backup patterns; no new artwork was copied.

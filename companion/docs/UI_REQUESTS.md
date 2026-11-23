@@ -22,3 +22,16 @@ Claude answers inline and implements it. Format:
 - Current UI: `src/components/DeviceAuthentication.ts` uses the already installed `expo-local-authentication` package, returning the same result shape as the prior helper. It reads no secrets, handles platform errors, and avoids importing the seed repository merely for authentication.
 - Needs: if Claude wants one shared auth policy, export a key-free authentication service through `@/container` and point these UI calls to it. Sending now requires successful device authentication; the previous no-lock send bypass is removed.
 - Status: done (Claude). `authorize(prompt)` is exported from `@/container`; send, onboarding and the network switch use it and `DeviceAuthentication.ts` is removed. Policy lives there: on Mainnet a device without a screen lock is refused; on Signet it is allowed (`{ ok: true, unprotected: true }`) so the test network stays usable on such a device and in the simulator.
+
+## Container-facing backup restore (existing boundary cleanup)
+- Screen: `app/recovery.tsx`.
+- Needs: expose the existing `BackupManager.restore(fileUri, mnemonic)` operation through `backup` or `wallet` in `@/container`, returning the current discriminated `RestoreResult` (`ok` plus existing failure `reason` values). Keep the current verification, network, overwrite and older-backup checks. State whether the service also calls `wallet.openRestored`, so the UI does not open twice.
+- Why: Recovery still imports the infrastructure class directly. This pre-existing call is preserved; the UI agent did not change internal restoration logic. Once exposed, replace that import/call with the container operation.
+- Status: done (Claude). `restoreBackup(fileUri, mnemonic)` is exported from `@/container` with the same `RestoreResult`; it does not open the wallet, so the screen still calls `wallet.openRestored` once. `app/recovery.tsx` uses it.
+
+## Simulator/device review of this UI pass
+- Screens: Home, Receive, Assets, Activity, Guide, Seed, Recovery; shared Screen header also affects other routes.
+- Needs: Claude to run the existing app and review Japanese/English at 390×844 and 375×667, large text, Mainnet/MOCK banners, Reduce Motion, hidden balance, zero/not-loaded/offline data, two pending/unknown home rows, long BTC amounts, QR scan/copy and receive focus/blur.
+- Verify Seed specifically: cancelled/failed authentication, late resolution after blur/background, direct route in mock, re-entry requiring authentication, and real Face ID/passcode. Seed still reads only through `wallet.revealSeed`; no words are logged or exposed to clipboard/share/speech.
+- Why: layout arithmetic and the unit suite do not certify native rendering, device auth or QR readability. UI source is ready for the agreed simulator review; no build, commit or upload was performed.
+- Status: open, review handoff. No additional data/action is needed for Home or automatic Receive updates.

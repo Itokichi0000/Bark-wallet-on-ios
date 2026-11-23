@@ -1,10 +1,12 @@
+import { usePullRefresh } from "@/components/usePullRefresh";
+import { SyncStatus } from "@/components/SyncStatus";
 import { TermHelp } from "@/components/TermHelp";
 import { Disclosure } from "@/components/Disclosure";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { Button, H, Notice, P, Panel, Row, Screen } from "@/components/ui";
-import { avatar, wallet } from "@/container";
+import { avatar } from "@/container";
 import type { WalletVtxo } from "@/domain/wallet";
 import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
@@ -31,8 +33,9 @@ function Crystal({ color }: { color: string }) {
 /** S06 Assets: what is owned vs. what can be spent, and the real state of each VTXO. */
 export default function AssetsScene() {
   const t = useT();
+  const refresh = usePullRefresh();
   const { unit, language, completeQuest } = useSettings();
-  const { balance, vtxos, maintenance, syncing } = useWalletStore();
+  const { balance, vtxos, maintenance, lastSyncError, lifecycle } = useWalletStore();
   const [selected, setSelected] = useState<string>();
   const [advanced, setAdvanced] = useState(false);
 
@@ -44,9 +47,10 @@ export default function AssetsScene() {
   const show = (m: string | undefined) => (m === undefined ? t("home.balanceUnknown") : formatAmount(m, unit));
 
   return (
-    <Screen title={t("menu.assets")} subtitle="ASSETS">
+    <Screen title={t("menu.assets")} subtitle="ASSETS" onRefresh={refresh.onRefresh} refreshing={refresh.refreshing}>
       <Panel>
         <Row label={t("assets.spendable")} value={show(balance?.spendableSats)} valueStyle={{ fontSize: 32, fontWeight: "700" }} />
+        <P muted>{t(lastSyncError !== undefined || lifecycle === "degraded" ? "assets.healthOffline" : !maintenance ? "assets.healthLoading" : maintenance.severity === "none" ? "assets.healthReady" : "assets.healthAttention")}</P>
         <Disclosure title={t("common.details")}>
         <Row label={t("assets.total")} value={show(balance?.totalSats)} />
         <P muted>{t("assets.totalNote")}</P>
@@ -54,9 +58,9 @@ export default function AssetsScene() {
         <Row label={t("assets.needsRefresh")} value={show(balance?.needsRefreshSats)} />
         <Row label={t("assets.asOf")} value={balance?.lastSyncedAt ? formatTime(balance.lastSyncedAt, language) : t("status.neverSynced")} />
         </Disclosure>
-        <Button label={t("home.syncNow")} icon="refresh" busy={syncing} onPress={() => void wallet.refresh()} />
       </Panel>
 
+      <SyncStatus />
       {maintenance && maintenance.severity !== "none" ? (
         <Notice tone={maintenance.severity === "urgent" ? "danger" : "warning"}>
           {t(maintenance.severity === "urgent" ? "status.maintenanceUrgent" : "status.maintenanceNotice")}
@@ -71,8 +75,8 @@ export default function AssetsScene() {
         <Row label={t("assets.maintenance.toRefresh")} value={maintenance ? String(maintenance.vtxosToRefresh) : t("assets.unknown")} />
         <Row label={t("assets.maintenance.nextRefresh")} value={maintenance?.nextRequiredRefreshHeight !== undefined ? String(maintenance.nextRequiredRefreshHeight) : t("assets.none")} />
         <Row label={t("assets.maintenance.firstExpiry")} value={maintenance?.firstExpiryHeight !== undefined ? String(maintenance.firstExpiryHeight) : t("assets.none")} />
-        </Disclosure>
         <P muted>{t("assets.maintenance.caveat")}</P>
+        </Disclosure>
       </Panel>
 
       <TermHelp term="vtxo" />
@@ -81,7 +85,7 @@ export default function AssetsScene() {
         <Panel>
           <H>VTXO</H>
           <P muted>{t("assets.vtxoExplain")}</P>
-          {vtxos.length === 0 ? <P muted>{t("assets.noVtxos")}</P> : null}
+          {vtxos.length === 0 ? <P muted>{t(lastSyncError !== undefined || lifecycle === "degraded" ? "list.unavailable" : !balance?.lastSyncedAt ? "list.loading" : "assets.noVtxos")}</P> : null}
           {vtxos.map((v) => {
             const on = selected === v.id;
             return (

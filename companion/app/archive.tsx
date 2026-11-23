@@ -1,9 +1,11 @@
+import { usePullRefresh } from "@/components/usePullRefresh";
+import { SyncStatus } from "@/components/SyncStatus";
 import { BitcoinIcon, type BitcoinIconName } from "@/components/BitcoinIcon";
 import { TermHelp } from "@/components/TermHelp";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Button, H, Notice, P, Panel, Row, Screen } from "@/components/ui";
-import { avatar, wallet } from "@/container";
+import { H, Notice, P, Panel, Row, Screen } from "@/components/ui";
+import { avatar } from "@/container";
 import type { MovementStatus, WalletMovement } from "@/domain/wallet";
 import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
@@ -52,8 +54,9 @@ function Card({ m, open, onPress }: { m: WalletMovement; open: boolean; onPress(
 /** S05 Archive: the wallet's own record of movements, with each one's actual state. */
 export default function ArchiveScene() {
   const t = useT();
-  const { language, completeQuest } = useSettings();
-  const { movements, balance, syncing } = useWalletStore();
+  const refresh = usePullRefresh();
+  const { completeQuest } = useSettings();
+  const { movements, balance, lastSyncError, lifecycle } = useWalletStore();
   const [open, setOpen] = useState<string>();
 
   useEffect(() => {
@@ -62,18 +65,14 @@ export default function ArchiveScene() {
   }, [completeQuest]);
 
   return (
-    <Screen title={t("menu.archive")} subtitle="ARCHIVE">
-      <Panel>
-        <Row label={t("archive.updated")} value={balance?.lastSyncedAt ? formatTime(balance.lastSyncedAt, language) : t("status.neverSynced")} />
-        <Button label={t("home.syncNow")} icon="refresh" busy={syncing} onPress={() => void wallet.refresh()} />
-      </Panel>
+    <Screen title={t("menu.archive")} subtitle="ARCHIVE" onRefresh={refresh.onRefresh} refreshing={refresh.refreshing}>
+      <SyncStatus />
       <H>{t("archive.records", { n: movements.length })}</H>
-      {movements.length === 0 ? <Panel><P muted>{t(!balance?.lastSyncedAt && syncing ? "archive.loading" : "archive.empty")}</P></Panel> : null}
+      {movements.length === 0 ? <Panel><P muted>{t(lastSyncError !== undefined || lifecycle === "degraded" ? "list.unavailable" : !balance?.lastSyncedAt ? "archive.loading" : "archive.empty")}</P></Panel> : null}
       {movements.map((m) => (
         <Card key={m.id} m={m} open={open === m.id} onPress={() => setOpen(open === m.id ? undefined : m.id)} />
       ))}
       <TermHelp term="payment" />
-      <TermHelp term="sync" />
     </Screen>
   );
 }

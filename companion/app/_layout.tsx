@@ -2,12 +2,12 @@ import { useReduceMotion } from "@/game/useAvatarCue";
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as Speech from "expo-speech";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { avatar, backup, bus, wallet } from "@/container";
+import { autoSync, avatar, bootApp, bus, wallet } from "@/container";
 import { questForEvent } from "@/game/quests";
 import { translate } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
@@ -17,7 +17,7 @@ import { theme } from "@/theme";
 export default function RootLayout() {
   const reduceMotion = useReduceMotion();
   useEffect(() => {
-    void backup.load().then(() => wallet.boot());
+    void bootApp().then((route) => (route ? router.replace(route as "/home") : undefined));
 
     const offQuests = bus.on((e) => {
       const quest = questForEvent(e);
@@ -42,6 +42,8 @@ export default function RootLayout() {
         // Coming back: re-sync and resolve anything a kill or a suspend left open. Read-only for funds.
         void wallet.reconcileAll().then((ops) => (ops.length === 0 ? wallet.refresh() : undefined));
       }
+      if (state === "active") autoSync.start();
+      else autoSync.stop();
       if (state !== "active") void Speech.stop();
     });
     return () => {

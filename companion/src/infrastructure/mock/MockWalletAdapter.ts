@@ -11,6 +11,8 @@ const MOCK_TIP = 250_000;
 
 export interface MockOptions {
   initialSats?: bigint;
+  /** Start as an already-created wallet (demo builds), so a stored seed opens it. */
+  created?: boolean;
   feeSats?: bigint;
   now?: () => Date;
 }
@@ -43,6 +45,7 @@ export class MockWalletAdapter implements WalletAdapter {
 
   constructor(opts: MockOptions = {}) {
     this.spendable = opts.initialSats ?? 0n;
+    this.created = opts.created ?? false;
     this.fee = opts.feeSats ?? 0n;
     this.now = opts.now ?? (() => new Date());
     if (this.spendable > 0n) this.addVtxo(this.spendable, MOCK_TIP + 4000);

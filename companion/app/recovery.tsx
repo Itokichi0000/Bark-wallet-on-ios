@@ -1,14 +1,13 @@
 import { usePreventScreenCapture } from "expo-screen-capture";
 import { TermHelp } from "@/components/TermHelp";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { StyleSheet, TextInput } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Button, H, Notice, P, Panel, Row, Screen, NET_LONG_KEY } from "@/components/ui";
-import { adapter, isValidMnemonic, normalizeMnemonic, wallet } from "@/container";
+import { adapter, isValidMnemonic, normalizeMnemonic, wallet, restoreBackup } from "@/container";
 import { errorMessage } from "@/domain/errors";
 import { useT } from "@/i18n";
-import { BackupManager } from "@/infrastructure/backup/BackupManager";
 import { useSettings } from "@/state/settingsStore";
 import { theme } from "@/theme";
 
@@ -24,6 +23,8 @@ export default function RecoveryScene() {
   const [file, setFile] = useState<{ uri: string; name: string }>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+
+  useFocusEffect(useCallback(() => () => setPhrase(""), []));
 
   const valid = isValidMnemonic(phrase);
 
@@ -45,7 +46,7 @@ export default function RecoveryScene() {
     setError(undefined);
     try {
       const mnemonic = normalizeMnemonic(phrase);
-      const result = await BackupManager.restore(file.uri, mnemonic);
+      const result = await restoreBackup(file.uri, mnemonic);
       if (!result.ok) {
         setError(t(`recovery.error.${result.reason}`));
         return;
@@ -113,7 +114,7 @@ export default function RecoveryScene() {
             <H>{t("recovery.seedOnly.title")}</H>
             <P>{t("recovery.seedOnly.body")}</P>
             <P muted>{t("recovery.seedOnly.limits")}</P>
-            <Button label={t("recovery.seedOnly.go")} kind="secondary" onPress={() => setMode("seed-only")} />
+            <Button label={t("recovery.seedOnly.go")} kind="secondary" disabled={adapter.isMock} onPress={() => setMode("seed-only")} />
           </Panel>
           <TermHelp term="backup" />
           <P muted>{t("recovery.noOverwrite")}</P>

@@ -1,17 +1,21 @@
+import { usePullRefresh } from "@/components/usePullRefresh";
 import { BitcoinIcon } from "@/components/BitcoinIcon";
-import { TermHelp } from "@/components/TermHelp";
+import { SyncStatus } from "@/components/SyncStatus";
+import { RecentActivity } from "@/components/RecentActivity";
+import { homeHint } from "@/game/homeHint";
 import { IS_MAINNET } from "@/config/network";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CommandSheet } from "@/components/CommandSheet";
-import { StatusStrip, ambientState } from "@/components/StatusStrip";
-import { Button, ModeBanner, NetworkTag, Notice } from "@/components/ui";
-import { adapter, avatar, bus, wallet } from "@/container";
+import { ambientState } from "@/components/StatusStrip";
+import { Button, ModeBanner, NetworkTag } from "@/components/ui";
+import { adapter, avatar, bus } from "@/container";
 import { CuePriority } from "@/domain/avatar";
 import type { MenuId } from "@/domain/events";
 import { SceneBackground } from "@/game/SceneBackground";
+import { AVATAR_ASPECT } from "@/game/AvatarRenderer";
 import { AnimatedAvatarRenderer } from "@/game/AnimatedAvatarRenderer";
 import { useAvatarCue, useReduceMotion } from "@/game/useAvatarCue";
 import { useT } from "@/i18n";
@@ -27,12 +31,14 @@ import { decideVoiceAction } from "@/voice/VoicePolicyEngine";
 /** S02 Home: balance and payment actions first; the companion keeps the room identity. */
 export default function HomeScene() {
   const t = useT();
+  const refresh = usePullRefresh();
   const cue = useAvatarCue();
   const reduceMotion = useReduceMotion();
   const view = useWalletStore();
-  const { unit, balanceHidden, update } = useSettings();
-  const { height, fontScale } = useWindowDimensions();
+  const { unit, balanceHidden, seedBackupConfirmed, update } = useSettings();
+  const { width, height, fontScale } = useWindowDimensions();
   const [talk, setTalk] = useState(false);
+  const [avatarSpaceHeight, setAvatarSpaceHeight] = useState(240);
 
   useEffect(() => {
     if (view.lifecycle === "not-created") router.replace("/onboarding");
@@ -62,9 +68,17 @@ export default function HomeScene() {
     }
   };
 
-  const avatarHeight = Math.max(180, Math.min(300, height * 0.32));
+  const largeText = fontScale > 1;
+  const hint = homeHint({ view, seedBackupConfirmed, isMock: adapter.isMock, hour: new Date().getHours() });
+  const hintRoute = !cue.lineKey ? hint.route : undefined;
   const balance = view.balance;
   const balanceText = !balance ? t("home.balanceUnknown") : balanceHidden ? "••••••" : formatAmount(balance.spendableSats, unit);
+  const actions = (
+    <View style={[styles.actions, largeText && { flexWrap: "wrap" }]}>
+      <View style={styles.action}><Button label={t("menu.receive")} icon="receive" kind={!balance || balance.spendableSats === "0" ? "primary" : "secondary"} onPress={() => open("receive")} /></View>
+      <View style={styles.action}><Button label={t("menu.send")} icon="send" kind={balance && balance.spendableSats !== "0" ? "primary" : "secondary"} onPress={() => open("send")} /></View>
+    </View>
+  );
 
   return (
     <View style={styles.root}>
@@ -74,58 +88,51 @@ export default function HomeScene() {
         <View style={styles.top}>
           <Text style={styles.brand}>BARK</Text>
           <NetworkTag />
-          <Pressable onPress={() => router.push("/quest")} accessibilityRole="button" accessibilityLabel={t("quest.title")} hitSlop={10} style={styles.iconButton}>
-            <BitcoinIcon name="star" />
-          </Pressable>
-          <Pressable onPress={() => router.push("/settings")} accessibilityRole="button" accessibilityLabel={t("settings.title")} hitSlop={10} style={styles.iconButton}>
-            <BitcoinIcon name="gear" />
-          </Pressable>
+          <Pressable onPress={() => router.push("/quest")} accessibilityRole="button" accessibilityLabel={t("quest.title")} style={styles.iconButton}><BitcoinIcon name="star" /></Pressable>
+          <Pressable onPress={() => router.push("/settings")} accessibilityRole="button" accessibilityLabel={t("settings.title")} style={styles.iconButton}><BitcoinIcon name="gear" /></Pressable>
         </View>
-
-        {IS_MAINNET ? <View style={{ paddingHorizontal: 20 }}><Notice tone="danger">{t("net.mainnetLong")}</Notice></View> : null}
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {IS_MAINNET ? <Text style={styles.mainnet} accessibilityRole="alert">{t("net.mainnetLong")}</Text> : null}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[styles.content, !largeText && { height: "100%" }]}
+          alwaysBounceVertical
+          showsVerticalScrollIndicator={largeText}
+          refreshControl={<RefreshControl refreshing={refresh.refreshing} onRefresh={refresh.onRefresh} tintColor={theme.colors.primary} />}
+        >
           <View style={styles.balance}>
+            <Text style={styles.balanceLabel}>{t("home.spendable")}</Text>
             <View style={styles.balanceHeading}>
-              <Text style={styles.balanceLabel}>{t("home.spendable")}</Text>
-              <Pressable onPress={() => update({ balanceHidden: !balanceHidden })} accessibilityRole="button" accessibilityLabel={t(balanceHidden ? "home.show" : "home.hide")} style={styles.iconButton}>
-                <BitcoinIcon name={balanceHidden ? "hidden" : "visible"} size={22} />
+              <Pressable onPress={() => update({ unit: unit === "sats" ? "btc" : "sats" })} accessibilityRole="button" accessibilityLabel={`${balanceText}. ${t("home.unit")}`} style={styles.amountButton}>
+                <Text style={styles.balanceValue} numberOfLines={largeText ? undefined : 1} adjustsFontSizeToFit={!largeText} minimumFontScale={0.7}>{balanceText}</Text>
+              </Pressable>
+              <Pressable onPress={() => update({ balanceHidden: !balanceHidden })} accessibilityRole="button" accessibilityLabel={t(balanceHidden ? "home.show" : "home.hide")} style={styles.iconButton}><BitcoinIcon name={balanceHidden ? "hidden" : "visible"} size={20} /></Pressable>
+              <Pressable onPress={() => open("assets")} accessibilityRole="button" style={styles.iconButton}><Text style={styles.link}>{t("home.breakdown")}</Text></Pressable>
+            </View>
+          </View>
+          <SyncStatus />
+          <View style={[styles.stage, largeText && { flex: undefined }]}>
+            <View style={styles.speechArea}>
+              <Pressable disabled={!hintRoute} onPress={() => hintRoute && router.push(hintRoute)} accessibilityRole={hintRoute ? "button" : undefined} style={({ pressed }) => [styles.bubble, { opacity: pressed ? 0.8 : 1 }]}>
+                {/* Natural wrapping keeps three-line hints and larger accessibility text intact. */}
+                <Text style={styles.line} accessibilityLiveRegion="polite">{t(cue.lineKey ?? hint.lineKey, cue.lineParams)}</Text>
+                {hintRoute ? <BitcoinIcon name="caret-right" size={16} /> : null}
+              </Pressable>
+              <View pointerEvents="none" style={styles.bubbleTail} />
+            </View>
+            <View style={[styles.avatarSpace, largeText && { flex: undefined, height: Math.min(height * 0.46, 380) }]} onLayout={(e) => setAvatarSpaceHeight(e.nativeEvent.layout.height)}>
+              <Pressable onPress={() => bus.emit({ type: "AVATAR_TAPPED", id: bus.nextId("tap") })} accessibilityRole="button" accessibilityLabel={t("home.avatar")} style={styles.avatar}>
+                <AnimatedAvatarRenderer cue={cue} height={Math.max(44, Math.min((Math.min(width, 620) - 40) / AVATAR_ASPECT, avatarSpaceHeight))} reduceMotion={reduceMotion} />
               </Pressable>
             </View>
-            <Text style={styles.balanceValue}>{balanceText}</Text>
-            <Pressable onPress={() => update({ unit: unit === "sats" ? "btc" : "sats" })} accessibilityRole="button" accessibilityLabel={t("home.unit")} style={styles.unitButton}>
-              <Text style={styles.unitText}>{unit === "sats" ? "sats" : "BTC"}</Text><BitcoinIcon name="caret-down" size={16} />
-            </Pressable>
-            <View style={[styles.actions, fontScale > 1.3 && { flexDirection: "column" }]}>
-              <View style={{ flex: 1 }}><Button label={t("menu.receive")} icon="receive" kind={!balance || balance.spendableSats === "0" ? "primary" : "secondary"} onPress={() => open("receive")} /></View>
-              <View style={{ flex: 1 }}><Button label={t("menu.send")} icon="send" kind={balance && balance.spendableSats !== "0" ? "primary" : "secondary"} onPress={() => open("send")} /></View>
+            <View pointerEvents="box-none" style={[styles.tools, largeText && { position: "relative", bottom: undefined }]}>
+              {adapter.isMock ? <Pressable onPress={() => (adapter as MockWalletAdapter).simulateIncoming(10_000n)} accessibilityRole="button" accessibilityLabel={t("mock.simulateIncoming")} style={[styles.pill, styles.mockButton]}><Text style={styles.mockText}>{t("mock.short")}</Text></Pressable> : null}
+              <Pressable onPress={() => setTalk(true)} accessibilityRole="button" accessibilityLabel={t("home.talk")} accessibilityHint={t("talk.noMic")} style={[styles.pill, styles.talk]}><BitcoinIcon name="keyboard" size={18} /><Text style={[styles.link, { flexShrink: 1 }]}>{t("home.talk")}</Text></Pressable>
             </View>
           </View>
-          <View style={styles.stage}>
-            <Pressable onPress={() => bus.emit({ type: "AVATAR_TAPPED", id: bus.nextId("tap") })} accessibilityRole="button" accessibilityLabel={t("home.avatar")} style={styles.avatar}>
-              <AnimatedAvatarRenderer cue={cue} height={avatarHeight} reduceMotion={reduceMotion} />
-            </Pressable>
-          </View>
-        <View style={styles.bottom}>
-          <Text style={styles.line} accessibilityLiveRegion="polite" numberOfLines={3}>
-            「{t(cue.lineKey ?? "avatar.idle", cue.lineParams)}」
-          </Text>
-          <Pressable onPress={() => setTalk(true)} accessibilityRole="button" accessibilityHint={t("talk.noMic")} style={styles.talk}>
-            <BitcoinIcon name="keyboard" size={22} /><Text style={styles.talkText}>{t("home.talk")}</Text>
-          </Pressable>
-          {adapter.isMock ? (
-            <Pressable onPress={() => (adapter as MockWalletAdapter).simulateIncoming(10_000n)} accessibilityRole="button" style={styles.mockButton}>
-              <Text style={styles.mockButtonText}>{t("mock.simulateIncoming")}</Text>
-            </Pressable>
-          ) : null}
-          <View style={[styles.actions, fontScale > 1.3 && { flexDirection: "column" }]}>
-            <View style={{ flex: 1 }}><Button label={t("menu.assets")} icon="wallet" kind="secondary" onPress={() => open("assets")} /></View>
-            <View style={{ flex: 1 }}><Button label={t("menu.archive")} icon="transactions" kind="secondary" onPress={() => open("archive")} /></View>
-          </View>
-          <StatusStrip />
-          <Button label={t("home.syncNow")} icon="refresh" kind="secondary" busy={view.syncing} onPress={() => void wallet.refresh()} />
-          <TermHelp term="sync" />
-        </View>
+          <RecentActivity />
+          {largeText ? actions : null}
         </ScrollView>
+        {!largeText ? actions : null}
       </SafeAreaView>
       <CommandSheet visible={talk} onClose={() => setTalk(false)} onSubmit={onCommand} />
     </View>
@@ -135,23 +142,29 @@ export default function HomeScene() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.background },
   safe: { flex: 1 },
-  top: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 6 },
-  brand: { flex: 1, color: theme.colors.text, fontSize: 13, letterSpacing: 3, fontWeight: "700" },
+  top: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16 },
+  brand: { flex: 1, color: theme.colors.text, fontSize: 12, letterSpacing: 3, fontWeight: "700" },
   iconButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 12, width: "100%", maxWidth: 620, alignSelf: "center" },
-  balance: { backgroundColor: theme.colors.panel, borderColor: theme.colors.outline, borderWidth: 1, borderRadius: 24, padding: 20 },
-  balanceHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  actions: { flexDirection: "row", gap: 10 },
-  unitButton: { minHeight: 44, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  unitText: { color: theme.colors.primary, fontSize: 14 },
-  balanceLabel: { color: theme.colors.textMuted, fontSize: 13, letterSpacing: 0.5 },
-  balanceValue: { color: theme.colors.text, fontSize: 34, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  stage: { alignItems: "center", justifyContent: "center" },
-  avatar: { alignItems: "center", justifyContent: "center" },
-  bottom: { gap: 12 },
-  line: { color: theme.colors.text, fontSize: 15, textAlign: "center", lineHeight: 21, minHeight: 21 },
-  talk: { minHeight: 48, flexDirection: "row", gap: 8, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.outline, backgroundColor: theme.colors.panel, alignItems: "center", justifyContent: "center" },
-  talkText: { color: theme.colors.text, fontSize: 15, fontWeight: "600" },
-  mockButton: { minHeight: 44, justifyContent: "center", alignSelf: "center", borderWidth: 1, borderColor: theme.colors.warning, borderRadius: theme.radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
-  mockButtonText: { color: theme.colors.warning, fontSize: 12, fontWeight: "700" },
+  mainnet: { color: theme.colors.danger, fontSize: 12, lineHeight: 18, paddingHorizontal: 20, paddingVertical: 4 },
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, width: "100%", maxWidth: 620, alignSelf: "center" },
+  balance: { paddingTop: 4 },
+  balanceHeading: { flexDirection: "row", alignItems: "center", gap: 4 },
+  amountButton: { flex: 1, minHeight: 44, justifyContent: "center" },
+  balanceLabel: { color: theme.colors.textMuted, fontSize: 12, lineHeight: 18 },
+  balanceValue: { color: theme.colors.text, fontSize: 28, lineHeight: 36, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  link: { color: theme.colors.primary, fontSize: 12, fontWeight: "600" },
+  actions: { flexDirection: "row", gap: 10, paddingHorizontal: 20, paddingVertical: 8, width: "100%", maxWidth: 620, alignSelf: "center" },
+  action: { flex: 1, minWidth: 140 },
+  stage: { flex: 1, minHeight: 0, paddingTop: 4 },
+  avatarSpace: { flex: 1, minHeight: 0, alignItems: "center", justifyContent: "flex-end" },
+  avatar: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  speechArea: { paddingBottom: 12 },
+  bubble: { minHeight: 44, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 18, backgroundColor: theme.colors.panel, borderWidth: 1, borderColor: theme.colors.outline, gap: 8 },
+  bubbleTail: { position: "absolute", bottom: 7, alignSelf: "center", width: 10, height: 10, backgroundColor: theme.colors.panel, borderBottomWidth: 1, borderRightWidth: 1, borderColor: theme.colors.outline, transform: [{ rotate: "45deg" }] },
+  line: { flex: 1, color: theme.colors.text, fontSize: 13, lineHeight: 18 },
+  tools: { position: "absolute", bottom: 4, left: 0, right: 0, flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between" },
+  pill: { minHeight: 44, minWidth: 44, maxWidth: "100%", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: theme.colors.panel, borderWidth: 1, borderColor: theme.colors.outline },
+  talk: { marginLeft: "auto", flexDirection: "row", gap: 4, alignItems: "center" },
+  mockButton: { alignItems: "center", justifyContent: "center" },
+  mockText: { color: theme.colors.warning, fontSize: 10, fontWeight: "700" },
 });

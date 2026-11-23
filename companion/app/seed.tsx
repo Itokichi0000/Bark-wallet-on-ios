@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
-import { AppState, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { usePreventScreenCapture } from "expo-screen-capture";
 import { TermHelp } from "@/components/TermHelp";
 import { Button, Notice, P, Screen } from "@/components/ui";
-import { wallet } from "@/container";
+import { adapter, wallet } from "@/container";
 import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
 import { theme } from "@/theme";
@@ -19,24 +19,40 @@ type State = { kind: "locked" } | { kind: "asking" } | { kind: "shown"; words: s
 export default function SeedScene() {
   const t = useT();
   usePreventScreenCapture();
+  const { width, fontScale } = useWindowDimensions();
+  const columns = fontScale > 1.5 ? 1 : fontScale > 1.15 || width < 380 ? 2 : 3;
+  const focused = useRef(false);
+  const request = useRef(0);
   const update = useSettings((s) => s.update);
   const [state, setState] = useState<State>({ kind: "locked" });
 
   const hide = useCallback(() => setState((s) => (s.kind === "shown" ? { kind: "locked" } : s)), []);
-  useFocusEffect(useCallback(() => hide, [hide]));
+  useFocusEffect(useCallback(() => {
+    focused.current = true;
+    return () => { focused.current = false; request.current += 1; setState({ kind: "locked" }); };
+  }, []));
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
-      if (next !== "active") hide();
+      if (next === "background") { request.current += 1; setState({ kind: "locked" }); }
+      else if (next !== "active") hide();
     });
     return () => sub.remove();
   }, [hide]);
 
   const reveal = async () => {
+    const id = ++request.current;
     setState({ kind: "asking" });
-    const result = await wallet.revealSeed(t("seed.authPrompt"));
-    if (result.ok) setState({ kind: "shown", words: result.words });
-    else if (result.reason === "cancelled") setState({ kind: "locked" });
-    else setState({ kind: "error", message: t(result.reason === "not-enrolled" ? "seed.noLock" : result.reason === "missing" ? "seed.missing" : "seed.authFailed") });
+    try {
+      const result = await wallet.revealSeed(t("seed.authPrompt"));
+      if (!focused.current || id !== request.current) return;
+      if (AppState.currentState !== "active") { setState({ kind: "locked" }); return; }
+      if (result.ok) setState({ kind: "shown", words: result.words });
+      else if (result.reason === "cancelled") setState({ kind: "locked" });
+      else setState({ kind: "error", message: t(result.reason === "not-enrolled" ? "seed.noLock" : result.reason === "missing" ? "seed.missing" : "seed.authFailed") });
+    } catch {
+      // Do not surface storage exceptions: the reveal path handles secret material.
+      if (focused.current && id === request.current) setState({ kind: "error", message: t("seed.authFailed") });
+    }
   };
 
   return (
@@ -47,7 +63,7 @@ export default function SeedScene() {
         <>
           <View style={styles.words}>
             {state.words.map((w, i) => (
-              <View key={`${i}-${w}`} style={styles.word}>
+              <View key={`${i}-${w}`} style={[styles.word, { width: columns === 1 ? "100%" : columns === 2 ? "48%" : "31%" }]}>
                 <Text style={styles.index}>{i + 1}</Text>
                 <Text style={styles.text}>{w}</Text>
               </View>
@@ -65,7 +81,7 @@ export default function SeedScene() {
           />
         </>
       ) : (
-        <Button label={t("settings.showSeed")} busy={state.kind === "asking"} onPress={() => void reveal()} />
+        <><P muted>{t(adapter.isMock ? "seed.mockUnavailable" : "seed.beforeReveal")}</P><Button disabled={adapter.isMock} label={t("settings.showSeed")} busy={state.kind === "asking"} onPress={() => void reveal()} /></>
       )}
       <TermHelp term="seed" />
       <TermHelp term="backup" />

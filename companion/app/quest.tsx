@@ -1,7 +1,7 @@
-import { BitcoinIcon } from "@/components/BitcoinIcon";
+import { BitcoinIcon, type BitcoinIconName } from "@/components/BitcoinIcon";
 import { Disclosure } from "@/components/Disclosure";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button, H, P, Panel, Screen } from "@/components/ui";
 import { QUEST_IDS, type QuestId } from "@/game/quests";
@@ -9,56 +9,54 @@ import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
 import { theme } from "@/theme";
 
-const GO: Partial<Record<QuestId, "/receive" | "/send" | "/archive" | "/assets">> = { q2: "/receive", q3: "/receive", q4: "/send", q6: "/assets" };
+const GO: Partial<Record<QuestId, "/home" | "/receive" | "/send" | "/assets">> = { q1: "/home", q2: "/receive", q3: "/receive", q4: "/send", q6: "/assets" };
+const ICON: Record<QuestId, BitcoinIconName> = { q1: "star", q2: "scan", q3: "receive", q4: "send", q5: "shield", q6: "transactions" };
 
-/** S08 Quests: a learning checklist. Completion never depends on amounts or on how often money moved. */
 export default function QuestScene() {
   const t = useT();
   const { questsDone, completeQuest } = useSettings();
-  const [reading, setReading] = useState(false);
-  const nextQuest = QUEST_IDS.find((q) => !questsDone[q] && GO[q]);
+  const [expanded, setExpanded] = useState<QuestId>();
   const done = QUEST_IDS.filter((q) => questsDone[q]).length;
-
   return (
-    <Screen title={t("quest.title")} subtitle="QUEST">
-      <P>{t("quest.intro")}</P>
+    <Screen title={t("quest.title")}>
+      <P muted>{t("quest.intro")}</P>
       <H>{t("quest.progress", { done, total: QUEST_IDS.length })}</H>
-      {QUEST_IDS.map((q) => {
-        const complete = !!questsDone[q];
-        const go = GO[q];
-        return (
-          <Panel key={q} tone="default">
-            <View style={styles.head}>
-              <BitcoinIcon name={complete ? "star" : "clock"} color={complete ? theme.colors.primary : theme.colors.textMuted} />
-              <Text style={styles.title}>{t(`quest.${q}.title`)}</Text>
+      <Panel style={{ gap: 0, paddingVertical: 0 }}>
+        {QUEST_IDS.map((q, index) => {
+          const complete = !!questsDone[q];
+          const go = GO[q];
+          const open = expanded === q;
+          return (
+            <View key={q} style={index > 0 && styles.divider}>
+              <View style={styles.row}>
+                <Pressable onPress={() => setExpanded(open ? undefined : q)} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${t(`quest.${q}.title`)}. ${t(complete ? "quest.done" : "quest.todo")}`} style={({ pressed }) => [styles.task, { opacity: pressed ? 0.65 : 1 }]}>
+                  <BitcoinIcon name={ICON[q]} size={22} />
+                  <Text style={styles.title}>{t(`quest.${q}.title`)}</Text>
+                  {complete ? <BitcoinIcon name="check" size={20} color={theme.colors.primary} /> : null}
+                </Pressable>
+                {!complete ? <Pressable onPress={() => go ? router.push(go) : setExpanded(open ? undefined : q)} accessibilityRole="button" accessibilityLabel={`${t(`quest.${q}.title`)}: ${t("quest.go")}`} style={styles.link}><Text style={styles.linkText}>{t("quest.go")}</Text></Pressable> : null}
+              </View>
+              {open ? <View style={styles.details}>
+                <P muted>{t(`quest.${q}.body`)}</P>
+                {q === "q5" ? <>
+                  <P>{t("backup.explain1")}</P><P>{t("backup.explain2")}</P><P>{t("backup.explain3")}</P>
+                  {!complete ? <Button label={t("quest.q5.understood")} onPress={() => completeQuest("q5")} /> : null}
+                </> : null}
+              </View> : null}
             </View>
-            <Disclosure title={t("quest.more")}><P muted>{t(`quest.${q}.body`)}</P></Disclosure>
-            <Text style={styles.state}>{complete ? t("quest.done") : t("quest.todo")}</Text>
-            {!complete && go ? <Button label={t("quest.go")} kind={q === nextQuest && !reading ? "primary" : "secondary"} onPress={() => router.push(go)} /> : null}
-            {q === "q5" ? (
-              <>
-                <Button label={reading ? t("common.close") : t("quest.q5.read")} kind="secondary" onPress={() => setReading((r) => !r)} />
-                {reading ? (
-                  <>
-                    <P>{t("backup.explain1")}</P>
-                    <P>{t("backup.explain2")}</P>
-                    <P>{t("backup.explain3")}</P>
-                    {!complete ? <Button label={t("quest.q5.understood")} onPress={() => completeQuest("q5")} /> : null}
-                  </>
-                ) : null}
-              </>
-            ) : null}
-          </Panel>
-        );
-      })}
+          );
+        })}
+      </Panel>
       <Disclosure title={t("common.details")}><P muted>{t("quest.rewardNote")}</P></Disclosure>
     </Screen>
   );
 }
-
 const styles = StyleSheet.create({
-  head: { flexDirection: "row", gap: 10, alignItems: "center" },
-  mark: { fontSize: 18, fontWeight: "700", width: 20 },
-  title: { color: theme.colors.text, fontSize: 16, fontWeight: "700", flex: 1 },
-  state: { color: theme.colors.textMuted, fontSize: 12 },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.outline },
+  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  task: { flex: 1, minHeight: 60, flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 10 },
+  title: { color: theme.colors.text, fontSize: 14, lineHeight: 20, fontWeight: "600", flex: 1 },
+  link: { minHeight: 44, minWidth: 44, justifyContent: "center" },
+  linkText: { color: theme.colors.primary, fontSize: 12, fontWeight: "600" },
+  details: { gap: 12, paddingBottom: 16 },
 });

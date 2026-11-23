@@ -131,15 +131,19 @@ export class WalletService {
   }
 
   /** Sync and re-read everything. Returns whether the sync itself succeeded. */
-  refresh(): Promise<boolean> {
+  /**
+   * `background` marks a sync nobody asked for (the scheduler's). It behaves the same,
+   * except that a failure is announced only when it is news: the first one after a success.
+   */
+  refresh(opts: { background?: boolean } = {}): Promise<boolean> {
     if (this.refreshing) return this.refreshing;
-    this.refreshing = this.doRefresh().finally(() => {
+    this.refreshing = this.doRefresh(opts.background === true).finally(() => {
       this.refreshing = undefined;
     });
     return this.refreshing;
   }
 
-  private async doRefresh(): Promise<boolean> {
+  private async doRefresh(background: boolean): Promise<boolean> {
     const { adapter, bus } = this.d;
     this.view.set({ syncing: true });
     bus.emit({ type: "WALLET_SYNC_STARTED", id: bus.nextId("sync") });
@@ -148,8 +152,9 @@ export class WalletService {
       await adapter.sync();
     } catch (e) {
       syncOk = false;
+      const alreadyKnown = background && this.view.lastSyncError !== undefined;
       this.view.set({ lastSyncError: errorMessage(e) });
-      bus.emit({ type: "WALLET_SYNC_FAILED", id: bus.nextId("sync"), errorCode: "sync-failed" });
+      if (!alreadyKnown) bus.emit({ type: "WALLET_SYNC_FAILED", id: bus.nextId("sync"), errorCode: "sync-failed" });
     }
     try {
       // Local reads still work offline; their age is carried by balance.lastSyncedAt.
