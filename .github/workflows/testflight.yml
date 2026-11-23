@@ -20,6 +20,10 @@ on:
     paths-ignore:
       - "**.md"
       - "licenses/**"
+      # The React Native companion app has its own workflow (companion-testflight.yml).
+      - "companion/**"
+      - "scripts/companion-testflight.sh"
+      - ".github/workflows/**"
 
 concurrency:
   group: testflight

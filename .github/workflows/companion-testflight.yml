@@ -10,7 +10,7 @@ name: Companion TestFlight
 on:
   workflow_dispatch:
   push:
-    branches: [companion-wallet]
+    branches: [main]
     paths:
       - "companion/**"
       - "scripts/companion-testflight.sh"
