@@ -5,7 +5,10 @@ import Animated, {
 import Svg, { Circle, Defs, Ellipse, G, Line, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import type { AvatarAction, AvatarEmotion } from "@/domain/avatar";
 import { theme } from "@/theme";
-import { AVATAR_ASPECT, type AvatarRendererProps } from "./AvatarRenderer";
+import type { AvatarRendererProps } from "./AvatarRenderer";
+
+/** The vector placeholder keeps its own proportions (viewBox 200 x 440). Kept as a fallback renderer. */
+const AVATAR_ASPECT = 200 / 440;
 import { IdleDirector } from "./IdleDirector";
 
 /**

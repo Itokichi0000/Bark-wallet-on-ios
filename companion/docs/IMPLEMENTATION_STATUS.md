@@ -42,7 +42,7 @@ Android SDK がなかったためです。確認できているのは「型検�
 - Lightning 送受信、オンチェーン送受信、Swap（`ENABLED_SEND_METHODS = ["ark"]`。Lightning 宛先は「このビルドでは無効」と表示）
 - Refresh / Offboard / Exit の手動実行（資産画面は説明パネルのみ）
 - マイクによる音声入力、LLM、通知、バックグラウンド保守、クラウドへの自動バックアップ
-- 3D / Live2D アバター（`AvatarRenderer` インターフェースの裏に SVG のプレースホルダー）
+- 3D / Live2D アバター（いまは画像生成で作った立ち絵 7 表情＋2 ポーズの切り替え。ANIMATION_ASSET_SPEC.md）
 - 効果音（アセットがないため、設定項目も置いていない）
 - Android の動作確認（コードは共通だが未ビルド）
 

@@ -11,7 +11,7 @@ import type { MenuId } from "@/domain/events";
 import { AVATAR_ASPECT } from "@/game/AvatarRenderer";
 import { HologramMenu, type MenuItem } from "@/game/HologramMenu";
 import { SceneBackground } from "@/game/SceneBackground";
-import { SpriteAvatarRenderer } from "@/game/SpriteAvatarRenderer";
+import { IllustratedAvatarRenderer } from "@/game/IllustratedAvatarRenderer";
 import { useAvatarCue, useReduceMotion } from "@/game/useAvatarCue";
 import { useT } from "@/i18n";
 import type { MockWalletAdapter } from "@/infrastructure/mock/MockWalletAdapter";
@@ -119,7 +119,7 @@ export default function HomeScene() {
                 accessibilityLabel={t("home.avatar")}
                 style={styles.avatar}
               >
-                <SpriteAvatarRenderer cue={cue} height={avatarHeight} reduceMotion={reduceMotion} />
+                <IllustratedAvatarRenderer cue={cue} height={avatarHeight} reduceMotion={reduceMotion} />
               </Pressable>
               <HologramMenu width={stage.width} height={stage.height} items={items} reduceMotion={reduceMotion} onSelect={open} />
             </>

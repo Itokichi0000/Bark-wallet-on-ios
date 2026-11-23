@@ -16,4 +16,4 @@ export interface AvatarRendererProps {
 export type AvatarRenderer = ComponentType<AvatarRendererProps>;
 
 /** width / height of the full figure, head to shoes, including its floating margin. */
-export const AVATAR_ASPECT = 200 / 440;
+export const AVATAR_ASPECT = 752 / 1344;

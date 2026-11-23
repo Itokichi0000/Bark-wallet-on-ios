@@ -140,3 +140,23 @@ describe("IdleDirector", () => {
     }
   });
 });
+
+describe("illustrated avatar frames", () => {
+  // The renderer module pulls in images and Reanimated; the mapping is pure, so load it with those stubbed.
+  jest.mock("react-native-reanimated", () => ({ __esModule: true, default: {}, Easing: { inOut: () => 0, sin: 0 } }));
+  const { frameForCue, AVATAR_FRAMES } = require("@/game/IllustratedAvatarRenderer") as typeof import("@/game/IllustratedAvatarRenderer");
+
+  it("has a picture for every emotion and never shows the celebration pose without the celebrate action", () => {
+    const emotions = ["neutral", "happy", "curious", "thinking", "focused", "surprised", "sleepy", "concerned"] as const;
+    const actions = ["idle", "blink", "float", "wave", "point-left", "point-right", "listen", "speak", "inspect", "prepare-send", "sending", "receive", "celebrate", "warn", "rest"] as const;
+    for (const emotion of emotions) {
+      for (const action of actions) {
+        const frame = frameForCue({ emotion, action });
+        expect(frame in AVATAR_FRAMES).toBe(true);
+        expect(frame === "celebrate").toBe(action === "celebrate");
+      }
+    }
+    expect(frameForCue({ emotion: "happy", action: "sending" })).toBe("happy");
+    expect(frameForCue({ emotion: "concerned", action: "sending" })).toBe("concerned");
+  });
+});

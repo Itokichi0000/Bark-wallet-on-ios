@@ -7,7 +7,7 @@ import { Button, H, Notice, P, Panel, Screen, NET_LONG_KEY } from "@/components/
 import { generateMnemonic, wallet } from "@/container";
 import { errorMessage } from "@/domain/errors";
 import { IDLE_CUE } from "@/domain/avatar";
-import { SpriteAvatarRenderer } from "@/game/SpriteAvatarRenderer";
+import { IllustratedAvatarRenderer } from "@/game/IllustratedAvatarRenderer";
 import { useReduceMotion } from "@/game/useAvatarCue";
 import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
@@ -89,7 +89,7 @@ export default function OnboardingScene() {
       {step === "intro" && (
         <>
           <View style={{ alignItems: "center" }}>
-            <SpriteAvatarRenderer cue={{ ...IDLE_CUE, id: "onb", emotion: "happy", action: "wave" }} height={260} reduceMotion={reduceMotion} />
+            <IllustratedAvatarRenderer cue={{ ...IDLE_CUE, id: "onb", emotion: "happy", action: "wave" }} height={260} reduceMotion={reduceMotion} />
           </View>
           <P>{t("onb.intro1")}</P>
           <P muted>{t("onb.intro2")}</P>

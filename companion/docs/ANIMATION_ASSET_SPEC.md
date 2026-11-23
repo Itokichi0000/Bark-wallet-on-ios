@@ -1,12 +1,26 @@
 # アバター / アニメーション素材の仕様
 
-現在は `SpriteAvatarRenderer`（SVG の全身プレースホルダー）です。本番素材は次のインターフェースを満たす
-レンダラーを追加し、差し替えます。ウォレット側のコードは変更不要です。
+現在は `IllustratedAvatarRenderer`（画像生成で作った立ち絵と表情差分）です。別の素材に替えるときは、
+次のインターフェースを満たすレンダラーを追加して差し替えます。ウォレット側のコードは変更不要です。
 
 ```ts
 interface AvatarRendererProps { cue: AvatarCue; height: number; reduceMotion: boolean }
-// 縦横比 AVATAR_ASPECT = 200 / 440
+// 縦横比 AVATAR_ASPECT = 752 / 1344
 ```
+
+## いま入っている素材（`assets/avatar/`）
+
+| ファイル | 使われる場面 |
+|---|---|
+| neutral / happy / curious / focused / concerned / surprised / sleepy | 表情（同じ立ちポーズ） |
+| wave | あいさつ（起動時・タップ時） |
+| celebrate | 送金成功・受取の確認後だけ |
+
+- 2026-11-24 に画像生成（GPT Image 2.6）で作成。オリジナルのキャラクターで、既存作品のキャラクターを指定・参照していない。
+  `neutral` を基準画像にして、他の 8 枚はそれを参照して生成した。
+- すべて 752×1344 px・透過 PNG・足の位置が同じ。切り替えは 160ms のクロスフェード。
+- 指さし・受け取り・点検などのポーズ絵はまだなく、表情だけで表している。まばたきや口パクもない。
+- `SpriteAvatarRenderer`（SVG）は予備として残してある。
 
 ## キューの語彙（`src/domain/avatar.ts`）
 
