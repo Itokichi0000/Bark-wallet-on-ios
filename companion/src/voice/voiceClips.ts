@@ -125,6 +125,9 @@ export const VOICE_CLIPS: Record<"a" | "b" | "c", Record<string, number>> = {
     "このボードにQRを映してね。": require("../../assets/voice/a/122.mp3"),
     "ごめん、わからなかった。下のボタンからも選べるよ。": require("../../assets/voice/a/123.mp3"),
     "「残高」「受け取りたい」「送金したい」「記録」って話しかけてみてね。": require("../../assets/voice/a/124.mp3"),
+    "だれに送る？　Ark アドレスのQRを見せるか、アドレスを貼りつけてね。": require("../../assets/voice/a/125.mp3"),
+    "声と手で話せるようにする？ マイクとカメラは端末の中だけで使うよ。": require("../../assets/voice/a/126.mp3"),
+    "あ、手を振ってくれた！　やっほー。": require("../../assets/voice/a/127.mp3"),
   },
   b: {
     "おかえり。何をしよう？": require("../../assets/voice/b/000.mp3"),
@@ -250,6 +253,9 @@ export const VOICE_CLIPS: Record<"a" | "b" | "c", Record<string, number>> = {
     "このボードにQRを映してね。": require("../../assets/voice/b/122.mp3"),
     "ごめん、わからなかった。下のボタンからも選べるよ。": require("../../assets/voice/b/123.mp3"),
     "「残高」「受け取りたい」「送金したい」「記録」って話しかけてみてね。": require("../../assets/voice/b/124.mp3"),
+    "だれに送る？　Ark アドレスのQRを見せるか、アドレスを貼りつけてね。": require("../../assets/voice/b/125.mp3"),
+    "声と手で話せるようにする？ マイクとカメラは端末の中だけで使うよ。": require("../../assets/voice/b/126.mp3"),
+    "あ、手を振ってくれた！　やっほー。": require("../../assets/voice/b/127.mp3"),
   },
   c: {
     "おかえり。何をしよう？": require("../../assets/voice/c/000.mp3"),
@@ -375,5 +381,8 @@ export const VOICE_CLIPS: Record<"a" | "b" | "c", Record<string, number>> = {
     "このボードにQRを映してね。": require("../../assets/voice/c/122.mp3"),
     "ごめん、わからなかった。下のボタンからも選べるよ。": require("../../assets/voice/c/123.mp3"),
     "「残高」「受け取りたい」「送金したい」「記録」って話しかけてみてね。": require("../../assets/voice/c/124.mp3"),
+    "だれに送る？　Ark アドレスのQRを見せるか、アドレスを貼りつけてね。": require("../../assets/voice/c/125.mp3"),
+    "声と手で話せるようにする？ マイクとカメラは端末の中だけで使うよ。": require("../../assets/voice/c/126.mp3"),
+    "あ、手を振ってくれた！　やっほー。": require("../../assets/voice/c/127.mp3"),
   },
 };

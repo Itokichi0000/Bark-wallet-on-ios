@@ -307,6 +307,16 @@ export default function SendScene() {
   const parsedAmount = parseSatsInput(amountValue);
   const amountDisplay = amountUnit === "btc" ? (btcInput ?? (parsedAmount.ok ? formatBtc(parsedAmount.sats).replace(/,/g, "") : "")) : amountValue;
   return <Stage scene="send" line={t(scanning ? "talk.scan.show" : turn.step === "destination" && !lightningAvailable ? "talk.send.destination.arkOnly" : turn.lineKey)} choices={answers}
+    turnKey={`send:${turn.step}:${phase}:${scanning}`}
+    talkChoices={scanning ? answers : turn.choices.flatMap((id): StageAnswer[] => {
+      if (turn.step === "amount" && id === "confirm-amount") return [{ id, label: t("talk.send.choice.confirm-amount"), onPress: () => void goReview(), disabled: busyMax || !openLoaded || blocking.length > 0 || phase !== "editing" }];
+      if (turn.step === "amount" && id === "max" && !keyboardOpen && fixed === undefined) return [{ id, label: t("talk.send.choice.max"), onPress: () => void fillMax(), disabled: busyMax || phase !== "editing" }];
+      return answers.filter((answer) => answer.id === id);
+    })}
+    onSpokenAmount={!scanning && turn.step === "amount" && fixed === undefined && phase === "editing" && !busyMax ? (sats) => {
+      if (editLock.current) return;
+      setAmountUnit("sats"); setBtcInput(undefined); typeAmount(sats);
+    } : undefined}
     boardCue={boardCue} boardImmediate
     fallbackCue={presentation} sendResult={{ phase, operationId: state.operationId }} locked={inFlight} review={phase === "review"}
     onBack={scanning ? () => setScanning(false) : phase === "review" ? cancelReview : finishStage}

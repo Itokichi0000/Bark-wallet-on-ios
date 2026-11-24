@@ -17,6 +17,8 @@ import { useWalletStore } from "@/state/walletStore";
 import { theme } from "@/theme";
 import { parseVoiceIntent } from "@/voice/VoiceIntentParser";
 import { decideVoiceAction } from "@/voice/VoicePolicyEngine";
+import { conversation } from "@/container";
+import { useSettingsHydrated } from "@/components/conversation-runtime";
 
 const menuIcons: Record<string, BitcoinIconName> = { receive: "receive", send: "send", activity: "transactions", coins: "wallet", story: "star", guide: "mnemonic" };
 
@@ -25,7 +27,9 @@ const routes = { receive: "/receive", send: "/send", activity: "/archive", coins
 export default function HomeScene() {
   const t = useT();
   const view = useWalletStore();
-  const { balanceHidden, seedBackupConfirmed, storySentSats, storyRead } = useSettings();
+  const { balanceHidden, seedBackupConfirmed, storySentSats, storyRead, conversationOffered, update } = useSettings();
+  const hydrated = useSettingsHydrated();
+  const invite = hydrated && !conversationOffered;
   const cue = useAvatarCue();
   useEffect(() => { if (view.lifecycle === "not-created") router.replace("/onboarding"); }, [view.lifecycle]);
   const onCommand = (text: string) => {
@@ -55,11 +59,24 @@ export default function HomeScene() {
     hint: id === "story" && unread ? t("story.new") : undefined,
     primary: id === "receive", onPress: () => router.push(routes[id]),
   }));
-  return <Stage scene="home" line={line} onLinePress={route ? () => router.push(route) : undefined} choices={answers.slice(0, 2)} headerActions={
+  const accept = (voiceInput: boolean, handGestures: boolean) => {
+    update({ voiceInput, handGestures, conversationOffered: true });
+    void conversation.syncEyes();
+  };
+  const invitations = [
+    { id: "voice-and-hands", label: t("talk.invite.both"), onPress: () => accept(true, true) },
+    { id: "voice-only", label: t("talk.invite.voice"), onPress: () => accept(true, false) },
+    { id: "later", label: t("talk.invite.later"), onPress: () => accept(false, false) },
+  ];
+  const mainReplies = invite ? invitations : answers.slice(0, 2);
+  const menuReplies = answers.filter((answer) => !mainReplies.some((reply) => reply.id === answer.id));
+  return <Stage scene="home" line={invite ? t("talk.invite.line") : line} onCommand={onCommand} turnKey={invite ? "home:invite" : "home"}
+    talkChoices={invite ? [...invitations, ...answers] : answers}
+    onLinePress={!invite && route ? () => router.push(route) : undefined} choices={mainReplies} headerActions={
       <View style={styles.headerActions}>
         {adapter.isMock && "simulateIncoming" in adapter ? <MockChip onPress={() => (adapter as typeof adapter & { simulateIncoming(sats: bigint): void }).simulateIncoming(10_000n)} label={t("mock.simulateIncoming")} /> : null}
       </View>
-    } afterChoices={(keyboard) => <>{!keyboard ? <StageChoices choices={answers.slice(2)} compact /> : null}<TalkInput onSubmit={onCommand} /></>} />;
+    } afterChoices={<><StageChoices choices={menuReplies} compact /><TalkInput onSubmit={onCommand} /></>} />;
 }
 
 const styles = StyleSheet.create({

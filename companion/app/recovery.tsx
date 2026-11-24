@@ -1,3 +1,4 @@
+import { useConversationBlocked } from "@/components/conversation-runtime";
 import { usePreventScreenCapture } from "expo-screen-capture";
 import { TermHelp } from "@/components/TermHelp";
 import { literalInputProps } from "@/components/conversation";
@@ -16,6 +17,7 @@ type Mode = "choose" | "backup" | "seed-only";
 
 /** S09 Recovery: restore from an encrypted database backup plus the seed, or from the seed alone with its limits spelled out. */
 export default function RecoveryScene() {
+  useConversationBlocked();
   const t = useT();
   usePreventScreenCapture();
   const update = useSettings((s) => s.update);

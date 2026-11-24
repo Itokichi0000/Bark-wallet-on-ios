@@ -12,6 +12,7 @@ import { useT } from "@/i18n";
 import { theme } from "@/theme";
 
 import { BitcoinIcon, type BitcoinIconName } from "./BitcoinIcon";
+import { HandsIndicator } from "./talk-controls";
 
 const c = theme.colors;
 
@@ -43,6 +44,7 @@ export function Screen({ title, children, scroll = true, onBack, footer, hideBac
         </View>
         <NetworkTag />
       </View>
+      <View style={{ paddingHorizontal: 20 }}><HandsIndicator /></View>
       {IS_MAINNET ? <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}><Notice tone="danger">{t("net.mainnetLong")}</Notice></View> : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         {body}

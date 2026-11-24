@@ -1,3 +1,4 @@
+import { useConversationBlocked } from "@/components/conversation-runtime";
 import { userAction } from "@/components/companionEvents";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, StyleSheet, Text, View, useWindowDimensions } from "react-native";
@@ -18,6 +19,7 @@ type State = { kind: "locked" } | { kind: "asking" } | { kind: "shown"; words: s
  * state and are dropped when the screen loses focus or the app leaves the foreground.
  */
 export default function SeedScene() {
+  useConversationBlocked();
   const t = useT();
   usePreventScreenCapture();
   const { width, fontScale } = useWindowDimensions();

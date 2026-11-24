@@ -383,3 +383,132 @@ Keyboard-plus-accessory reservations in this table are 346pt / 260pt respectivel
 Validation: `npx tsc --noEmit` and `npx jest` passed (**14 suites / 127 tests**); `git diff --check` passed. The existing npm config, Node localStorage and Jest delayed-exit warnings remain. No commit, push, prebuild, simulator launch, upload or payment was performed.
 
 Claude re-drive: at both sizes, enter `1200` in Send and Lightning with the keyboard open; verify the complete numeric row/unit/arrow, chip row and native Done, then dismiss/reopen and switch sats/BTC. Verify editable Max versus locked invoice amounts. Submit `balance`, then a long Japanese sentence on Home: echo wraps without moving the controls/input, fades after the answer begins, and still lasts with Reduce Motion. Read the complete Lightning amount line and footnote. Repeat at 130% type and with a longer destination/error, checking whole-scene scroll access. Native rendering, keyboard animation/focus behavior and fresh screenshots remain for that re-drive.
+
+## Voice + gestures — 2026-11-25
+
+UI integration is implemented against Claude's `conversation`, `useTalk`, `gestureAction`, `matchSpokenChoice` and `spokenAmountSats` APIs. Internals, native modules and tests were not edited by Codex.
+
+- Home offers voice + hands / voice only / later once, after settings hydration. Every answer saves `conversationOffered`; the existing navigation replies remain visible, including with the keyboard open. Spoken Home commands use the existing parser/policy path. The mic lives in the talk composer; Send, Receive and the Story reader keep it beside the touch replies. When voice input is off it explains the Settings toggle; tapping Noa retains the existing tap behavior.
+- A single focused-screen UI hook routes final utterances and gestures through the same reply echo/action as touch. It ignores disabled/busy choices and does not shift the suggested reply when it is disabled. Amounts fill the composer in sats (including from BTC display mode); a later, separate normal confirmation is required. Fixed invoice amounts stay fixed. Review/auth/submission reject all speech/gesture actions and show `talk.send.review`; final send and device authentication remain on the original path. Pending/unknown text and no-resend behavior are retained.
+- The owner's live partial text grows in the existing player bubble, then remains briefly as the final echo. The listening cue uses the existing `listen → focus` mapping and holds for the recognition turn. The bottom ring pulses in opacity/scale on the UI thread; Reduce Motion makes it static. Wave-back uses the wave clip without lip-flap overriding it. On a held board, only the portrait changes; the paper and QR remain mounted. Gesture feedback lasts 1.4 seconds. VoiceOver receives listening/finished announcements and labelled 44pt mic controls; replies remain available by touch.
+- Both shared HUDs show a persistent eye chip only while `eyes === watching`. Denial/unavailability turns the affected preference off and shows Noa's localized iOS Settings explanation. Explicitly enabling again clears the previous attempt's UI error state so a second failure or a successful retry can be displayed correctly.
+- Seed and Recovery block conversation for their entire focus interval. Onboarding conservatively blocks its entire flow, including authentication and transitions into words/quiz/backup. Focus blocks are counted so overlapping secret-screen transitions cannot unblock one another. Leaving restores the service's settings policy. Root AppState changes call `setForeground`; hydrated startup calls `syncEyes`.
+
+Claude must verify on a physical iPhone (these are not certified by type checks or mocked hooks):
+
+1. Fresh opt-in in JA/EN: all three answers persist, no repeated invitation; camera permission on first hands use, microphone + speech recognition permissions on first listen. Deny each, observe its toggle turning off and Noa's explanation, enable permissions in iOS Settings, then retry the app toggle. Verify unsupported on-device recognition/native module fallback as well.
+2. Palm, Noa tap and mic each start one turn; tapping the mic finishes it. Her recorded voice and device read-aloud stop before recognition. Partial words grow, the final echo remains and her answer follows. Repeat palm while already listening; it must not end the turn. Try silence, interruption and rapid repeated taps.
+3. Home navigation/balance commands; Send/Receive visible reply labels; unmatched text; sats and kanji amounts; BTC-to-sats fill; fixed Lightning invoice amounts. Verify no spoken destination is accepted. Separate amount confirmation must still lead through the full review and normal device auth. Do not perform a real payment for this review.
+4. Wave greeting/clip and transient toast; thumbs-up chooses exactly the suggested enabled reply, never a later reply when the suggestion is disabled; Story swipes go next/previous and show the chosen reply echo. At review, authorizing and submitting, wave/palm/thumbs/swipes/spoken send only remind and never act. Pending/unknown retain their warnings and never display celebration or offer resend.
+5. While listening/watching, navigate to Seed, Recovery and all onboarding seed steps. Check the actual iOS mic/camera indicators stop, including permission dialogs resolving late, interrupted authentication, rapid focus changes and background/resume. No transcript, seed words, camera frames or voice survive on those screens. See the service lifecycle request in `UI_REQUESTS.md` for async native start/stop follow-ups.
+6. With hands enabled, enter/leave the rear QR scanner and background/resume it. Verify camera ownership and scanning from another device; the front-camera service currently has no explicit QR-camera handoff contract (request recorded in `UI_REQUESTS.md`). Confirm the camera HUD always agrees with actual native camera use.
+7. At 390×844 and 375×667, JA/EN and large type: replies/mic remain reachable with the keyboard, live text and gesture toast; the full QR remains unobstructed. Check VoiceOver touch navigation and announcements. With Reduce Motion, ring and avatar are static; also test the existing avatar-motion preference. Inspect listening focus and wave playback on device.
+
+Validation after the final UI edits: `npx tsc --noEmit`, `npx jest` (15 suites / 133 tests), and `git diff --check` passed. A temporary hook harness outside the repository additionally exercised spoken reply echoes, unknown/destination rejection, suggested/disabled choices, palm/mic behavior, amount-only fill, review locks, Story pages, stale callbacks, Home command routing, background/blur cleanup, hydration, repeated permission denial/retry, and overlapping secret-screen focus blocks. This validates JS routing with native APIs mocked, not sensor privacy, recognition accuracy, native camera arbitration or rendering. The existing npm configuration, Node localStorage and Jest delayed-exit warnings remain. No repository tests, internals or frozen SwiftUI files were edited; no commit, push, prebuild, simulator launch or upload was performed.
+
+## Full-body drift — 2026-11-25
+
+### Pass 3 — measured footer priority (current)
+
+The three clipping fixes are implemented in UI-owned components. Home's full-body scale, source-pixel cap and drift functions are unchanged. This section supersedes pass 2's QR minimum height and 208pt keyboard minimum.
+
+- Both normal and QR stages measure an **inner, naturally sized View with `onLayout`**, including the caption, player echo, composer, every wrapped reply row, MOCK chip, mic and footer padding. They no longer use the ScrollView content size as the footer measurement. Reply content never flex-shrinks. Changes in width, language, reply labels and keyboard state trigger a fresh measurement.
+- QR stages give Noa only `available − speech − measured footer`. `hologramLayout` now fits her frame into that actual height, instead of forcing a 513/538pt stage. Caption-to-reply spacing is 4pt, with 8pt bottom padding. QR speech keeps its prior 68pt content limit. Normal-size QR surfaces remain 220/240pt plus their 12pt frame; short keyboard-transition stages use separate figure/panel lanes and fit both into the remaining height.
+- Keyboard stages replace the 208pt figure minimum with a 48pt fallback, so the figure shrinks before the composer/replies. The ordering remains speech → figure → natural composer → wrapped chips → **8pt clearance** → native Done accessory → keyboard. Address entry and both amount composers share this allocation. Oversized content still has the existing reply scroller.
+- Review/auth/submitting omit the mic, its conversation-context entry and listening feedback. The deliberate confirmation/authentication path is unchanged. Seed/Recovery already have no mic and disable avatar interaction; their companion now also explicitly suppresses listening/gesture feedback (including onboarding).
+
+#### Bottom-edge checks and measurement limits
+
+**These are AppKit text measurements + execution of the actual StageContent layout + React Native's bundled Yoga engine, not new iOS screenshots or real-tap measurements.** `xcrun simctl list devices booted` failed with an invalid CoreSimulatorService connection / connection refused. No simulator was launched. Fresh native bottom margins cannot be certified in this environment and remain for Claude's re-drive.
+
+The temporary harness in `/private/tmp/full-body-pass3/` measures the current JA/EN strings, wraps all replies (including mic/MOCK), feeds the natural footer/speech heights into the actual `StageContent` `onLayout` handlers, then checks the resulting frames with bundled Yoga. **440 cases passed**: both requested viewport sizes × both keyboard states × both languages × 55 cases (Home normal/invitation; 14 Send cases including destination/error, editable/fixed amount, scanner, validation, quote, review, auth, submission and every result; all 11 Receive turns; all 28 story pages). Keyboard-up result/QR/story cases are transition stress checks; these screens do not open a keyboard themselves. The modeled keyboard+native-accessory reservation is 346pt, safe top is 47/62pt and safe bottom is 34pt. Actual keyboard heights, UIKit text metrics and insets must still be measured on iOS.
+
+Measured **minimum footer-content clearance**, in points, from each harness layout's safe bottom edge (keyboard down) or top of the native keyboard accessory (keyboard up):
+
+| Stage family (all states and JA/EN) | 390×844 down | 390×844 up | 440×956 down | 440×956 up |
+| --- | ---: | ---: | ---: | ---: |
+| Home normal / invitation | 8 | 8 | 8 | 8 |
+| Send, including review/auth/submission/results/scanner | 8 | 8 | 8 | 8 |
+| Receive, including Ark and Lightning QR/results | 8 | 8 | 8 | 8 |
+| Story reader, every page | 20 | 20 | 20 | 20 |
+
+With the modeled 34pt safe bottom, 8pt clearance corresponds to **42pt from the display bottom**; the story footer has 54pt. Review's receipt scroller takes the remaining room above its pinned actions; that space is not counted as bottom margin. Across all 440 cases the measured footer clearance is 8–40pt. This is a geometry result, not a claim about a newly observed home-indicator position.
+
+Representative JA layouts, in points (footer includes all rows and bottom padding):
+
+| State | Size / keyboard | Speech | Natural footer | Figure region | Full clip frame | Bottom clearance |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Ark QR, two reply rows | 390×844 / down | 96 | 130 | 458 | 340 | 8 |
+| Lightning invoice, two reply rows | 390×844 / down | 96 | 152 | 436 | 318 | 8 |
+| Ark QR, two reply rows | 440×956 / down | 96 | 130 | 555 | 420 | 8 |
+| Lightning invoice, two reply rows | 440×956 / down | 96 | 152 | 533 | 415 | 8 |
+| Send address | 390×844 / up | 76 | 118 | 178 | 160 | 8 |
+| Send / Lightning amount | 390×844 / up | 76 | 124 | 172 | 154 | 8 |
+| Send address | 440×956 / up | 76 | 118 | 275 | 255 | 8 |
+| Send / Lightning amount | 440×956 / up | 76 | 124 | 269 | 249 | 8 |
+
+Additional checks: 440 mic/context visibility cases passed; **26,112 extreme transformed full-frame corners** and **507,776 decoded alpha-row extrema** passed containment and at least 4pt QR clearance, including short keyboard-transition panels. No test files or internals were edited. Home's checked frames remain 432pt at 390×844 and 446pt at 440×956.
+
+Native re-drive still needed at both sizes: tap through every turn above, dismiss/reopen the keyboard in Send address/amount and Lightning amount, check the full chip rows above Done, capture the QR second row and bottom margin after a reply echo, and verify no mic on review/auth/submitting/seed/recovery. Repeat with longer addresses/errors and larger text. Native keyboard/accessory animation, actual UIKit wrapping and scan readability are not certified by the harness.
+
+Validation: `pnpm typecheck` (`tsc --noEmit`), `pnpm test --runInBand` (**16 suites / 138 tests**) and `git diff --check` passed. Existing Jest localStorage/delayed-exit warnings remain. No commit, push, prebuild, upload or payment was performed.
+
+### Pass 2 — hero scale (historical)
+
+This pass supersedes the framing, pixel cap and QR-lane measurements in the historical pass-1 notes below. All 24 installed clips were checked directly: **760×1358, 61 frames each except present (33) and putaway (30)**. No assets or internals were changed.
+
+| Surface | 390×844 | 440×956 |
+| --- | --- | --- |
+| Home, invitation and normal replies | 432pt clip frame / **421pt visible idle head-to-toe**, 456pt minimum stage | 446pt maximum frame / **435pt visible idle head-to-toe** |
+| Home horizontal wander | ±58.5pt (15% of width), further bounded by the full gesture rectangle | ±66pt (15% of width) |
+| Receive / scanner panel | 395pt frame / **385pt visible**, 220pt QR inside 232pt panel | 420pt frame / **409pt visible**, 240pt QR inside 252pt panel |
+| Send amount with keyboard | 208pt minimum stage → 190pt frame / **185pt visible** | Uses remaining measured room; a 282pt stage → 262pt frame / **255pt visible**; same 185pt minimum |
+
+- Home uses compact speech, an 8pt overlap of its transparent bottom margin, a tail beside the head, 54pt icon replies and a 50pt conversation composer (all touch targets remain ≥44pt). The MOCK test button now sits in the HUD, removing its separate footer row; the persistent MOCK banner and network tag remain. Main reply IDs are excluded from the icon menu: six shortcuts during opt-in, four when Receive/Send are the main replies.
+- Figure size includes motion bounds, anchors the feet just above replies and caps the largest breathing frame at **1358 source pixels / device pixel ratio**. At @3x the nominal maximum frame is 446pt and its +1.5% breathing peak is 452.7pt. Consequently the 440×956 figure stops at about 435pt visible rather than exceeding source resolution to reach 50% of that taller screen.
+- Receive uses overlapping **transparent clip margins**, not a narrow avatar column. Its frame starts at x=-20pt, while the visible pixels remain inside the viewport. The panel is upper-right (x=154pt / 184pt, 4pt right inset). The figure reserves 110pt above its head and 8pt below its frame; minimum stage heights are 513pt / 538pt. Address caption and replies remain in the scroller below; at 390pt the later reply row may require scrolling. Extra available height places the feet next to the caption rather than leaving an empty lower stage.
+- To make that placement safe, panel scenes play **pointdown → idle/speak**, using the decoded alpha envelope of those clips. Wide-arm `present`/other gestures are not played beside a QR. Panel drift is only ±3pt horizontally and ±1.625pt vertically, without tilt/scale. The panel fades in without sliding toward her; its QR and four-module quiet zone remain fixed. Home retains the existing bob, breathe and tilt; Reduce Motion still stops all spatial movement.
+- Validation used the actual layout functions at **390×844 and 440×956**, @3x, plus every intermediate width from 390–440pt. **576 extreme transformed frame corners** passed safe containment and the source-resolution cap. **31,736 decoded alpha-row extrema**, across all frames of the three panel clips and extreme panel drift, passed viewport containment and ≥4pt QR clearance. Geometry estimates use default text size and representative measured scene budgets (684pt / 784pt; keyboard removes about 312pt); dynamic text/keyboard still uses onLayout and scrollable replies. These are geometry checks, **not fresh simulator screenshots**.
+- Final `pnpm typecheck` and `pnpm test --runInBand`: **16 suites / 138 tests passed**. Jest's existing localStorage / delayed-exit warnings remain. Claude still owns simulator re-drive: capture Home t=0/3/6s and after opt-in, Receive and keyboard amount at both sizes, including Reduce Motion and large text. No commit, push or prebuild was run.
+
+### Pass 1 — historical notes
+
+This section supersedes the earlier bust/held-board/absolute Home echo framing notes. All active UI render paths now use a single full-body `StageAvatar`. No establishing shot, portrait zoom, cropped head layer, or QR-in-hands overlay remains in those paths. Payment cues and safeguards are unchanged; the display layer does not initiate wallet actions.
+
+### Framing table
+
+| Surface | Reserved layout / full-body policy |
+| --- | --- |
+| Home, Send destination/amount, Receive preparation/results, Story reader, send results | Separate measured speech, figure and reply regions. Figure fits its own region with 56pt motion/tail allowance, targets at most 56% of viewport height, and respects actual source pixel limits. Long replies scroll independently; they cannot cover or scroll the figure offscreen. |
+| Keyboard open | Figure region is at least `0.312 × remaining scene height + 56pt`; the figure itself is at least 30% of remaining scene height at the target widths. Speech is bounded and scrollable; composers/replies use the remaining independent scroller. Home reveals its composer at the end; Send/Receive reveal the composer at the start. |
+| Review / authorization / submission | A 160pt figure region (120pt for short screens / larger text), always head to toe, before the scrollable receipt. Deliberate final action and authentication are unchanged. |
+| QR, Lightning invoice, Send scanner | Left full-body lane and right independent hologram. At 390pt: 126pt figure lane, 220pt QR surface + 12pt frame, 8pt gap, 12pt outer edges. At 440pt: 156pt lane, 240pt surface + 12pt frame. Figure is about 130pt / 161pt high respectively; it wanders only inside its lane. Caption and actions are below, never over the QR. |
+| List / settings / other companion corners | 104 × 160pt region, or 88 × 136pt compact, with full-body containment. Keyboard no longer removes the companion. Onboarding's larger companion also uses containment, with speech above her. |
+
+Framing includes the entire clip rectangle, not just the visible body. `expo-image contentFit="contain"` stays in use, without blur. `MOTION_PIXEL_HEIGHT` reads Metro's actual asset metadata, taking the smallest installed clip: maximum display pixels, including the +1.5% breathe, are <=1.25× source pixels. At this handoff, a RIFF header inspection found **20 clips at 480×858 and 4 at 720×1288**. Claude's 760×1360 replacements have **not** been verified as installed; Codex did not modify any motion assets. Restart/reload Metro after replacement to refresh asset metadata. Final sharpness depends on that replacement.
+
+### Drift and dialogue
+
+- One Reanimated UI-thread frame clock drives shared values; only transforms change per frame. No per-frame React state, layout changes, or JS callbacks.
+- Horizontal mix: 0.76 sine at 13.7s + 0.24 sine at 9.1s. Travel is capped at ±27.5% of lane width and reduced by the actual full-body bounds. A question/typed reply introduces a gradual +0.18 right-side bias; idle removes that bias over approximately 1.8s. The independent periods avoid an obvious short repeat.
+- Bob: 5pt at 6.7s + 1.5pt at 4.3s. Breathe: ±1.5% at 7.9s. Tilt: ±0.8° at 11.3s. A soft cyan/lavender floor glow follows her x; particles move oppositely at 4% of her horizontal offset.
+- Stage speech follows the shared head x (including tilt), with the bubble clamped 16pt from the edges and its tail moving independently toward her head. Speech and replies have their own regions. Home's player echo now participates in the reply scroller instead of covering the figure.
+- Reduce Motion: centred figure, no spatial drift/breathe/tilt/parallax or panel entrance; only idle/mouth clip loops remain. The existing `useReduceMotion` preference/OS gate is used. Typewriter behavior is retained.
+
+### Hologram and playback
+
+The panel materialises from the figure side using a 260ms translate/scale/opacity entrance and a transient cyan shimmer. After entry the QR has no animated transform, overlap or translucent overlay. Existing `BoardQr` rendering keeps exactly four white quiet-zone modules. Camera permission controls and preview occupy the same panel. The avatar plays `present` once, then `pointdown`, then the normal idle/speaking base; there is no held-board decoder or cropped duplicate portrait.
+
+Playback mounts at most one base Image and one one-shot Image. One-shot starts/ends and base source swaps use a 120ms dissolve. One likely next clip is loaded into an explicitly released native ImageRef without mounting another Image view (present → pointdown; gesture → base; idle ↔ speak).
+
+`QrScanner` awaits `conversation.setCameraSuspended(true)` before mounting the rear CameraView, and calls `false` after unmount/close. A module-local promise queue serializes rapid close/reopen/retry; stale completion cannot mount a camera after unmount. Suspension failure shows the existing camera-error/retry state. Native camera exclusivity still requires device validation.
+
+### Validation and Claude re-drive
+
+- `npx tsc --noEmit`, `npx jest --runInBand`: **16 suites / 138 tests passed**. `pnpm typecheck` / `pnpm test --runInBand` also passed. Existing npm configuration, Node localStorage and Jest delayed-exit warnings remain. No tests were edited.
+- A temporary geometry harness outside the repository executed the actual `fullBodyLayout` / `hologramLayout` functions at **390×844 and 440×956**, @3x, for installed 858px and planned 1360px assets. **1,920 transformed rectangle corners** passed containment at maximum positive/negative wander, bob, scale and tilt; it also checked the pixel ceiling, QR lane separation and keyboard >=30% rule. These are geometry checks, **not screenshots or native text/layout verification**.
+- Native screen validation could not run: `xcrun simctl list devices booted` reported an invalid CoreSimulatorService connection in this environment. No simulator was launched, no native build/prebuild was run, and 60fps/real-camera behavior is not claimed as verified.
+- Claude: after replacing all clips, re-drive both widths in JA/EN and large type. Check Home (including opt-in, a long echo and keyboard), Send destination/amount/Max/review/authorizing/pending/unknown/confirmed/failed, Receive Ark QR / Lightning amount / invoice / confirmed receipt, Story reader/list, history/assets/settings/help and onboarding/seed/recovery companion corners. Confirm head-to-toe containment throughout a full drift cycle; scroll long replies and speech independently; verify no face/reply/QR overlap, the visible network + MOCK banners, and all existing protected text. Use MOCK/Signet for result-state inspection; do not perform a real payment for UI QA.
+- Device: scan both Ark and Lightning codes from a second device; test permission denial/retry, rapid scanner close/reopen, background/foreground and navigation blur with hands enabled. Verify front-camera stop precedes rear-camera mount and ownership returns on close. Check 120ms clip transitions, present → pointdown, mouth loops, resource usage, Reduce Motion, and release-build frame pacing on the slowest supported device.
+
+Only UI-owned components/renderers/theme and this note were edited for this task. Existing unrelated working-tree changes were retained. No internals, `src/conversation/*`, `modules/*`, tests or frozen `SatsOS/` files were edited; no commit, push, upload or prebuild was performed.

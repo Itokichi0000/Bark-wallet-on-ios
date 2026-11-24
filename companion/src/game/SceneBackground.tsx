@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo } from "react";
 import { StyleSheet, View, useWindowDimensions } from "react-native";
 import Svg, { Circle, Defs, Ellipse, RadialGradient, Rect, Stop } from "react-native-svg";
-import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, type SharedValue } from "react-native-reanimated";
 import { theme } from "@/theme";
 import { useReduceMotion } from "./useAvatarCue";
 
@@ -10,7 +10,7 @@ const c = theme.colors;
 const p = theme.presence;
 
 /** Static lighting plus one cheap drifting particle layer behind the character. */
-export const SceneBackground = memo(function SceneBackground({ state, active = true }: { state: NetworkAmbientState; active?: boolean }) {
+export const SceneBackground = memo(function SceneBackground({ state, active = true, avatarX, stageWidth = 0 }: { state: NetworkAmbientState; active?: boolean; avatarX?: SharedValue<number>; stageWidth?: number }) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
   const drift = useSharedValue(0);
@@ -19,7 +19,7 @@ export const SceneBackground = memo(function SceneBackground({ state, active = t
     if (!reduceMotion && active) drift.set(withRepeat(withSequence(withTiming(1, { duration: p.ambientMs, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: p.ambientMs, easing: Easing.inOut(Easing.sin) })), -1));
     return () => cancelAnimation(drift);
   }, [reduceMotion, active, drift]);
-  const motion = useAnimatedStyle(() => ({ opacity: 0.3 + drift.get() * 0.18, transform: [{ translateY: -drift.get() * p.rise }] }));
+  const motion = useAnimatedStyle(() => ({ opacity: 0.3 + drift.get() * 0.18, transform: [{ translateX: avatarX ? -(avatarX.get() - stageWidth / 2) * 0.04 : 0 }, { translateY: -drift.get() * p.rise }] }));
   const stars = useMemo(() => Array.from({ length: 24 }, (_, n) => ({ x: ((n * 73 + 19) % 101) / 101 * width, y: ((n * 47 + 13) % 103) / 103 * height, r: n % 3 === 0 ? 1.5 : 0.8 })), [width, height]);
   const tint = state === "maintenanceRequired" ? c.warning : c.primary;
   return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>

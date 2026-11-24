@@ -88,7 +88,7 @@ describe("build configuration", () => {
   it("keeps the avatar and voice layers away from keys and payment execution", () => {
     const { readdirSync } = require("node:fs") as typeof import("node:fs");
     const forbidden = /SecureSeedRepository|bark-react-native|sendReviewedPayment|confirmSend|BackupManager|expo-secure-store/;
-    for (const dir of ["src/game", "src/voice"]) {
+    for (const dir of ["src/game", "src/voice", "src/conversation", "modules/noa-gestures/src"]) {
       for (const name of readdirSync(join(root, dir))) {
         const text = readFileSync(join(root, dir, name), "utf8");
         expect([name, forbidden.test(text)]).toEqual([name, false]);

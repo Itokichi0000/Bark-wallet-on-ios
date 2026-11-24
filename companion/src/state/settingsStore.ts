@@ -15,6 +15,12 @@ export interface Settings {
   /** Noa's recorded voice, or off. Japanese only; other languages stay silent unless read-aloud is on. */
   noaVoice: "off" | "a" | "b" | "c";
   hapticsEnabled: boolean;
+  /** Talk to Noa by voice (microphone + on-device speech recognition). Off until the owner agrees. */
+  voiceInput: boolean;
+  /** Answer Noa with hand gestures (front camera, on-device). Off until the owner agrees. */
+  handGestures: boolean;
+  /** Noa has offered voice/gesture conversation once; she does not keep asking. */
+  conversationOffered: boolean;
   avatarMotion: boolean;
   /** Follows the OS setting unless the user forces it on. */
   forceReduceMotion: boolean;
@@ -39,6 +45,9 @@ export const useSettings = create<Settings>()(
       speechEnabled: false,
       noaVoice: "a",
       hapticsEnabled: true,
+      voiceInput: false,
+      handGestures: false,
+      conversationOffered: false,
       avatarMotion: true,
       forceReduceMotion: false,
       introSeen: false,

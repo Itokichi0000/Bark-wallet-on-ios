@@ -1,3 +1,4 @@
+import { useConversationBlocked } from "@/components/conversation-runtime";
 import { userAction } from "@/components/companionEvents";
 import { Companion } from "@/components/Companion";
 import { authorize as authenticateUser } from "@/container";
@@ -33,6 +34,8 @@ function WordsStep({ words }: { words: string[] }) {
 
 /** S01 Onboarding. A wallet is created only by the explicit last step here. */
 export default function OnboardingScene() {
+  // Keep the entire seed-creation flow private, including transitions and auth.
+  useConversationBlocked();
   const t = useT();
   usePreventScreenCapture();
   const settings = useSettings();

@@ -6,6 +6,8 @@ import { BackupManager } from "@/infrastructure/backup/BackupManager";
 import { type AuthResult, SecureSeedRepository, authenticateUser } from "@/infrastructure/secure/SecureSeedRepository";
 import { PendingOperationStore } from "@/infrastructure/storage/PendingOperationStore";
 import { StoryTracker } from "@/game/story";
+import { ConversationService } from "@/conversation/ConversationService";
+import { noaVoice } from "@/voice/NoaVoice";
 import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
 import { SyncScheduler } from "@/usecases/SyncScheduler";
@@ -70,6 +72,12 @@ export const wallet = new WalletService({
   view,
   authorize,
 });
+
+/**
+ * Voice and hand-gesture conversation. It gets no wallet, seed or bus reference: it only
+ * reports words and gesture names, which screens turn into the same replies a tap makes.
+ */
+export const conversation = new ConversationService({ beforeListening: () => noaVoice.stop() });
 
 /** Automatic syncing. Screens call `autoSync.watch()` while they wait for something; nobody needs a sync button. */
 export const autoSync = new SyncScheduler({

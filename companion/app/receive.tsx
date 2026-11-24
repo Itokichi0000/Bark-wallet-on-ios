@@ -127,6 +127,9 @@ export default function ReceiveScene() {
   const parsedAmount = parseSatsInput(amount);
   const amountDisplay = amountUnit === "btc" ? (btcInput ?? (parsedAmount.ok ? formatBtc(parsedAmount.sats).replace(/,/g, "") : "")) : amount;
   return <Stage scene="receive" receivedId={received?.id} line={t(turn.lineKey)} boardCue={boardCue}
+    turnKey={`receive:${turn.step}`}
+    talkChoices={[...(turn.step === "ln-amount" ? [{ id: "confirm-amount", label: t("talk.receive.choice.confirm-amount"), onPress: createInvoice }] : []), ...answers]}
+    onSpokenAmount={turn.step === "ln-amount" ? (sats) => { setAmountUnit("sats"); setBtcInput(undefined); setAmountError(undefined); setAmount(sats); } : undefined}
     board={boardValue ? (size) => <View accessible accessibilityRole="image" accessibilityLabel={t(showInvoice ? "receive.ln.qrLabel" : "receive.qrLabel")} style={{ backgroundColor: "#FFFFFF" }}>
       <BoardQr value={boardValue} size={size} onError={qrFailed} />
     </View> : undefined}

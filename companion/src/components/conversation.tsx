@@ -1,6 +1,6 @@
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputProps } from "react-native";
-import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { useSettings } from "@/state/settingsStore";
@@ -9,6 +9,8 @@ import { useT } from "@/i18n";
 import { theme } from "@/theme";
 import { BitcoinIcon, type BitcoinIconName } from "./BitcoinIcon";
 import { DialogueLine, type DialogueState } from "./dialogue";
+import { conversation as conversationService } from "@/container";
+import { MicButton } from "./talk-controls";
 
 const p = theme.presence;
 const c = theme.colors;
@@ -22,7 +24,7 @@ export const literalInputProps = {
 export function replyHaptic() { if (useSettings.getState().hapticsEnabled) void Haptics.selectionAsync().catch(() => undefined); }
 
 type Turn = { id: number; text: string; listening: boolean };
-type Conversation = { turn?: Turn; say(text: string, action: () => void): void };
+type Conversation = { turn?: Turn; say(text: string, action: () => void): void; cancel(): void; mic?: { onPress(): void; listening: boolean; enabled: boolean } };
 export const ConversationContext = createContext<Conversation | undefined>(undefined);
 
 /** Only presentation/navigation continuations wait. Review/auth/submission never enter this timer. */
@@ -31,9 +33,11 @@ export function useConversation(active: boolean, protectedStep: boolean, reduceM
   const serial = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const clear = useCallback(() => { clearTimeout(timer.current); serial.current++; }, []);
+  const cancel = useCallback(() => { clear(); setTurn(undefined); }, [clear]);
   useEffect(() => { if (!active || protectedStep) { clear(); setTurn(undefined); } return clear; }, [active, protectedStep, clear]);
   const say = useCallback((text: string, action: () => void) => {
     clear();
+    conversationService.cancelListening();
     replyHaptic();
     if (!active) return;
     if (protectedStep) { setTurn(undefined); action(); return; }
@@ -51,18 +55,20 @@ export function useConversation(active: boolean, protectedStep: boolean, reduceM
       timer.current = setTimeout(answer, p.beatMs);
     }
   }, [active, protectedStep, reduceMotion, clear]);
-  return { turn, say };
+  return { turn, say, cancel };
 }
 
 /** One filled SVG tail overlaps the same-colour silhouette by a point: no border seam. */
-function Tail({ side, compact = false }: { side: "down" | "left"; compact?: boolean }) {
+function Tail({ side, compact = false, x }: { side: "down" | "left"; compact?: boolean; x?: SharedValue<number> }) {
+  const follow = useAnimatedStyle(() => ({ transform: [{ translateX: x?.get() ?? 0 }] }));
+  if (x && side === "down") return <Animated.View pointerEvents="none" style={[{ position: "absolute", left: 0, bottom: -23, width: 24, height: 24 }, follow]}><Svg width={24} height={24} viewBox="0 0 24 24"><Path d="M0 0H24L12 24Z" fill={c.speech} /></Svg></Animated.View>;
   return <Svg pointerEvents="none" accessible={false} width={compact ? 8 : p.tail} height={compact ? 8 : p.tail} viewBox="0 0 24 24" style={side === "down" ? [styles.tailDown, compact && { bottom: -7 }] : styles.tailLeft}>
     <Path d={side === "down" ? "M0 0H24Q13 6 16 24Q2 17 0 0Z" : "M24 0V24Q16 12 0 16Q9 2 24 0Z"} fill={c.speech} />
   </Svg>;
 }
 
-export const SpeechBubble = memo(function SpeechBubble({ dialogue, children, onAdvance, hint, side = "down", subdued = false, compact = false, maxHeight, naturalHeight = false }: {
-  dialogue: DialogueState; children?: ReactNode; onAdvance?: () => void; hint?: string; side?: "down" | "left"; subdued?: boolean; compact?: boolean; maxHeight?: number; naturalHeight?: boolean;
+export const SpeechBubble = memo(function SpeechBubble({ dialogue, children, onAdvance, hint, side = "down", subdued = false, compact = false, maxHeight, naturalHeight = false, tailX }: {
+  dialogue: DialogueState; children?: ReactNode; onAdvance?: () => void; hint?: string; side?: "down" | "left"; subdued?: boolean; compact?: boolean; maxHeight?: number; naturalHeight?: boolean; tailX?: SharedValue<number>;
 }) {
   const { fontScale } = useWindowDimensions();
   const enter = useSharedValue(1);
@@ -92,7 +98,7 @@ export const SpeechBubble = memo(function SpeechBubble({ dialogue, children, onA
     setBubbleHeight(next);
   }}>
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.silhouette, silhouette]} />
-    <Tail side={side} compact={compact} />
+    <Tail side={side} compact={compact} x={tailX} />
     {naturalHeight ? <View>{content}</View> : <ScrollView ref={scroll} nestedScrollEnabled style={{ flexGrow: 0, maxHeight: maxHeight ?? p.speechLine * fontScale * 5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>{content}</ScrollView>}
   </Animated.View>;
 });
@@ -146,11 +152,12 @@ export function TalkInput({ onSubmit }: { onSubmit(text: string): void }) {
     setText(""); Keyboard.dismiss();
     if (conversation) conversation.say(value, () => onSubmit(value)); else onSubmit(value);
   };
-  return <ReplyComposer value={text} onChangeText={setText} placeholder={t("presence.talkPlaceholder")} accessibilityLabel={t("talk.title")} submitLabel={t("talk.input.send")} onSend={submit} disabled={!text.trim()} />;
+  return <ReplyComposer compact value={text} onChangeText={setText} placeholder={t("presence.talkPlaceholder")} accessibilityLabel={t("talk.title")} submitLabel={t("talk.input.send")} onSend={submit} disabled={!text.trim()} inputAccessory={conversation?.mic ? <MicButton {...conversation.mic} /> : undefined} />;
 }
 
-export function ReplyComposer({ onSend, submitLabel, disabled, children, replyText, inputAccessory, ...input }: TextInputProps & {
+export function ReplyComposer({ onSend, submitLabel, disabled, children, replyText, inputAccessory, compact = false, ...input }: TextInputProps & {
   onSend(): void; submitLabel: string; disabled?: boolean; children?: ReactNode; replyText?: string; inputAccessory?: ReactNode;
+  compact?: boolean;
 }) {
   const conversation = useContext(ConversationContext);
   const submit = () => { if (disabled) return; if (replyText && conversation) { Keyboard.dismiss(); conversation.say(replyText, onSend); } else onSend(); };
@@ -164,7 +171,7 @@ export function ReplyComposer({ onSend, submitLabel, disabled, children, replyTe
     if (value !== undefined && value !== emitted.current) { emitted.current = value; setText(value); }
   }, [value]);
   const change = useCallback((next: string) => { emitted.current = next; setText(next); onChangeText?.(next); }, [onChangeText]);
-  return <View style={styles.composer}>
+  return <View style={[styles.composer, compact && { padding: 2 }]}>
     <View style={styles.composeRow}>
       <TextInput {...input} value={value === undefined ? undefined : text} onChangeText={change} placeholderTextColor={c.textMuted} style={[styles.input, input.style]} returnKeyType={input.returnKeyType ?? "done"} onSubmitEditing={input.onSubmitEditing ?? submit} />
       {inputAccessory}
@@ -188,7 +195,7 @@ const styles = StyleSheet.create({
   playerText: { color: c.background, fontSize: p.replySize, lineHeight: p.replyLine },
   reply: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: p.gap, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, minHeight: p.touch, borderRadius: p.replyRadius, borderBottomRightRadius: theme.spacing.xs, backgroundColor: c.reply, borderWidth: 1, borderColor: c.replyBorder, boxShadow: p.replyShadow },
   primary: { backgroundColor: c.primary, borderColor: c.primary },
-  round: { minWidth: p.iconReply, minHeight: 58, flexDirection: "column", gap: 3, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 6 },
+  round: { minWidth: p.iconReply, minHeight: 54, flexDirection: "column", gap: 3, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 6 },
   roundLabel: { fontSize: 11, lineHeight: 15 },
   compactSpeech: { padding: 6, marginBottom: 8 },
   compactSpeechText: { fontSize: 15, lineHeight: 21 },

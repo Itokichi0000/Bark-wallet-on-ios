@@ -97,6 +97,7 @@ function StoryReader({ chapter, onFinish, onClose }: { chapter: StoryChapter; on
   }, [focused, cue.id, chapter, index]);
   const advance = () => index === chapter.lines.length - 1 ? onFinish() : setIndex((n) => n + 1);
   return <Stage scene="story" line={t(lineKey)} active={focused} onBack={onClose} onLinePress={advance} onStagePress={advance}
+    turnKey={lineKey} pages={{ next: "next", previous: "back" }}
     speechFacts={<SpeechFact>{t(`story.${chapter.id}.title`)} · {t("story.page", { n: index + 1, total: chapter.lines.length })}</SpeechFact>}
     choices={[
       { id: "next", label: t(index === chapter.lines.length - 1 ? "story.finish" : "common.next"), onPress: advance },

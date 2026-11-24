@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Button, H, Notice, P, Panel, Row, Screen, NET_LONG_KEY } from "@/components/ui";
-import { backup, wallet } from "@/container";
+import { backup, conversation, wallet } from "@/container";
 import type { PendingOperation } from "@/domain/payment";
 import { useT } from "@/i18n";
 import { ACTIVE_NETWORK, IS_MAINNET, NET, switchNetworkAndReload } from "@/config/network";
@@ -140,6 +140,20 @@ export default function SettingsScene() {
         <TermHelp term="seed" />
         {authError ? <Notice tone="warning">{authError}</Notice> : null}
         {!s.seedBackupConfirmed && !info?.isMock ? <Notice tone="warning">{t("status.seedNotConfirmed")}</Notice> : null}
+      </Panel>
+
+      <Panel>
+        <H>{t("talk.settings.title")}</H>
+        <Toggle label={t("talk.settings.voice")} value={s.voiceInput} onChange={(voiceInput) => {
+          s.update({ voiceInput, conversationOffered: true });
+          if (!voiceInput) conversation.cancelListening();
+          void conversation.syncEyes();
+        }} />
+        <Toggle label={t("talk.settings.hands")} value={s.handGestures} onChange={(handGestures) => {
+          s.update({ handGestures, conversationOffered: true });
+          void conversation.syncEyes();
+        }} />
+        <P muted>{t("talk.settings.note")}</P>
       </Panel>
 
       <Panel>
