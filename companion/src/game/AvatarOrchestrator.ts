@@ -33,7 +33,7 @@ export class AvatarOrchestrator {
   private seen: string[] = [];
   private lastTapAt = -Infinity;
   private taps = 0;
-  private waiting: AvatarCue | undefined;
+  private waiting: AvatarCue[] = [];
 
   constructor(private readonly clock: OrchestratorClock = realClock) {}
 
@@ -59,7 +59,7 @@ export class AvatarOrchestrator {
     const busy = this.current.id !== IDLE_CUE.id;
     if (busy && cue.priority < this.current.priority) {
       // News that must not be lost behind a payment result waits for the stage instead of being dropped.
-      if (/^(story|quest):/.test(cue.eventId ?? "")) this.waiting = cue;
+      if (/^(story|quest):/.test(cue.eventId ?? "") && !this.waiting.some((w) => w.eventId === cue.eventId)) this.waiting.push(cue);
       return false;
     }
     // A payment in flight holds the stage against its peers, except for the result of a payment, which must always land.
@@ -79,9 +79,9 @@ export class AvatarOrchestrator {
   }
 
   private rest(): void {
-    const next = this.waiting;
-    this.waiting = undefined;
     this.set(IDLE_CUE);
+    // One piece of held news per pause; the rest follow as each finishes.
+    const next = this.waiting.shift();
     if (next) this.play(next);
   }
 
@@ -132,15 +132,15 @@ export class AvatarOrchestrator {
       case "AMOUNT_ENTERED":
         return { ...base, emotion: "thinking", action: "think", lineKey: "avatar.amount", priority: CuePriority.sendInput, interruptible: true, holdMs: 2000 };
       case "PAYMENT_REVIEW_READY":
-        return { ...base, emotion: "focused", action: "prepare-send", lineKey: "avatar.review", priority: CuePriority.sendInput, interruptible: true, holdMs: 0 };
+        return { ...base, emotion: "focused", action: "prepare-send", lineKey: "avatar.review", priority: CuePriority.sendInput, interruptible: true, holdMs: 6000 };
       case "PAYMENT_SUBMITTED":
-        return { ...base, emotion: "focused", action: "sending", lineKey: "avatar.sending", priority: CuePriority.paymentResult, interruptible: false, holdMs: 0 };
+        return { ...base, emotion: "focused", action: "sending", lineKey: "avatar.sending", priority: CuePriority.paymentResult, interruptible: false, holdMs: 30000 };
       case "PAYMENT_SUCCEEDED":
         return { ...base, eventId: `paid:${e.operationId}`, emotion: "happy", action: "celebrate", lineKey: "avatar.sent", soundKey: "success", priority: CuePriority.paymentResult, interruptible: true, holdMs: 4000 };
       case "PAYMENT_FAILED":
         return { ...base, eventId: `failed:${e.operationId}`, emotion: "concerned", action: "warn", lineKey: "avatar.failed", priority: CuePriority.paymentResult, interruptible: true, holdMs: 5000 };
       case "PAYMENT_OUTCOME_UNKNOWN":
-        return { ...base, eventId: `unknown:${e.operationId}`, emotion: "concerned", action: "sending", lineKey: "avatar.unknown", priority: CuePriority.paymentResult, interruptible: true, holdMs: 0 };
+        return { ...base, eventId: `unknown:${e.operationId}`, emotion: "concerned", action: "sending", lineKey: "avatar.unknown", priority: CuePriority.paymentResult, interruptible: true, holdMs: 8000 };
       case "PAYMENT_RECEIVED":
         return { ...base, eventId: `recv:${e.movementId}`, emotion: "happy", action: "catch", lineKey: "avatar.received", soundKey: "success", priority: CuePriority.paymentResult, interruptible: true, holdMs: 4000 };
       case "WALLET_SYNC_FAILED":

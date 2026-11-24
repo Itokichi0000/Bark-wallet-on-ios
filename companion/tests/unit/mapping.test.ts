@@ -79,8 +79,10 @@ describe("build configuration", () => {
     ]);
   });
 
-  it("only enables the Ark rail", () => {
-    expect([...ENABLED_SEND_METHODS]).toEqual(["ark"]);
+  it("enables the Ark and Lightning rails, and keeps Lightning off Mainnet until it is verified", () => {
+    expect([...ENABLED_SEND_METHODS]).toEqual(["ark", "lightning"]);
+    const network = readFileSync(join(root, "src/config/network.ts"), "utf8");
+    expect(network).toContain("export const LIGHTNING_ENABLED = !IS_MAINNET;");
   });
 
   it("keeps the avatar and voice layers away from keys and payment execution", () => {

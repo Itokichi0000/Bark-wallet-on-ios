@@ -2,7 +2,7 @@ import { errorMessage } from "@/domain/errors";
 import type { EventBus } from "@/domain/events";
 import type { PendingOperation } from "@/domain/payment";
 import type {
-  DestinationCheck, MaxSendResult, PaymentMethod, SendDraft, SendQuote, SubmitOutcome, WalletAdapter, WalletChange,
+  DestinationCheck, LightningInvoiceRequest, LightningReceiveState, MaxSendResult, PaymentMethod, SendDraft, SendQuote, SubmitOutcome, WalletAdapter, WalletChange,
 } from "@/domain/wallet";
 import type { WalletView } from "@/state/walletStore";
 import { resolveOperation } from "./reconcile";
@@ -191,6 +191,28 @@ export class WalletService {
   newArkAddress(): Promise<string> {
     return this.d.adapter.newArkAddress();
   }
+  private lightningAnnounced = new Set<string>();
+  get lightningAvailable(): boolean {
+    return this.d.adapter.lightning;
+  }
+  newLightningInvoice(amountSats: string): Promise<LightningInvoiceRequest> {
+    return this.d.adapter.newLightningInvoice(amountSats);
+  }
+  /**
+   * Look at one incoming Lightning payment. When it has arrived the wallet is refreshed, and the
+   * usual PAYMENT_RECEIVED follows from the wallet's own record of it, not from this call.
+   */
+  async checkLightningReceive(paymentHash: string): Promise<LightningReceiveState> {
+    const state = await this.d.adapter.lightningReceiveState(paymentHash).catch((): LightningReceiveState => "unknown");
+    if (state !== "settled" || this.lightningAnnounced.has(paymentHash)) return state;
+    this.lightningAnnounced.add(paymentHash);
+    await this.refresh({ background: true });
+    // The SDK normally reports the new movement itself; this covers the case where it did not.
+    // The avatar ignores a movement it has already celebrated.
+    const arrived = this.view.movements.find((m) => m.method === "lightning" && m.direction === "incoming" && m.status === "succeeded");
+    if (arrived) this.d.bus.emit({ type: "PAYMENT_RECEIVED", id: this.d.bus.nextId("recv"), movementId: arrived.id });
+    return state;
+  }
   validateDestination(input: string): Promise<DestinationCheck> {
     return this.d.adapter.validateDestination(input);
   }
@@ -272,7 +294,8 @@ export class WalletService {
     if (op.announced) return next;
     if (op.status === "succeeded") bus.emit({ type: "PAYMENT_SUCCEEDED", id: bus.nextId("pay"), operationId: op.operationId });
     else if (op.status === "failed") bus.emit({ type: "PAYMENT_FAILED", id: bus.nextId("pay"), operationId: op.operationId });
-    else if (op.status === "unknown") bus.emit({ type: "PAYMENT_OUTCOME_UNKNOWN", id: bus.nextId("pay"), operationId: op.operationId });
+    // Pending is announced like unknown ("still checking, do not send again") so the "sending" cue never outlives the call.
+    else if (op.status === "unknown" || op.status === "pending") bus.emit({ type: "PAYMENT_OUTCOME_UNKNOWN", id: bus.nextId("pay"), operationId: op.operationId });
     return next;
   }
 

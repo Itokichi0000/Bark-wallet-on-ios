@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import Svg, { Path, Rect } from "react-native-svg";
 import { BitcoinIcon } from "@/components/BitcoinIcon";
-import { HudBubble } from "@/components/Companion";
-import { Button, H, P, Panel, Screen } from "@/components/ui";
+import { Stage } from "@/components/stage";
+import { SpeechFact } from "@/components/conversation";
+import { H, P, Panel, Screen } from "@/components/ui";
 import { avatar, bus } from "@/container";
-import { AnimatedAvatarRenderer } from "@/game/AnimatedAvatarRenderer";
-import { SceneBackground } from "@/game/SceneBackground";
 import { STORY_CHAPTERS, storyProgress, storyLineCue, type StoryChapter } from "@/game/story";
-import { useAvatarCue, useReduceMotion } from "@/game/useAvatarCue";
+import { useAvatarCue } from "@/game/useAvatarCue";
 import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
 import { theme } from "@/theme";
@@ -33,9 +32,10 @@ export default function StoryScene() {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => { close(); return true; });
     return () => sub.remove();
   }, [chapter, close]));
+  if (chapter) return <StoryReader key={chapter.id} chapter={chapter} onClose={close} onFinish={() => { markRead(chapter.id); close(); }} />;
   return (
-    <Screen contentKey={chapter?.id ?? "chapters"} scene="story" title={t("story.title")} companion={!chapter} onBack={chapter ? close : undefined}>
-      {chapter ? <StoryReader key={chapter.id} chapter={chapter} onFinish={() => { markRead(chapter.id); close(); }} /> : <>
+    <Screen contentKey="chapters" scene="story" title={t("story.title")} >
+      <>
         <Panel>
           <Text style={styles.eyebrow}>{t("story.memories")}</Text>
           <P muted>{t("story.sentTotal")}</P>
@@ -47,7 +47,7 @@ export default function StoryScene() {
           >
             <View style={[styles.fill, { width: hidden ? "0%" : `${(progress.next?.fraction ?? 1) * 100}%` }]} />
           </View>
-          <P>{progress.next ? t("story.remaining", { amount: hidden ? "••••••" : formatAmount(progress.next.remainingSats.toString(), unit) }) : t("story.allOpen")}</P>
+          <P>{t(progress.next ? "story.explore" : "story.allOpen")}</P>
         </Panel>
         <P muted>{t("story.honest")}</P>
         <H>{t("story.fragments")}</H>
@@ -74,16 +74,14 @@ export default function StoryScene() {
             {isNew ? <Text style={styles.badge}>{t("story.new")}</Text> : unlocked ? <BitcoinIcon name="caret-right" size={18} /> : null}
           </Pressable>;
         })}
-      </>}
+      </>
     </Screen>
   );
 }
 
-function StoryReader({ chapter, onFinish }: { chapter: StoryChapter; onFinish(): void }) {
+function StoryReader({ chapter, onFinish, onClose }: { chapter: StoryChapter; onFinish(): void; onClose(): void }) {
   const t = useT();
   const cue = useAvatarCue();
-  const reduceMotion = useReduceMotion();
-  const { height, fontScale } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   const [focused, setFocused] = useState(false);
   const lineKey = `story.${chapter.id}.${index + 1}`;
@@ -97,32 +95,13 @@ function StoryReader({ chapter, onFinish }: { chapter: StoryChapter; onFinish():
     // A higher-priority payment/safety cue can defer narration; resume only after it ends.
     if (focused && cue.id === "idle") avatar.play(storyLineCue(chapter, index, bus.nextId("story")));
   }, [focused, cue.id, chapter, index]);
-  const advance = () => index === chapter.lines.length - 1 ? onFinish() : setIndex(index + 1);
-  if (!focused) return null;
-  return <View style={styles.reader}>
-    <SceneBackground state="online" />
-    <View style={styles.readerPortrait}>
-      <Pressable style={{ minWidth: 44, minHeight: 44, alignItems: "center" }} accessibilityRole="button" accessibilityLabel={t("home.avatar")} onPress={() => bus.emit({ type: "AVATAR_TAPPED", id: bus.nextId("tap") })}>
-        <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <AnimatedAvatarRenderer cue={cue} height={Math.min((height - 180) * (fontScale > 1.3 || height < 700 ? 0.36 : 0.45), 360)} reduceMotion={reduceMotion} />
-        </View>
-      </Pressable>
-    </View>
-    <HudBubble changeKey={lineKey} reduceMotion={reduceMotion}>
-      <View style={styles.dialogue}>
-        <Text style={styles.eyebrow}>{t("companion.name")}</Text>
-        <H>{t(`story.${chapter.id}.title`)}</H>
-        <Pressable onPress={advance} accessibilityRole="button" accessibilityHint={t(index === chapter.lines.length - 1 ? "story.finish" : "common.next")} style={styles.dialogueTap}>
-          <Text style={styles.dialogueLine} accessibilityLiveRegion="polite">{t(lineKey)}</Text>
-        </Pressable>
-        <Text style={styles.meta}>{t("story.page", { n: index + 1, total: chapter.lines.length })}</Text>
-        <View style={{ flexDirection: fontScale > 1.3 ? "column" : "row", gap: 10 }}>
-          <View style={{ flex: 1 }}><Button label={t("common.back")} kind="secondary" onPress={() => setIndex(index - 1)} disabled={index === 0} /></View>
-          <View style={{ flex: 2 }}><Button label={t(index === chapter.lines.length - 1 ? "story.finish" : "common.next")} onPress={advance} /></View>
-        </View>
-      </View>
-    </HudBubble>
-  </View>;
+  const advance = () => index === chapter.lines.length - 1 ? onFinish() : setIndex((n) => n + 1);
+  return <Stage scene="story" line={t(lineKey)} active={focused} onBack={onClose} onLinePress={advance} onStagePress={advance}
+    speechFacts={<SpeechFact>{t(`story.${chapter.id}.title`)} · {t("story.page", { n: index + 1, total: chapter.lines.length })}</SpeechFact>}
+    choices={[
+      { id: "next", label: t(index === chapter.lines.length - 1 ? "story.finish" : "common.next"), onPress: advance },
+      { id: "back", label: t("common.back"), onPress: () => index === 0 ? onClose() : setIndex((n) => n - 1) },
+    ]} />;
 }
 
 const styles = StyleSheet.create({
@@ -136,9 +115,4 @@ const styles = StyleSheet.create({
   fragmentTitle: { color: c.text, fontSize: 17, fontWeight: "600" },
   badge: { color: c.background, backgroundColor: c.primary, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 4, fontSize: 10, fontWeight: "700" },
   meta: { color: c.textMuted, fontSize: 12, lineHeight: 18 },
-  reader: { borderRadius: 24, overflow: "hidden", padding: 12 },
-  readerPortrait: { alignItems: "center" },
-  dialogue: { backgroundColor: c.panelSolid, borderWidth: 1, borderColor: c.controlBorder, borderRadius: 20, padding: 18, gap: 12 },
-  dialogueTap: { minHeight: 80, justifyContent: "center", paddingVertical: 8 },
-  dialogueLine: { color: c.text, fontSize: 17, lineHeight: 28 },
 });

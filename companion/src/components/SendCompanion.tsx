@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { CuePriority, type AvatarCue } from "@/domain/avatar";
 import type { SendPhase } from "@/domain/payment";
-import { Companion } from "./Companion";
 
 /** Presentation of the service/reducer state, never a payment event or a success pose. */
 export function useSendPresentation(phase: SendPhase): AvatarCue | undefined {
@@ -16,9 +15,4 @@ export function useSendPresentation(phase: SendPhase): AvatarCue | undefined {
     if (phase === "succeeded") return { ...base, action: "idle", emotion: "neutral", lineKey: "avatar.sent" };
     return undefined;
   }, [phase]);
-}
-
-export function SendResultCompanion({ phase, operationId }: { phase: SendPhase; operationId?: string }) {
-  const fallback = useSendPresentation(phase);
-  return <Companion scene="send" sendResult={{ phase, operationId }} large fallbackCue={fallback} unresolved={phase === "pending" || phase === "unknown"} />;
 }

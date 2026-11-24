@@ -124,14 +124,14 @@ describe("AvatarOrchestrator", () => {
 });
 
 describe("IdleDirector", () => {
-  it("waits 5-10 seconds and never repeats a gesture back to back", () => {
+  it("pauses briefly and never repeats a gesture back to back", () => {
     const seq = [0.6, 0.6, 0.6, 0.99, 0.99, 0.1];
     let i = 0;
     const d = new IdleDirector(() => seq[i++ % seq.length] ?? 0);
     for (let k = 0; k < 6; k++) {
       const delay = d.nextDelayMs();
-      expect(delay).toBeGreaterThanOrEqual(5000);
-      expect(delay).toBeLessThan(10000);
+      expect(delay).toBeGreaterThanOrEqual(1500);
+      expect(delay).toBeLessThan(4000);
     }
     i = 0;
     const actions = Array.from({ length: 5 }, () => d.next().action);
@@ -164,7 +164,7 @@ describe("illustrated avatar frames", () => {
 describe("motion clips", () => {
   const { clipForCue } = require("@/game/avatarMotion") as typeof import("@/game/avatarMotion");
   it("plays the success clips only for the success actions", () => {
-    const actions = ["idle", "blink", "float", "wave", "point-left", "point-right", "listen", "speak", "inspect", "prepare-send", "sending", "receive", "warn", "rest", "think", "nod", "point-down", "hush", "yawn", "startle", "talk", "search"] as const;
+    const actions = ["idle", "blink", "float", "wave", "point-left", "point-right", "listen", "speak", "inspect", "prepare-send", "sending", "receive", "warn", "rest", "think", "nod", "point-down", "hush", "yawn", "startle", "talk", "search", "sway", "hairfix", "peek", "present"] as const;
     for (const action of actions) {
       for (const emotion of ["neutral", "happy", "curious", "thinking", "focused", "surprised", "sleepy", "concerned"] as const) {
         expect(["celebrate", "catch"]).not.toContain(clipForCue({ action, emotion }));
@@ -197,6 +197,31 @@ describe("motion clips", () => {
     expect(o.cue.action).toBe("celebrate");
     jest.advanceTimersByTime(4100);
     expect(o.cue.lineKey).toBe("avatar.storyUnlocked");
+    jest.useRealTimers();
+  });
+  it("delivers both the quest and the story news after a celebration, one after the other", () => {
+    jest.useFakeTimers();
+    const o = new AvatarOrchestrator();
+    o.handle({ type: "PAYMENT_SUCCEEDED", id: "p", operationId: "op" });
+    o.handle({ type: "QUEST_COMPLETED", id: "q", quest: "q4" });
+    o.handle({ type: "STORY_UNLOCKED", id: "s", chapter: "c1" });
+    jest.advanceTimersByTime(4100);
+    expect(o.cue.lineKey).toBe("avatar.questDone");
+    jest.advanceTimersByTime(4100);
+    expect(o.cue.lineKey).toBe("avatar.storyUnlocked");
+    jest.useRealTimers();
+  });
+  it("never lets a payment-in-flight or unknown cue hold the stage for ever", () => {
+    jest.useFakeTimers();
+    const o = new AvatarOrchestrator();
+    o.handle({ type: "PAYMENT_SUBMITTED", id: "p", operationId: "op" });
+    o.handle({ type: "PAYMENT_OUTCOME_UNKNOWN", id: "u", operationId: "op" });
+    expect(o.cue.lineKey).toBe("avatar.unknown");
+    jest.advanceTimersByTime(8100);
+    expect(o.cue.id).toBe("idle");
+    o.handle({ type: "PAYMENT_SUBMITTED", id: "p2", operationId: "op2" });
+    jest.advanceTimersByTime(30100);
+    expect(o.cue.id).toBe("idle");
     jest.useRealTimers();
   });
   it("lets a screen's standing line give way to anything that happens on it", () => {

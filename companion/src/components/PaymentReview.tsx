@@ -8,10 +8,11 @@ import { chunkAddress, formatAmount } from "@/utils/format";
 import { H, Notice, Panel, Row } from "./ui";
 
 /** Everything the owner must see before confirming: destination, network, amount, fee, total, remainder. */
-export function PaymentReview({ quote, unit }: { quote: SendQuote; unit: Unit }) {
+export function PaymentReview({ quote, unit, embedded = false }: { quote: SendQuote; unit: Unit; embedded?: boolean }) {
   const t = useT();
+  const Container = embedded ? View : Panel;
   return (
-    <Panel>
+    <Container style={embedded ? { gap: 14 } : undefined}>
       <H>{t("review.title")}</H>
       <Row label={t("review.network")} value={t(quote.network === "mainnet" ? "net.mainnetLong" : "net.signetLong")} valueStyle={{ color: quote.network === "mainnet" ? theme.colors.danger : theme.colors.warning }} />
       <Row label={t("review.method")} value={t(`method.${quote.method}`)} />
@@ -23,6 +24,6 @@ export function PaymentReview({ quote, unit }: { quote: SendQuote; unit: Unit })
       <TermHelp term="fee" />
       {quote.feeIsEstimate ? <Notice tone="warning">{t("review.feeEstimate")}</Notice> : null}
       <Notice tone="info">{t("review.irreversible")}</Notice>
-    </Panel>
+    </Container>
   );
 }

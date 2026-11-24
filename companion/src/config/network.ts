@@ -16,6 +16,12 @@ function readActive(): NetworkId {
 export const ACTIVE_NETWORK: NetworkId = readActive();
 export const NET = NETWORKS[ACTIVE_NETWORK];
 export const IS_MAINNET = ACTIVE_NETWORK === "mainnet";
+/**
+ * Lightning is built against the SDK's types but has not yet been exercised with a real
+ * payment. Until a Signet send and receive have been verified end to end it stays off on
+ * Mainnet, where a mistake would cost real money. Flip this once verified.
+ */
+export const LIGHTNING_ENABLED = !IS_MAINNET;
 
 /** Storage keys and directories are namespaced by network so the two wallets can never read each other's seed, database, operations or backups. */
 export const netKey = (name: string) => `bcw.${ACTIVE_NETWORK}.${name}`;

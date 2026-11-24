@@ -4,7 +4,7 @@ import type { SceneId } from "@/domain/events";
 import type { AvatarCue } from "@/domain/avatar";
 import { Companion } from "./Companion";
 import { SceneContext, useSceneFocus } from "./companionEvents";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { container } from "@/components/containerHooks";
@@ -21,8 +21,12 @@ export function Screen({ title, children, scroll = true, onBack, footer, hideBac
 }) {
   const t = useT();
   useSceneFocus(announceScene ? scene : undefined);
+  const { height, fontScale } = useWindowDimensions();
+  // A pinned, scaled dialogue must not consume the list's entire viewport.
+  const inlineCompanion = scroll && (height < 740 || fontScale > 1.3);
+  const companionView = companion && scene && scene !== "home" ? <Companion scene={scene} fallbackCue={companionCue} /> : null;
   const body = scroll ? (
-    <ScrollView key={contentKey} style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} /> : undefined}>{children}</ScrollView>
+    <ScrollView key={contentKey} style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} /> : undefined}>{children}{inlineCompanion ? companionView : null}</ScrollView>
   ) : (
     <View style={[styles.body, { flex: 1 }]}>{children}</View>
   );
@@ -42,7 +46,7 @@ export function Screen({ title, children, scroll = true, onBack, footer, hideBac
       {IS_MAINNET ? <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}><Notice tone="danger">{t("net.mainnetLong")}</Notice></View> : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         {body}
-        {companion && scene && scene !== "home" ? <Companion scene={scene} fallbackCue={companionCue} /> : null}
+        {!inlineCompanion && companionView ? <View style={styles.companionFooter}>{companionView}</View> : null}
         {footer ? <View style={styles.footer}>{footer}</View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -77,8 +81,8 @@ export function Panel({ children, style, tone }: { children: ReactNode; style?: 
   return <View style={[styles.panel, { borderColor: border }, style]}>{children}</View>;
 }
 
-export function Button({ label, onPress, kind = "primary", disabled, busy, accessibilityHint, icon }: {
-  label: string; onPress(): void; kind?: "primary" | "secondary" | "danger"; disabled?: boolean; busy?: boolean; accessibilityHint?: string; icon?: BitcoinIconName;
+export function Button({ label, onPress, kind = "primary", disabled, busy, accessibilityHint, icon, compact = false }: {
+  compact?: boolean; label: string; onPress(): void; kind?: "primary" | "secondary" | "danger"; disabled?: boolean; busy?: boolean; accessibilityHint?: string; icon?: BitcoinIconName;
 }) {
   const off = disabled || busy;
   const bg = off ? c.disabled : kind === "primary" ? c.primaryStrong : kind === "danger" ? c.danger : "transparent";
@@ -90,10 +94,10 @@ export function Button({ label, onPress, kind = "primary", disabled, busy, acces
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!off, busy: !!busy }}
       accessibilityHint={accessibilityHint}
-      style={({ pressed }) => [styles.button, { backgroundColor: bg, borderColor: kind === "secondary" ? c.controlBorder : bg, opacity: pressed ? 0.8 : 1 }]}
+      style={({ pressed }) => [styles.button, compact && { minHeight: 44, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12 }, { backgroundColor: bg, borderColor: kind === "secondary" ? c.controlBorder : bg, opacity: pressed ? 0.8 : 1 }]}
     >
       {icon && !busy ? <BitcoinIcon name={icon} color={kind === "primary" || kind === "danger" ? c.background : c.primary} /> : null}
-      {busy ? <ActivityIndicator color={c.text} /> : <Text style={[styles.buttonText, (kind === "danger" || kind === "primary") && !off && { color: c.background }]}>{label}</Text>}
+      {busy ? <ActivityIndicator color={c.text} /> : <Text style={[styles.buttonText, compact && { fontSize: 14 }, (kind === "danger" || kind === "primary") && !off && { color: c.background }]}>{label}</Text>}
     </Pressable>
   );
 }
@@ -133,6 +137,7 @@ const styles = StyleSheet.create({
   back: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   title: { color: c.text, fontSize: 22, fontWeight: "700" },
   body: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 14, width: "100%", maxWidth: 620, alignSelf: "center" },
+  companionFooter: { flexShrink: 0, paddingTop: 8, backgroundColor: c.background },
   footer: { padding: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.outline },
   netTag: { borderWidth: 1, borderColor: c.warning, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
   netTagText: { color: c.warning, fontSize: 10, fontWeight: "700", letterSpacing: 1 },

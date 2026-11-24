@@ -58,7 +58,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background }, animation: reduceMotion ? "fade" : "default" }} />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background }, animation: reduceMotion ? "fade" : "default" }}>
+          <Stack.Screen name="home" options={{ animation: "fade" }} />
+          <Stack.Screen name="receive" options={{ animation: "fade" }} />
+          <Stack.Screen name="send" options={{ animation: "fade" }} />
+        </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -1,44 +1,37 @@
-import { useReduceMotion } from "@/game/useAvatarCue";
-import { useState } from "react";
-import { Modal, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useT } from "@/i18n";
 import { theme } from "@/theme";
-import { Button, P, Screen } from "./ui";
+import { Button, P } from "./ui";
 
-export function QrScanner({ visible, onClose, onScanned }: { visible: boolean; onClose(): void; onScanned(data: string): void }) {
+/** The stage mounts this only inside the held board, and only while focused. */
+export function QrScanner({ visible, onScanned }: { visible: boolean; onScanned(data: string): void }) {
   const t = useT();
-  const reduceMotion = useReduceMotion();
   const [permission, request] = useCameraPermissions();
-  const [done, setDone] = useState(false);
-  return (
-    <Modal visible={visible} animationType={reduceMotion ? "none" : "slide"} onRequestClose={onClose} onShow={() => setDone(false)}>
-      <Screen scene="send" announceScene={false} title={t("scan.title")} scroll={false} onBack={onClose}>
-        {permission?.granted ? (
-          <CameraView
-            style={styles.camera}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-            onBarcodeScanned={done ? undefined : ({ data }) => {
-              setDone(true);
-              onScanned(data);
-            }}
-          />
-        ) : (
-          <View style={styles.camera}>
-            <P>{t("scan.permission")}</P>
-            {permission?.canAskAgain !== false ? <Button label={t("scan.allow")} onPress={() => void request()} /> : <P muted>{t("scan.denied")}</P>}
-          </View>
-        )}
-        <P muted>{t("scan.hint")}</P>
-        <Button label={t("common.close")} kind="secondary" onPress={onClose} />
-      </Screen>
-    </Modal>
-  );
+  const done = useRef(false);
+  const [cameraError, setCameraError] = useState(false);
+  useEffect(() => { done.current = false; }, [visible]);
+  if (!visible) return null;
+  return <View style={styles.board}>
+    {permission?.granted && !cameraError ? <CameraView
+      style={StyleSheet.absoluteFill}
+      accessible accessibilityLabel={t("stage.scanLabel")}
+      facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+      onMountError={() => setCameraError(true)}
+      onBarcodeScanned={({ data }) => {
+        if (done.current) return;
+        done.current = true;
+        onScanned(data);
+      }}
+    /> : <ScrollView contentContainerStyle={styles.permission}>
+      <P style={styles.permissionText}>{t(cameraError ? "stage.cameraFailed" : "scan.permission")}</P>
+      {cameraError ? <Button compact label={t("common.retry")} onPress={() => setCameraError(false)} /> : permission?.canAskAgain !== false ? <Button compact label={t("scan.allow")} onPress={() => { void request().catch(() => setCameraError(true)); }} /> : <P muted style={styles.permissionText}>{t("scan.denied")}</P>}
+    </ScrollView>}
+  </View>;
 }
-
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: theme.colors.background, padding: 20, paddingTop: 64, gap: 16 },
-  title: { color: theme.colors.text, fontSize: 20, fontWeight: "700" },
-  camera: { flex: 1, borderRadius: theme.radius.md, overflow: "hidden", borderWidth: 1, borderColor: theme.colors.outline, justifyContent: "center", padding: 16, gap: 12 },
+  board: { width: "100%", height: "100%", backgroundColor: theme.colors.background },
+  permissionText: { fontSize: 12, lineHeight: 16 },
+  permission: { flexGrow: 1, padding: 8, justifyContent: "center", gap: 8 },
 });

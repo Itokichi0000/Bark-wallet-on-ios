@@ -14,19 +14,22 @@ export class IdleDirector {
   private last: AvatarAction = "idle";
   constructor(private readonly random: () => number = Math.random) {}
 
-  /** Milliseconds until the next beat: 5-10 s, per the design doc. */
+  /** Pause between gestures: 1.5-4 s. With the breathing loop underneath she is never still for long. */
   nextDelayMs(): number {
-    return 5000 + Math.floor(this.random() * 5000);
+    return 1500 + Math.floor(this.random() * 2500);
   }
 
   next(): IdleBeat {
     const r = this.random();
     let beat: IdleBeat;
     // Gestures are full motion clips (about 5 s); a blink leaves the idle loop running.
-    if (r < 0.35) beat = { action: "blink", emotion: "neutral", durationMs: 220 };
-    else if (r < 0.55) beat = { action: "search", emotion: "curious", durationMs: 5000 };
-    else if (r < 0.72) beat = { action: "think", emotion: "thinking", durationMs: 5000 };
-    else if (r < 0.86) beat = { action: "nod", emotion: "happy", durationMs: 5000 };
+    if (r < 0.1) beat = { action: "blink", emotion: "neutral", durationMs: 220 };
+    else if (r < 0.28) beat = { action: "sway", emotion: "happy", durationMs: 5000 };
+    else if (r < 0.44) beat = { action: "hairfix", emotion: "neutral", durationMs: 5000 };
+    else if (r < 0.58) beat = { action: "peek", emotion: "curious", durationMs: 5000 };
+    else if (r < 0.70) beat = { action: "search", emotion: "curious", durationMs: 5000 };
+    else if (r < 0.80) beat = { action: "think", emotion: "thinking", durationMs: 5000 };
+    else if (r < 0.88) beat = { action: "nod", emotion: "happy", durationMs: 5000 };
     else if (r < 0.95) beat = { action: "wave", emotion: "happy", durationMs: 5000 };
     else beat = { action: "yawn", emotion: "sleepy", durationMs: 5000 };
     // Never the same non-blink gesture twice in a row.

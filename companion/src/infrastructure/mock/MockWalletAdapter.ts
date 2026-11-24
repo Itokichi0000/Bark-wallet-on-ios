@@ -2,11 +2,12 @@ import { ACTIVE_NETWORK } from "@/config/network";
 import { WalletError } from "@/domain/errors";
 import { fromMoney, toMoney } from "@/domain/money";
 import type {
-  DestinationCheck, MaintenanceStatus, MaxSendResult, PaymentMethod, SendDraft, SendQuote,
+  DestinationCheck, LightningInvoiceRequest, LightningReceiveState, MaintenanceStatus, MaxSendResult, PaymentMethod, SendDraft, SendQuote,
   SubmitOutcome, WalletAdapter, WalletBalance, WalletChange, WalletInfo, WalletMovement, WalletVtxo,
 } from "@/domain/wallet";
 
 const MOCK_PREFIX = "tark1mock";
+const MOCK_LN_PREFIX = "lntbsmock";
 const MOCK_TIP = 250_000;
 
 export interface MockOptions {
@@ -25,6 +26,7 @@ export interface MockOptions {
  *   tark1mock…unknown…  -> the call "times out"; history later shows it paid
  *   tark1mock…lost…     -> the call "times out"; nothing was sent
  *   tark1mock…pending…  -> accepted, settles on the next sync
+ * `lntbsmock…` is a pretend Lightning invoice (with `fixed` in it, one for 2,100 sats).
  */
 export class MockWalletAdapter implements WalletAdapter {
   readonly isMock = true;
@@ -42,6 +44,8 @@ export class MockWalletAdapter implements WalletAdapter {
   /** Counts SDK-level send calls, so tests can prove nothing was sent twice. */
   sendCalls = 0;
   failNextSync = false;
+  readonly lightning = true;
+  private invoices = new Map<string, { amount: bigint; state: LightningReceiveState }>();
 
   constructor(opts: MockOptions = {}) {
     this.spendable = opts.initialSats ?? 0n;
@@ -84,9 +88,15 @@ export class MockWalletAdapter implements WalletAdapter {
   /** Demo/test helper: pretend sats arrived. */
   simulateIncoming(sats: bigint): WalletMovement {
     this.requireOpen();
+    // A pretend invoice that is waiting gets paid first, so the Lightning screen can be practised.
+    const waiting = [...this.invoices.values()].find((i) => i.state === "awaiting");
+    if (waiting) {
+      waiting.state = "settled";
+      sats = waiting.amount;
+    }
     this.spendable += sats;
     this.addVtxo(sats, MOCK_TIP + 4320);
-    return this.record({ method: "ark", kind: "mock.receive", direction: "incoming", amountSats: toMoney(sats), status: "succeeded", counterparty: `${MOCK_PREFIX}self` });
+    return this.record({ method: waiting ? "lightning" : "ark", kind: "mock.receive", direction: "incoming", amountSats: toMoney(sats), status: "succeeded", counterparty: `${MOCK_PREFIX}self` });
   }
 
   /** Demo helper: pretend an earlier payment went out and was confirmed. Balance is left alone. */
@@ -136,12 +146,31 @@ export class MockWalletAdapter implements WalletAdapter {
     this.addressIndex += 1;
     return `${MOCK_PREFIX}receive${String(this.addressIndex).padStart(4, "0")}notarealaddress`;
   }
+  async newLightningInvoice(amountSats: string): Promise<LightningInvoiceRequest> {
+    this.requireOpen();
+    const amount = fromMoney(amountSats);
+    if (amount <= 0n) throw new WalletError("quote-unavailable");
+    const paymentHash = `mockhash${this.invoices.size + 1}`;
+    this.invoices.set(paymentHash, { amount, state: "awaiting" });
+    return {
+      invoice: `${MOCK_LN_PREFIX}${amount}invoice${String(this.invoices.size).padStart(4, "0")}notarealinvoice`,
+      paymentHash, amountSats: toMoney(amount), feeSats: "0",
+      expiresAt: new Date(this.now().getTime() + 3600_000).toISOString(),
+    };
+  }
+  async lightningReceiveState(paymentHash: string): Promise<LightningReceiveState> {
+    this.requireOpen();
+    return this.invoices.get(paymentHash)?.state ?? "unknown";
+  }
   async validateDestination(input: string): Promise<DestinationCheck> {
     this.requireOpen();
     const text = input.trim().toLowerCase();
     if (text === "") return { valid: false, reason: "empty" };
     if (text.startsWith("ark1")) return { valid: false, reason: "wrong-network" };
-    if (text.startsWith("lntbs") || text.startsWith("lnbc")) return { valid: false, reason: "method-not-enabled" };
+    if (text.startsWith(MOCK_LN_PREFIX)) {
+      return { valid: true, method: "lightning", destination: text, fixedAmountSats: text.includes("fixed") ? "2100" : undefined };
+    }
+    if (text.startsWith("lntbs") || text.startsWith("lnbc")) return { valid: false, reason: "unrecognised" };
     if (!text.startsWith(MOCK_PREFIX)) return { valid: false, reason: "unrecognised" };
     return { valid: true, method: "ark", destination: text };
   }
@@ -174,7 +203,7 @@ export class MockWalletAdapter implements WalletAdapter {
     this.spendable -= total;
     const pending = dest.includes("pending");
     const movement = this.record({
-      method: "ark", kind: "mock.send", direction: "outgoing", amountSats: quote.amountSats, feeSats: quote.feeSats,
+      method: quote.method, kind: "mock.send", direction: "outgoing", amountSats: quote.amountSats, feeSats: quote.feeSats,
       status: pending ? "pending" : "succeeded", counterparty: dest,
     });
     if (dest.includes("unknown")) return { status: "unknown", errorMessage: "mock: request timed out" };

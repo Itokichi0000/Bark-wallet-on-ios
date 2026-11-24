@@ -10,6 +10,7 @@ import {
   WalletNotification_Tags,
   WalletNotifications,
   WalletOpenArgs,
+  LightningSendStatus_Tags,
   decodeBolt11Invoice,
   readDatadirInfo,
   walletExists,
@@ -20,6 +21,8 @@ import { fromMoney, toMoney } from "@/domain/money";
 import {
   type DestinationCheck,
   ENABLED_SEND_METHODS,
+  type LightningInvoiceRequest,
+  type LightningReceiveState,
   type MaintenanceStatus,
   type MaxSendResult,
   type PaymentMethod,
@@ -33,7 +36,7 @@ import {
   type WalletMovement,
   type WalletVtxo,
 } from "@/domain/wallet";
-import { ACTIVE_NETWORK, NET } from "@/config/network";
+import { ACTIVE_NETWORK, LIGHTNING_ENABLED, NET } from "@/config/network";
 import { BARK_SDK_VERSION } from "./barkConfig";
 import { maintenanceSeverity, mapMovement, mapMovementStatus, vtxoHealth } from "./mapping";
 
@@ -43,6 +46,10 @@ import { maintenanceSeverity, mapMovement, mapMovementStatus, vtxoHealth } from 
  * docs/SDK_COMPATIBILITY.md for what has and has not been exercised on a
  * device.
  */
+/** How long a Lightning payment is watched before it is handed to reconciliation as pending. */
+const LIGHTNING_POLLS = 10;
+const LIGHTNING_POLL_MS = 2000;
+
 export class BarkWalletAdapter implements WalletAdapter {
   readonly isMock = false;
   private wallet: WalletLike | undefined;
@@ -185,7 +192,7 @@ export class BarkWalletAdapter implements WalletAdapter {
     }
 
     const method: PaymentMethod = option === ark ? "ark" : "lightning";
-    if (!ENABLED_SEND_METHODS.includes(method)) return { valid: false, reason: "method-not-enabled" };
+    if (!this.canUse(method)) return { valid: false, reason: "method-not-enabled" };
     const destination = option.method.inner.value;
 
     if (method === "ark") {
@@ -197,8 +204,22 @@ export class BarkWalletAdapter implements WalletAdapter {
       }
       if (!deliverable) return { valid: false, reason: "other-server" };
     } else {
-      const details = decodeBolt11Invoice(destination);
+      let details: ReturnType<typeof decodeBolt11Invoice>;
+      try {
+        details = decodeBolt11Invoice(destination);
+      } catch (e) {
+        return { valid: false, reason: "unrecognised", detail: errorMessage(e) };
+      }
       if (details.expiresAt * 1000n <= BigInt(Date.now())) return { valid: false, reason: "expired" };
+      // Sub-satoshi amounts cannot be shown or reviewed exactly, so they are not paid.
+      if (details.amountMsat !== undefined && details.amountMsat % 1000n !== 0n) return { valid: false, reason: "amount-mismatch" };
+      return {
+        valid: true,
+        method,
+        destination,
+        fixedAmountSats: details.amountSats !== undefined ? toMoney(details.amountSats) : undefined,
+        description: details.description ?? request.message ?? request.label,
+      };
     }
 
     return {
@@ -219,7 +240,7 @@ export class BarkWalletAdapter implements WalletAdapter {
   }
 
   async quoteSend(draft: SendDraft): Promise<SendQuote> {
-    if (!ENABLED_SEND_METHODS.includes(draft.method)) throw new WalletError("quote-unavailable");
+    if (!this.canUse(draft.method)) throw new WalletError("quote-unavailable");
     const amount = fromMoney(draft.amountSats);
     if (amount <= 0n) throw new WalletError("quote-unavailable", "amount must be positive");
     const { fee, consistent } = await this.estimateFee(draft.method, amount);
@@ -252,30 +273,122 @@ export class BarkWalletAdapter implements WalletAdapter {
     return { ok: false, reason: "fee-exceeds-balance" };
   }
 
+  readonly lightning = LIGHTNING_ENABLED && ENABLED_SEND_METHODS.includes("lightning");
+
+  private canUse(method: PaymentMethod): boolean {
+    return ENABLED_SEND_METHODS.includes(method) && (method !== "lightning" || this.lightning);
+  }
+
+  async newLightningInvoice(amountSats: string): Promise<LightningInvoiceRequest> {
+    if (!this.lightning) throw new WalletError("quote-unavailable", "lightning is not enabled");
+    const wallet = this.require();
+    const amount = fromMoney(amountSats);
+    if (amount <= 0n) throw new WalletError("quote-unavailable", "amount must be positive");
+    const fee = await wallet.estimateLightningReceiveFee(amount).then((e) => e.feeSats, () => undefined);
+    const created = await wallet.bolt11Invoice(amount, undefined, undefined, undefined);
+    let expiresAt: string | undefined;
+    try {
+      expiresAt = new Date(Number(decodeBolt11Invoice(created.invoice).expiresAt) * 1000).toISOString();
+    } catch {
+      expiresAt = undefined;
+    }
+    return {
+      invoice: created.invoice,
+      paymentHash: created.paymentHash,
+      amountSats: toMoney(created.amountSats),
+      feeSats: fee === undefined ? undefined : toMoney(fee),
+      expiresAt,
+    };
+  }
+
+  async lightningReceiveState(paymentHash: string): Promise<LightningReceiveState> {
+    const wallet = this.require();
+    // Claiming collects money already paid to this wallet; a failure here just means "not yet".
+    await wallet.tryClaimLightningReceive(paymentHash, false).catch(() => undefined);
+    try {
+      const receive = await wallet.lightningReceiveState(paymentHash);
+      if (receive.state === "settled") return "settled";
+      return receive.state === "awaiting-payment" ? "awaiting" : "claiming";
+    } catch {
+      return "unknown";
+    }
+  }
+
   sendReviewedPayment(quote: SendQuote): Promise<SubmitOutcome> {
     return this.runExclusive(async () => {
-      const wallet = this.require();
-      if (quote.method !== "ark" || !ENABLED_SEND_METHODS.includes("ark")) {
+      if (!this.canUse(quote.method)) {
         return { status: "failed", errorMessage: "This payment method is not enabled in this build." };
       }
-      let movementId: number;
-      try {
-        movementId = await wallet.sendArkoorPayment(quote.destination, fromMoney(quote.amountSats));
-      } catch (e) {
-        // An exception does not prove the payment was not made (timeout,
-        // dropped connection after the server cosigned). The caller
-        // reconciles against history; nothing here retries.
-        return { status: "unknown", errorMessage: errorMessage(e) };
-      }
-      try {
-        const movement = (await wallet.history()).find((m) => m.id === movementId);
-        if (!movement) return { status: "unknown", movementId: String(movementId) };
-        const status = mapMovementStatus(movement.status);
-        return { status, movementId: String(movementId) };
-      } catch {
-        return { status: "unknown", movementId: String(movementId) };
-      }
+      return quote.method === "ark" ? this.sendArk(quote) : this.sendLightning(quote);
     });
+  }
+
+  private async sendArk(quote: SendQuote): Promise<SubmitOutcome> {
+    const wallet = this.require();
+    let movementId: number;
+    try {
+      movementId = await wallet.sendArkoorPayment(quote.destination, fromMoney(quote.amountSats));
+    } catch (e) {
+      // An exception does not prove the payment was not made (timeout,
+      // dropped connection after the server cosigned). The caller
+      // reconciles against history; nothing here retries.
+      return { status: "unknown", errorMessage: errorMessage(e) };
+    }
+    return this.movementOutcome(movementId);
+  }
+
+  private async movementOutcome(movementId: number): Promise<SubmitOutcome> {
+    try {
+      const movement = (await this.require().history()).find((m) => m.id === movementId);
+      if (!movement) return { status: "unknown", movementId: String(movementId) };
+      return { status: mapMovementStatus(movement.status), movementId: String(movementId) };
+    } catch {
+      return { status: "unknown", movementId: String(movementId) };
+    }
+  }
+
+  /**
+   * Pay a BOLT11 invoice. The payment is started exactly once (`wait = false`) and then only
+   * observed: polling reads and advances the same payment, it never starts another. Anything
+   * short of the server's "paid" is reported as pending or unknown, never as failure.
+   */
+  private async sendLightning(quote: SendQuote): Promise<SubmitOutcome> {
+    const wallet = this.require();
+    const amount = fromMoney(quote.amountSats);
+    let details: ReturnType<typeof decodeBolt11Invoice>;
+    try {
+      details = decodeBolt11Invoice(quote.destination);
+    } catch (e) {
+      return { status: "failed", errorMessage: errorMessage(e) };
+    }
+    // Nothing has been sent yet, so these are definitive.
+    if (details.expiresAt * 1000n <= BigInt(Date.now())) return { status: "failed", errorMessage: "invoice-expired" };
+    if (details.amountSats !== undefined && details.amountSats !== amount) return { status: "failed", errorMessage: "amount-mismatch" };
+
+    let status: Awaited<ReturnType<WalletLike["payLightningInvoice"]>>;
+    try {
+      status = await wallet.payLightningInvoice(quote.destination, details.amountSats === undefined ? amount : undefined, false, undefined);
+    } catch (e) {
+      return { status: "unknown", errorMessage: errorMessage(e) };
+    }
+    let movementId: number | undefined;
+    for (let attempt = 0; ; attempt++) {
+      if (status.tag === LightningSendStatus_Tags.Paid) {
+        return { status: "succeeded", movementId: movementId === undefined ? undefined : String(movementId) };
+      }
+      if (status.tag === LightningSendStatus_Tags.InProgress) movementId = status.inner.send.movementId ?? movementId;
+      if (attempt >= LIGHTNING_POLLS) break;
+      await new Promise((resolve) => setTimeout(resolve, LIGHTNING_POLL_MS));
+      try {
+        status = await wallet.checkLightningPayment(details.paymentHash, false);
+      } catch {
+        break;
+      }
+    }
+    // Not confirmed in the time we watched. The wallet's own record decides; history reconciles the rest.
+    if (movementId === undefined) return { status: "unknown" };
+    const outcome = await this.movementOutcome(movementId);
+    return outcome.status === "succeeded" || outcome.status === "failed" ? outcome : { ...outcome, status: "pending" };
   }
 
   async listHistory(): Promise<WalletMovement[]> {

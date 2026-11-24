@@ -121,6 +121,19 @@ export interface WalletInfo {
   isMock: boolean;
 }
 
+/** A request to be paid over Lightning. It is for one fixed amount and stops working at `expiresAt`. */
+export interface LightningInvoiceRequest {
+  invoice: string;
+  paymentHash: string;
+  amountSats: MoneySats;
+  /** What the Ark server keeps from the incoming amount, when it could be estimated. */
+  feeSats?: MoneySats;
+  expiresAt?: string;
+}
+
+/** `claiming`: the payer has paid and the wallet is collecting it. Only `settled` means the money arrived. */
+export type LightningReceiveState = "awaiting" | "claiming" | "settled" | "unknown";
+
 export type WalletChange =
   | { kind: "movement-created"; movement: WalletMovement }
   | { kind: "movement-updated"; movement: WalletMovement };
@@ -135,6 +148,11 @@ export interface WalletAdapter {
   sync(): Promise<void>;
   getBalance(): Promise<WalletBalance>;
   newArkAddress(): Promise<string>;
+  /** Whether this build and network can pay and be paid over Lightning. */
+  readonly lightning: boolean;
+  newLightningInvoice(amountSats: MoneySats): Promise<LightningInvoiceRequest>;
+  /** Advance and read one incoming Lightning payment. Never moves the user's existing funds. */
+  lightningReceiveState(paymentHash: string): Promise<LightningReceiveState>;
   validateDestination(input: string): Promise<DestinationCheck>;
   quoteSend(draft: SendDraft): Promise<SendQuote>;
   quoteMaxSend(method: PaymentMethod): Promise<MaxSendResult>;
@@ -153,4 +171,4 @@ export interface WalletAdapter {
 }
 
 /** Which rails this build lets the user pay over. See docs/SDK_COMPATIBILITY.md. */
-export const ENABLED_SEND_METHODS: readonly PaymentMethod[] = ["ark"];
+export const ENABLED_SEND_METHODS: readonly PaymentMethod[] = ["ark", "lightning"];

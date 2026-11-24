@@ -32,7 +32,9 @@ SDK を上げるときは、下の表の API をインストール済みの `.d.
 |---|---|
 | Ark アドレスでの受取 | implemented / untested |
 | Ark（arkoor）送金 | implemented / untested |
-| Lightning 送金・受取 | 無効（SDK に API はあるが未検証のため UI から到達不可） |
+| Lightning 送金（BOLT11 請求書） | Signet で有効。`payLightningInvoice(wait=false)` で1回だけ開始し、`checkLightningPayment` で観測のみ。Paid 以外は pending/unknown として履歴照合へ。**実支払いは未検証**。Mainnet は `LIGHTNING_ENABLED` で無効 |
+| Lightning 受取（BOLT11 請求書） | Signet で有効。`bolt11Invoice` で金額固定の請求書を作成、`tryClaimLightningReceive` + `lightningReceiveState` で状態確認。「受け取った」は settled と履歴の記録のみで判断。**実受取は未検証**。Mainnet は無効 |
+| BOLT12 offer / Lightning Address / LNURL | 無効（SDK に API はあるが未実装） |
 | オンチェーン送金・Offboard・Exit・手動 Refresh | 無効（説明のみ） |
 | DB スナップショット API | **SDK に存在しない** → 停止＋ファイルコピーで代替（ADR-0002） |
 

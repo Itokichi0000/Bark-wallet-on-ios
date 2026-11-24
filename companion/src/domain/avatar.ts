@@ -8,6 +8,10 @@ export type AvatarAction =
   | "sending" | "receive" | "celebrate" | "warn" | "rest"
   // Gestures added with the per-action motion clips.
   | "think" | "nod" | "point-down" | "hush" | "yawn" | "startle" | "talk" | "search"
+  // Idle life only (IdleDirector): never carry a line or a meaning.
+  | "sway" | "hairfix" | "peek"
+  /** She holds up her board; the screen draws a QR code or the camera view on it. Stays until replaced. */
+  | "present"
   /** Confirmed incoming payment only: she catches it. Emitted for PAYMENT_RECEIVED and nothing else. */
   | "catch";
 
