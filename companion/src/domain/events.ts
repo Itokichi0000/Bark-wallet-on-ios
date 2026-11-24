@@ -1,5 +1,21 @@
 export type MenuId = "send" | "receive" | "assets" | "archive";
 
+/** Every screen the companion follows the user onto. */
+export type SceneId =
+  | "home" | "receive" | "send" | "assets" | "archive" | "settings"
+  | "quest" | "story" | "seed" | "recovery" | "onboarding";
+
+/**
+ * Things the user just did on a screen. Screens emit these so the companion can react.
+ * None of them is a fact about money: a payment's result only ever arrives as PAYMENT_*.
+ */
+export type UserAction =
+  | "address-copied" | "address-shared" | "scan-opened" | "destination-pasted"
+  | "destination-valid" | "destination-invalid" | "amount-typing" | "max-selected"
+  | "balance-hidden" | "balance-shown" | "unit-changed" | "setting-changed"
+  | "term-opened" | "details-opened" | "pull-refresh" | "movement-opened"
+  | "seed-shown" | "seed-hidden" | "backup-exported" | "review-cancelled" | "auth-asked";
+
 /**
  * Facts about the wallet and the app. Only use cases that measured the fact
  * may emit these. In particular nothing in the UI or avatar layer may emit
@@ -23,7 +39,12 @@ export type DomainEvent =
   | { type: "MAINTENANCE_REQUIRED"; id: string; severity: "notice" | "urgent" }
   | { type: "BACKUP_FAILED"; id: string }
   | { type: "VOICE_LISTENING"; id: string }
-  | { type: "USER_IDLE"; id: string };
+  | { type: "USER_IDLE"; id: string }
+  | { type: "SCREEN_ENTERED"; id: string; screen: SceneId }
+  | { type: "USER_ACTION"; id: string; action: UserAction }
+  | { type: "QUEST_COMPLETED"; id: string; quest: string }
+  /** Emitted by StoryTracker only, from confirmed outgoing payments in the wallet's history. */
+  | { type: "STORY_UNLOCKED"; id: string; chapter: string };
 
 export type DomainEventType = DomainEvent["type"];
 type Listener = (event: DomainEvent) => void;

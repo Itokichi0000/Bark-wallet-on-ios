@@ -1,3 +1,4 @@
+import { userAction } from "./companionEvents";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useT } from "@/i18n";
@@ -12,7 +13,7 @@ export function TermHelp({ term }: { term: GlossaryTerm }) {
   const title = t(`help.${term}.title`);
   return (
     <View style={styles.wrap}>
-      <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityLabel={t("help.label", { term: title })} accessibilityState={{ expanded: open }} style={styles.trigger}>
+      <Pressable onPress={() => { if (!open) userAction("term-opened"); setOpen(!open); }} accessibilityRole="button" accessibilityLabel={t("help.label", { term: title })} accessibilityState={{ expanded: open }} style={styles.trigger}>
         <BitcoinIcon name="question-circle" size={22} />
         <Text style={styles.title}>{title}</Text>
         <BitcoinIcon name={open ? "caret-up" : "caret-down"} size={16} />

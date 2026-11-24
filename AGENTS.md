@@ -12,7 +12,7 @@ The owner assigned the split: **ChatGPT / Codex owns the UI, Claude owns the int
 | `src/components/**` | `src/usecases/**` |
 | `src/theme/**` | `src/infrastructure/**` |
 | `src/i18n/ja.ts`, `src/i18n/en.ts` (wording) | `src/state/**`, `src/config/**`, `src/container.ts` |
-| `src/game/*Renderer.tsx`, `HologramMenu.tsx`, `SceneBackground.tsx` | `src/game/AvatarOrchestrator.ts`, `IdleDirector.ts`, `quests.ts`, `src/voice/**` |
+| `src/game/*Renderer.tsx`, `HologramMenu.tsx`, `SceneBackground.tsx` | `src/game/AvatarOrchestrator.ts`, `IdleDirector.ts`, `quests.ts`, `story.ts`, `avatarMotion.ts`, `homeHint.ts`, `src/voice/**` |
 | `assets/**` | `tests/**`, `plugins/**`, `app.config.ts`, `package.json` scripts, CI, `scripts/**` |
 | UI-only dependencies (icons, fonts) | `docs/**` (each agent may add its own notes) |
 
@@ -54,3 +54,15 @@ cd companion && pnpm typecheck && pnpm test
 
 Both must pass. Do not commit, push, or run `expo prebuild` — a push to `main` uploads a
 TestFlight build. Claude runs the app in the simulator, reviews, and commits.
+
+## Game layer (owner's direction, 2026-11-24)
+
+The product is "a game that happens to send bitcoin": the companion is on every screen and reacts to
+what the user does (`SCREEN_ENTERED`, `USER_ACTION` events → cues → motion clips).
+
+Story chapters open with the wallet's total of confirmed outgoing payments. This is the owner's explicit
+decision and overrides the design document's "never reward amounts sent" for the story only. Guard rails:
+only confirmed payments count (never pending/unknown), progress is per network so Signet opens every
+chapter for free, and neither the companion nor any screen urges the user to send in order to unlock
+something (no countdowns, no "send now" on the story screen). Quests are still completed by learning.
+The success motions (`celebrate`, `catch`) come only from cues the internals derive from confirmed results.

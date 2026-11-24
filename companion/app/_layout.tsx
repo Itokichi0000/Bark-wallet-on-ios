@@ -21,7 +21,8 @@ export default function RootLayout() {
 
     const offQuests = bus.on((e) => {
       const quest = questForEvent(e);
-      if (quest) useSettings.getState().completeQuest(quest);
+      if (!quest || useSettings.getState().questsDone[quest]) return;
+      useSettings.getState().completeQuest(quest);
     });
 
     // Speech and haptics follow the avatar's cues. Lines come from the fixed
@@ -29,8 +30,8 @@ export default function RootLayout() {
     const offAvatar = avatar.subscribe((cue) => {
       const s = useSettings.getState();
       if (s.hapticsEnabled && cue.action === "celebrate") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-      if (!cue.lineKey) return;
       void Speech.stop();
+      if (!cue.lineKey) return;
       if (s.speechEnabled && !(s.balanceHidden && cue.lineKey === "voice.balance")) {
         Speech.speak(translate(s.language, cue.lineKey, cue.lineParams), { language: s.language === "ja" ? "ja-JP" : "en-US", rate: 1.0 });
       }
@@ -57,7 +58,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background }, animation: reduceMotion ? "none" : "fade" }} />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background }, animation: reduceMotion ? "fade" : "default" }} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

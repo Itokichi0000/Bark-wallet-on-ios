@@ -16,6 +16,16 @@ const CLIPS = {
   focus: require("../../assets/avatar/motion/focus.webp") as number,
   worry: require("../../assets/avatar/motion/worry.webp") as number,
   guide: require("../../assets/avatar/motion/guide.webp") as number,
+  catch: require("../../assets/avatar/motion/catch.webp") as number,
+  send: require("../../assets/avatar/motion/send.webp") as number,
+  think: require("../../assets/avatar/motion/think.webp") as number,
+  nod: require("../../assets/avatar/motion/nod.webp") as number,
+  pointdown: require("../../assets/avatar/motion/pointdown.webp") as number,
+  hush: require("../../assets/avatar/motion/hush.webp") as number,
+  yawn: require("../../assets/avatar/motion/yawn.webp") as number,
+  startle: require("../../assets/avatar/motion/startle.webp") as number,
+  talk: require("../../assets/avatar/motion/talk.webp") as number,
+  search: require("../../assets/avatar/motion/search.webp") as number,
 } satisfies Record<AvatarClip, number>;
 
 const FADE_MS = 160;
@@ -60,6 +70,13 @@ function OneShot({ clip, opacity }: { clip: Exclude<AvatarClip, "idle">; opacity
 
 function MotionAvatar({ cue, height }: Omit<AvatarRendererProps, "reduceMotion">) {
   const clip = clipForCue(cue);
+  // Let a clip finish if its short-lived cue expires into idle. A new explicit
+  // cue replaces it immediately, including the same clip with a fresh cue id.
+  const [playback, setPlayback] = useState<{ id: string; clip: Exclude<AvatarClip, "idle"> }>();
+  useEffect(() => {
+    if (clip && clip !== "idle") setPlayback({ id: cue.id, clip });
+    else if (clip === undefined) setPlayback(undefined);
+  }, [cue.id, clip]);
   const opacity = useSharedValue(0);
   const idleStyle = useAnimatedStyle(() => ({ opacity: clip === undefined ? 0 : 1 - opacity.get() }));
 
@@ -73,8 +90,8 @@ function MotionAvatar({ cue, height }: Omit<AvatarRendererProps, "reduceMotion">
         {clip === undefined ? (
           // Every AVATAR_FRAMES entry is a local require (Metro asset ID).
           <Image source={AVATAR_FRAMES[frameForCue(cue)] as number} style={StyleSheet.absoluteFill} contentFit="contain" accessible={false} />
-        ) : clip !== "idle" ? (
-          <OneShot key={cue.id} clip={clip} opacity={opacity} />
+        ) : playback ? (
+          <OneShot key={playback.id} clip={playback.clip} opacity={opacity} />
         ) : null}
       </View>
     </View>

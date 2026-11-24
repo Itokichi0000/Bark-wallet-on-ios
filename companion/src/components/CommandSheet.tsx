@@ -1,3 +1,4 @@
+import { Companion } from "./Companion";
 import { useReduceMotion } from "@/game/useAvatarCue";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IS_MAINNET } from "@/config/network";
@@ -55,6 +56,7 @@ export function CommandSheet({ visible, onClose, onSubmit }: { visible: boolean;
           <Button label={t("talk.send")} onPress={submit} disabled={text.trim() === ""} />
           <Button label={t("common.close")} kind="secondary" onPress={onClose} />
           </ScrollView>
+          {visible ? <Companion scene="home" /> : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>

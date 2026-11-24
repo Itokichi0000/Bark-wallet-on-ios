@@ -1,3 +1,4 @@
+import { userAction } from "./companionEvents";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useT } from "@/i18n";
@@ -24,7 +25,7 @@ export function RecentActivity() {
       {recent.length === 0 ? <Text style={styles.empty}>{t(failed ? "list.unavailable" : !balance?.lastSyncedAt ? "archive.loading" : "home.noActivity")}</Text> : recent.map((m) => {
         const unresolved = m.status === "pending" || m.status === "unknown";
         return (
-          <Pressable key={m.id} onPress={() => router.push("/archive")} accessibilityRole="button" style={({ pressed }) => [styles.row, { opacity: pressed ? 0.65 : 1 }]}>
+          <Pressable key={m.id} onPress={() => { userAction("movement-opened"); router.push({ pathname: "/archive", params: { movement: m.id } }); }} accessibilityRole="button" style={({ pressed }) => [styles.row, { opacity: pressed ? 0.65 : 1 }]}>
             <View style={styles.summary}>
               <BitcoinIcon name={m.direction === "incoming" ? "receive" : m.direction === "outgoing" ? "send" : "refresh"} size={20} />
               <View style={{ flex: 1 }}>

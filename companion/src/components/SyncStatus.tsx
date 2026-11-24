@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { Companion } from "./Companion";
+import { SceneContext, userAction } from "./companionEvents";
+import { useContext, useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useT } from "@/i18n";
 import { useWalletStore } from "@/state/walletStore";
@@ -11,6 +13,7 @@ import { P, Screen } from "./ui";
 /** Cached data stays visible on failure; time continues to age even without store updates. */
 export function SyncStatus() {
   const t = useT();
+  const scene = useContext(SceneContext);
   const { balance, lastSyncError, lifecycle } = useWalletStore();
   const reduceMotion = useReduceMotion();
   const [help, setHelp] = useState(false);
@@ -26,15 +29,16 @@ export function SyncStatus() {
     <View>
       <View style={styles.row}>
         <Text style={[styles.text, offline && { color: theme.colors.warning }]}>{text}</Text>
-        <Pressable onPress={() => setHelp(true)} accessibilityRole="button" accessibilityLabel={t("help.label", { term: t("help.sync.title") })} style={({ pressed }) => [styles.help, { opacity: pressed ? 0.6 : 1 }]}>
+        <Pressable onPress={() => { userAction("term-opened"); setHelp(true); }} accessibilityRole="button" accessibilityLabel={t("help.label", { term: t("help.sync.title") })} style={({ pressed }) => [styles.help, { opacity: pressed ? 0.6 : 1 }]}>
           <BitcoinIcon name="question-circle" size={18} />
         </Pressable>
       </View>
       <Modal visible={help} animationType={reduceMotion ? "none" : "fade"} onRequestClose={() => setHelp(false)}>
-        <Screen title={t("help.sync.title")} onBack={() => setHelp(false)}>
+        <Screen scene={scene} companion={false} announceScene={false} title={t("help.sync.title")} onBack={() => setHelp(false)}>
           <P>{t("sync.automatic")}</P>
           <P muted>{t("help.sync.body")}</P>
           <P muted>{age === undefined ? t("status.neverSynced") : t("sync.minutesAgo", { n: age })}</P>
+          {help ? <Companion scene={scene} /> : null}
         </Screen>
       </Modal>
     </View>

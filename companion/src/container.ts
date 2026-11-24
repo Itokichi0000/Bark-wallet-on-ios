@@ -5,6 +5,8 @@ import { AvatarOrchestrator } from "@/game/AvatarOrchestrator";
 import { BackupManager } from "@/infrastructure/backup/BackupManager";
 import { type AuthResult, SecureSeedRepository, authenticateUser } from "@/infrastructure/secure/SecureSeedRepository";
 import { PendingOperationStore } from "@/infrastructure/storage/PendingOperationStore";
+import { StoryTracker } from "@/game/story";
+import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
 import { SyncScheduler } from "@/usecases/SyncScheduler";
 import { WalletService } from "@/usecases/WalletService";
@@ -78,6 +80,34 @@ export const autoSync = new SyncScheduler({
   },
 });
 
+/**
+ * Story progress follows the wallet's history. It waits for the saved progress to load,
+ * so chapters already opened on this device are not announced again.
+ */
+export const story = new StoryTracker(
+  { getSentSats: () => useSettings.getState().storySentSats, setSentSats: (v) => useSettings.getState().update({ storySentSats: v }) },
+  (chapter) => bus.emit({ type: "STORY_UNLOCKED", id: bus.nextId("story"), chapter: chapter.id }),
+);
+function watchStory(): void {
+  const observe = () => {
+    const { movements, lifecycle } = useWalletStore.getState();
+    if (lifecycle === "ready" || lifecycle === "degraded") story.observe(movements);
+  };
+  const begin = () => {
+    observe();
+    // A guide step newly completed (by any screen or event) is announced from here, once.
+    useSettings.subscribe((s, prev) => {
+      if (s.questsDone === prev.questsDone) return;
+      for (const quest of Object.keys(s.questsDone)) {
+        if (!prev.questsDone[quest] && quest !== "q1") bus.emit({ type: "QUEST_COMPLETED", id: bus.nextId("quest"), quest });
+      }
+    });
+    useWalletStore.subscribe((s, prev) => (s.movements !== prev.movements || s.lifecycle !== prev.lifecycle ? observe() : undefined));
+  };
+  if (useSettings.persist.hasHydrated()) begin();
+  else useSettings.persist.onFinishHydration(begin);
+}
+
 /** A new 12-word BIP 39 phrase. The Bark build uses the SDK's generator, as its documentation prescribes. */
 export function generateMnemonic(): string {
   if (WALLET_MODE === "mock") {
@@ -109,6 +139,7 @@ export function normalizeMnemonic(phrase: string): string {
 export async function bootApp(): Promise<string | undefined> {
   try {
     const route = await start();
+    watchStory();
     autoSync.start();
     return route;
   } catch (e) {
@@ -123,7 +154,9 @@ async function start(): Promise<string | undefined> {
   if (MOCK_DEMO) await seeds.store(generateMnemonic());
   await wallet.boot();
   if (!MOCK_DEMO) return undefined;
-  (adapter as unknown as { simulateIncoming(sats: bigint): unknown }).simulateIncoming(21_000n);
+  const demo = adapter as unknown as { simulateIncoming(sats: bigint): unknown; simulateSent(sats: bigint): unknown };
+  demo.simulateIncoming(21_000n);
+  demo.simulateSent(6_000n);
   await wallet.refresh();
   const { Settings } = require("react-native") as typeof import("react-native");
   const route: unknown = Settings.get("reviewRoute");

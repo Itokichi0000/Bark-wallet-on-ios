@@ -89,6 +89,12 @@ export class MockWalletAdapter implements WalletAdapter {
     return this.record({ method: "ark", kind: "mock.receive", direction: "incoming", amountSats: toMoney(sats), status: "succeeded", counterparty: `${MOCK_PREFIX}self` });
   }
 
+  /** Demo helper: pretend an earlier payment went out and was confirmed. Balance is left alone. */
+  simulateSent(sats: bigint): WalletMovement {
+    this.requireOpen();
+    return this.record({ method: "ark", kind: "mock.send", direction: "outgoing", amountSats: toMoney(sats), status: "succeeded", counterparty: `${MOCK_PREFIX}friend` });
+  }
+
   async exists(): Promise<boolean> {
     return this.created;
   }

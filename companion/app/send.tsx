@@ -1,8 +1,10 @@
+import { userAction } from "@/components/companionEvents";
+import { SendResultCompanion, useSendPresentation } from "@/components/SendCompanion";
 import { TermHelp } from "@/components/TermHelp";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { PaymentReview } from "@/components/PaymentReview";
 import { QrScanner } from "@/components/QrScanner";
 import { Button, H, Notice, P, Panel, Row, Screen } from "@/components/ui";
@@ -31,6 +33,24 @@ export default function SendScene() {
   const [busyMax, setBusyMax] = useState(false);
   const [open, setOpen] = useState<PendingOperation[]>([]);
   const [reconciling, setReconciling] = useState(false);
+  const validationInput = useRef<string | undefined>(undefined);
+  const amountTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lastTypingAt = useRef(0);
+  const cancelTyping = useCallback(() => { clearTimeout(amountTimer.current); amountTimer.current = undefined; }, []);
+  useFocusEffect(useCallback(() => () => { cancelTyping(); avatar.cancel(); }, [cancelTyping]));
+  const typeAmount = (amountInput: string) => {
+    dispatch({ type: "AMOUNT_CHANGED", amountInput });
+    cancelTyping();
+    if (amountInput) amountTimer.current = setTimeout(() => {
+      lastTypingAt.current = Date.now();
+      userAction("amount-typing");
+    }, Math.max(450, 2000 - (Date.now() - lastTypingAt.current)));
+  };
+  const announceValidation = (input: string, valid: boolean) => {
+    if (validationInput.current === input) return;
+    validationInput.current = input;
+    userAction(valid ? "destination-valid" : "destination-invalid");
+  };
   const wantMax = useRef(params.max === "1");
 
   const loadOpen = useCallback(async () => setOpen(await wallet.unresolvedOperations()), []);
@@ -44,14 +64,18 @@ export default function SendScene() {
   const explainCheck = (reason: string) => t(`send.invalid.${reason}`);
 
   const goReview = async () => {
+    cancelTyping();
+    Keyboard.dismiss();
     dispatch({ type: "VALIDATE_STARTED" });
     let check;
     try {
       check = await wallet.validateDestination(state.input);
     } catch (e) {
+      announceValidation(state.input, false);
       dispatch({ type: "VALIDATED", check: { valid: false, reason: "unrecognised", detail: errorMessage(e) } });
       return;
     }
+    announceValidation(state.input, check.valid);
     dispatch({ type: "VALIDATED", check });
     if (!check.valid) return;
     const amountText = check.fixedAmountSats ?? state.amountInput;
@@ -62,7 +86,6 @@ export default function SendScene() {
     try {
       const quote = await wallet.quoteSend({ method: check.method, destination: check.destination, amountSats: toMoney(parsed.sats) });
       dispatch({ type: "QUOTED", quote });
-      bus.emit({ type: "PAYMENT_REVIEW_READY", id: bus.nextId("review") });
     } catch (e) {
       if (e instanceof WalletError && e.code === "insufficient-funds") {
         dispatch({ type: "FORM_ERROR", message: t("send.insufficient", { short: formatAmount(e.message, unit) }) });
@@ -74,6 +97,8 @@ export default function SendScene() {
   };
 
   const fillMax = useCallback(async () => {
+    cancelTyping();
+    userAction("max-selected");
     setBusyMax(true);
     try {
       const max = await wallet.quoteMaxSend("ark");
@@ -84,7 +109,7 @@ export default function SendScene() {
     } finally {
       setBusyMax(false);
     }
-  }, [t]);
+  }, [t, cancelTyping]);
 
   useEffect(() => {
     if (wantMax.current) {
@@ -101,6 +126,7 @@ export default function SendScene() {
     }
     setAuthError(undefined);
     dispatch({ type: "USER_CONFIRMED" });
+    userAction("auth-asked");
     const auth = await authenticateUser(t("send.authPrompt"));
     if (!auth.ok) {
       if (auth.reason !== "cancelled") setAuthError(t(auth.reason === "not-enrolled" ? "send.noLockBody" : "seed.authFailed"));
@@ -128,6 +154,7 @@ export default function SendScene() {
 
   const paste = async () => {
     const text = await Clipboard.getStringAsync();
+    userAction("destination-pasted");
     if (text) dispatch({ type: "INPUT_CHANGED", input: text.trim() });
   };
 
@@ -135,9 +162,13 @@ export default function SendScene() {
   const editing = phase === "editing" || phase === "validating" || phase === "quoting";
   const fixed = state.check?.valid ? state.check.fixedAmountSats : undefined;
   const inFlight = phase === "authorizing" || phase === "submitting";
+  const largeCompanion = !editing && phase !== "review" && phase !== "authorizing";
+  const presentation = useSendPresentation(phase);
+  const cancelReview = () => { cancelTyping(); avatar.cancel(); userAction("review-cancelled"); dispatch({ type: "BACK_TO_EDIT" }); };
 
   return (
-    <Screen title={t("menu.send")} subtitle="SEND" hideBack={inFlight} onBack={inFlight ? () => undefined : undefined}>
+    <Screen contentKey={largeCompanion ? "result" : editing ? "input" : "review"} scene="send" companion={!largeCompanion && !scanning} companionCue={presentation} title={t("menu.send")} subtitle="SEND" hideBack={inFlight} onBack={inFlight ? () => undefined : phase === "review" ? cancelReview : undefined}>
+      {largeCompanion ? <SendResultCompanion phase={phase} operationId={state.operationId} /> : null}
       {editing ? <P muted>{t("send.step.edit")}</P> : null}
       {blocking.length > 0 && editing ? (
         <Panel tone="warning">
@@ -169,7 +200,7 @@ export default function SendScene() {
             />
             <View style={styles.rowButtons}>
               <View style={{ flex: 1 }}><Button label={t("send.paste")} icon="copy" kind="secondary" onPress={() => void paste()} /></View>
-              <View style={{ flex: 1 }}><Button label={t("send.scan")} icon="scan" kind="secondary" onPress={() => setScanning(true)} /></View>
+              <View style={{ flex: 1 }}><Button label={t("send.scan")} icon="scan" kind="secondary" onPress={() => { Keyboard.dismiss(); cancelTyping(); setScanning(true); userAction("scan-opened"); }} /></View>
             </View>
             <P muted>{t("send.methodsNote")}</P>
             <TermHelp term="ark" />
@@ -186,8 +217,8 @@ export default function SendScene() {
               <TextInput
                 value={fixed ?? state.amountInput}
                 editable={fixed === undefined}
-                onChangeText={(amountInput) => dispatch({ type: "AMOUNT_CHANGED", amountInput })}
-                onEndEditing={() => state.amountInput && bus.emit({ type: "AMOUNT_ENTERED", id: bus.nextId("amount") })}
+                onChangeText={typeAmount}
+                onEndEditing={() => { cancelTyping(); if (state.amountInput) bus.emit({ type: "AMOUNT_ENTERED", id: bus.nextId("amount") }); }}
                 placeholder="0"
                 placeholderTextColor={theme.colors.textMuted}
                 keyboardType="number-pad"
@@ -218,7 +249,7 @@ export default function SendScene() {
           <PaymentReview quote={state.quote} unit={unit} />
           {authError ? <Notice tone="warning">{authError}</Notice> : null}
           <Button label={t("send.confirm")} icon="shield" onPress={() => void submit()} busy={phase === "authorizing"} accessibilityHint={t("send.confirmHint")} />
-          <Button label={t("send.edit")} kind="secondary" onPress={() => dispatch({ type: "BACK_TO_EDIT" })} disabled={phase === "authorizing"} />
+          <Button label={t("send.edit")} kind="secondary" onPress={cancelReview} disabled={phase === "authorizing"} />
         </>
       )}
 
@@ -270,14 +301,14 @@ export default function SendScene() {
         </Panel>
       )}
 
-      <QrScanner
+      {scanning ? <QrScanner
         visible={scanning}
         onClose={() => setScanning(false)}
         onScanned={(data) => {
           setScanning(false);
           dispatch({ type: "INPUT_CHANGED", input: data.trim() });
         }}
-      />
+      /> : null}
     </Screen>
   );
 }

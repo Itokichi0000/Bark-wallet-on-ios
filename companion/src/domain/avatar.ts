@@ -5,7 +5,11 @@ export type AvatarEmotion =
 export type AvatarAction =
   | "idle" | "blink" | "float" | "wave" | "point-left" | "point-right"
   | "listen" | "speak" | "inspect" | "prepare-send"
-  | "sending" | "receive" | "celebrate" | "warn" | "rest";
+  | "sending" | "receive" | "celebrate" | "warn" | "rest"
+  // Gestures added with the per-action motion clips.
+  | "think" | "nod" | "point-down" | "hush" | "yawn" | "startle" | "talk" | "search"
+  /** Confirmed incoming payment only: she catches it. Emitted for PAYMENT_RECEIVED and nothing else. */
+  | "catch";
 
 export interface AvatarCue {
   id: string;
@@ -27,7 +31,12 @@ export interface AvatarCue {
 /** Higher wins. Order from design doc 4.2. */
 export const CuePriority = {
   idle: 0,
+  /** Entering a screen: her standing guidance for that screen. */
+  scene: 5,
   menu: 10,
+  /** A small reaction to something the user just did (copied, scanned, toggled). */
+  reaction: 12,
+  story: 15,
   voice: 20,
   sendInput: 30,
   mistake: 40,

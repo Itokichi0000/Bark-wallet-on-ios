@@ -99,7 +99,7 @@ export default function RecoveryScene() {
   );
 
   return (
-    <Screen title={t("recovery.title")} subtitle="RECOVERY" onBack={mode === "choose" ? undefined : () => setMode("choose")}>
+    <Screen scene="recovery" title={t("recovery.title")} subtitle="RECOVERY" onBack={mode === "choose" ? undefined : () => setMode("choose")}>
       <Notice tone="warning">{t(NET_LONG_KEY)}</Notice>
       {adapter.isMock ? <Notice tone="info">{t("backup.mock")}</Notice> : null}
 

@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from "expo-router";
+import { userAction } from "@/components/companionEvents";
 import { usePullRefresh } from "@/components/usePullRefresh";
 import { SyncStatus } from "@/components/SyncStatus";
 import { BitcoinIcon, type BitcoinIconName } from "@/components/BitcoinIcon";
@@ -57,7 +59,8 @@ export default function ArchiveScene() {
   const refresh = usePullRefresh();
   const { completeQuest } = useSettings();
   const { movements, balance, lastSyncError, lifecycle } = useWalletStore();
-  const [open, setOpen] = useState<string>();
+  const { movement } = useLocalSearchParams<{ movement?: string }>();
+  const [open, setOpen] = useState<string>(movement ?? "");
 
   useEffect(() => {
     completeQuest("q6");
@@ -65,12 +68,12 @@ export default function ArchiveScene() {
   }, [completeQuest]);
 
   return (
-    <Screen title={t("menu.archive")} subtitle="ARCHIVE" onRefresh={refresh.onRefresh} refreshing={refresh.refreshing}>
+    <Screen scene="archive" title={t("menu.archive")} subtitle="ARCHIVE" onRefresh={refresh.onRefresh} refreshing={refresh.refreshing}>
       <SyncStatus />
       <H>{t("archive.records", { n: movements.length })}</H>
       {movements.length === 0 ? <Panel><P muted>{t(lastSyncError !== undefined || lifecycle === "degraded" ? "list.unavailable" : !balance?.lastSyncedAt ? "archive.loading" : "archive.empty")}</P></Panel> : null}
       {movements.map((m) => (
-        <Card key={m.id} m={m} open={open === m.id} onPress={() => setOpen(open === m.id ? undefined : m.id)} />
+        <Card key={m.id} m={m} open={open === m.id} onPress={() => { if (open !== m.id) userAction("movement-opened"); setOpen(open === m.id ? "" : m.id); }} />
       ))}
       <TermHelp term="payment" />
     </Screen>

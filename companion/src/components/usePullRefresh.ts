@@ -1,3 +1,4 @@
+import { userAction } from "./companionEvents";
 import { useCallback, useState } from "react";
 import { wallet } from "@/container";
 
@@ -5,6 +6,7 @@ import { wallet } from "@/container";
 export function usePullRefresh() {
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
+    userAction("pull-refresh");
     setRefreshing(true);
     // WalletService records connection errors in the store for SyncStatus to display.
     void wallet.refresh().finally(() => setRefreshing(false));

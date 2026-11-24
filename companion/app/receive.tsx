@@ -1,3 +1,4 @@
+import { userAction } from "@/components/companionEvents";
 import { TermHelp } from "@/components/TermHelp";
 import { Disclosure } from "@/components/Disclosure";
 import { useCallback, useEffect, useState } from "react";
@@ -24,6 +25,7 @@ export default function ReceiveScene() {
   const t = useT();
   const { width, height } = useWindowDimensions();
   const unit = useSettings((s) => s.unit);
+  const completeQuest = useSettings((s) => s.completeQuest);
   const syncing = useWalletStore((s) => s.syncing);
   const offline = useWalletStore((s) => s.lastSyncError !== undefined || s.lifecycle === "degraded");
   const [attempt, setAttempt] = useState(0);
@@ -48,7 +50,8 @@ export default function ReceiveScene() {
       (a) => {
         if (!alive) return;
         setAddress(a);
-        bus.emit({ type: "RECEIVE_SHOWN", id: bus.nextId("recv-shown") });
+        // The address is ready: retain learning progress without a second greeting.
+        completeQuest("q2");
       },
       (e) => alive && setError(errorMessage(e)),
     );
@@ -56,11 +59,12 @@ export default function ReceiveScene() {
       alive = false;
       avatar.cancel();
     };
-  }, [attempt]);
+  }, [attempt, completeQuest]);
 
   const copy = async () => {
     if (!address) return;
     await Clipboard.setStringAsync(address);
+    userAction("address-copied");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -69,7 +73,7 @@ export default function ReceiveScene() {
   const qrSize = Math.max(120, Math.min(width - 144, height < 720 ? 152 : 210));
 
   return (
-    <Screen title={t("menu.receive")} subtitle="RECEIVE">
+    <Screen scene="receive" title={t("menu.receive")} subtitle="RECEIVE">
       <Notice tone={NET.network === "mainnet" ? "danger" : "warning"}>{t("receive.networkNote")}</Notice>
       {error ? <Notice tone="danger">{t("receive.addressFailed", { detail: error })}</Notice> : null}
       {error ? <Button label={t("common.retry")} kind="secondary" onPress={() => setAttempt((n) => n + 1)} /> : null}
@@ -92,7 +96,7 @@ export default function ReceiveScene() {
         {address ? <Text selectable style={styles.address}>{chunkAddress(address)}</Text> : null}
         <View style={{ alignSelf: "stretch" }}><Button label={copied ? t("receive.copied") : t("receive.copy")} icon="copy" onPress={() => void copy()} disabled={!address} /></View>
       </Panel>
-      <Button label={t("receive.share")} icon="share" kind="secondary" onPress={() => address && void Share.share({ message: address })} disabled={!address} />
+      <Button label={t("receive.share")} icon="share" kind="secondary" onPress={() => { if (address) void Share.share({ message: address }).then((result) => { if (result.action === Share.sharedAction) userAction("address-shared"); }); }} disabled={!address} />
       <SyncStatus />
       <Disclosure title={t("common.details")}>
       <TermHelp term="ark" /><TermHelp term="fee" />

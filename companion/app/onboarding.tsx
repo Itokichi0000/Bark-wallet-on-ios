@@ -1,3 +1,5 @@
+import { userAction } from "@/components/companionEvents";
+import { Companion } from "@/components/Companion";
 import { authorize as authenticateUser } from "@/container";
 import { TermHelp } from "@/components/TermHelp";
 import { Disclosure } from "@/components/Disclosure";
@@ -9,9 +11,6 @@ import { usePreventScreenCapture } from "expo-screen-capture";
 import { Button, H, Notice, P, Panel, Screen, NET_LONG_KEY } from "@/components/ui";
 import { generateMnemonic, wallet } from "@/container";
 import { errorMessage } from "@/domain/errors";
-import { IDLE_CUE } from "@/domain/avatar";
-import { AnimatedAvatarRenderer } from "@/game/AnimatedAvatarRenderer";
-import { useReduceMotion } from "@/game/useAvatarCue";
 import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
 import { theme } from "@/theme";
@@ -36,7 +35,6 @@ function WordsStep({ words }: { words: string[] }) {
 export default function OnboardingScene() {
   const t = useT();
   usePreventScreenCapture();
-  const reduceMotion = useReduceMotion();
   const settings = useSettings();
   const [step, setStep] = useState<Step>("intro");
   const [authBusy, setAuthBusy] = useState(false);
@@ -45,6 +43,14 @@ export default function OnboardingScene() {
   const mnemonic = useRef<string>("");
   const [words, setWords] = useState<string[]>([]);
   const [picked, setPicked] = useState<Record<number, string>>({});
+
+  const showing = useRef(false);
+  useEffect(() => {
+    const shown = step === "words" || step === "quiz";
+    if (shown !== showing.current) userAction(shown ? "seed-shown" : "seed-hidden");
+    showing.current = shown;
+  }, [step]);
+  useEffect(() => () => { if (showing.current) userAction("seed-hidden"); }, []);
 
   const quiz = useMemo(() => {
     if (words.length === 0) return [];
@@ -63,6 +69,7 @@ export default function OnboardingScene() {
     setError(undefined);
     setAuthBusy(true);
     try {
+      userAction("auth-asked");
       const auth = await authenticateUser(t("seed.authPrompt"));
       if (!auth.ok) {
         if (auth.reason !== "cancelled") setError(t(auth.reason === "not-enrolled" ? "seed.noLock" : "seed.authFailed"));
@@ -113,16 +120,14 @@ export default function OnboardingScene() {
   };
 
   return (
-    <Screen title={t(step === "words" || step === "quiz" ? "seed.title" : "onb.title")} subtitle="ONBOARDING" hideBack={step === "intro" || step === "creating" || authBusy} onBack={step === "intro" || step === "creating" ? () => undefined : back}>
+    <Screen scene="onboarding" companion={step !== "intro"} title={t(step === "words" || step === "quiz" ? "seed.title" : "onb.title")} subtitle="ONBOARDING" hideBack={step === "intro" || step === "creating" || authBusy} onBack={step === "intro" || step === "creating" ? () => undefined : back}>
       {!IS_MAINNET ? <Notice tone="warning">{t(NET_LONG_KEY)}</Notice> : null}
       {IS_MAINNET ? <Notice tone="danger">{t("settings.mainnetWarning")}</Notice> : null}
 
       {step !== "intro" ? <P muted>{t("onb.progress", { step: ({ choose: 1, words: 2, quiz: 3, backup: 4, creating: 4 } as const)[step], total: 4 })}</P> : null}
       {step === "intro" && (
         <>
-          <View style={styles.hero}>
-            <AnimatedAvatarRenderer cue={{ ...IDLE_CUE, id: "onb", emotion: "happy", action: "wave" }} height={210} reduceMotion={reduceMotion} />
-          </View>
+          <Companion scene="onboarding" large />
           <Text style={styles.welcome} accessibilityRole="header">{t("onb.welcome")}</Text>
           <P>{t("onb.intro1")}</P>
           <P muted>{t("onb.intro2")}</P>

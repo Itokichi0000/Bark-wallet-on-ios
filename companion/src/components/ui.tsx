@@ -1,5 +1,9 @@
 import { IS_MAINNET } from "@/config/network";
 import type { ReactNode } from "react";
+import type { SceneId } from "@/domain/events";
+import type { AvatarCue } from "@/domain/avatar";
+import { Companion } from "./Companion";
+import { SceneContext, useSceneFocus } from "./companionEvents";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,16 +15,19 @@ import { BitcoinIcon, type BitcoinIconName } from "./BitcoinIcon";
 
 const c = theme.colors;
 
-export function Screen({ title, children, scroll = true, onBack, footer, hideBack = false, onRefresh, refreshing = false }: {
+export function Screen({ title, children, scroll = true, onBack, footer, hideBack = false, onRefresh, refreshing = false, scene, companion = true, companionCue, announceScene = true, contentKey }: {
+  contentKey?: string; scene?: SceneId; companion?: boolean; companionCue?: AvatarCue; announceScene?: boolean;
   title: string; subtitle?: string; children: ReactNode; scroll?: boolean; onBack?: () => void; footer?: ReactNode; hideBack?: boolean; onRefresh?: () => void; refreshing?: boolean;
 }) {
   const t = useT();
+  useSceneFocus(announceScene ? scene : undefined);
   const body = scroll ? (
-    <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} /> : undefined}>{children}</ScrollView>
+    <ScrollView key={contentKey} style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} /> : undefined}>{children}</ScrollView>
   ) : (
     <View style={[styles.body, { flex: 1 }]}>{children}</View>
   );
   return (
+    <SceneContext.Provider value={scene ?? "home"}>
     <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
       <ModeBanner />
       <View style={styles.header}>
@@ -33,9 +40,13 @@ export function Screen({ title, children, scroll = true, onBack, footer, hideBac
         <NetworkTag />
       </View>
       {IS_MAINNET ? <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}><Notice tone="danger">{t("net.mainnetLong")}</Notice></View> : null}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>{body}</KeyboardAvoidingView>
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {body}
+        {companion && scene && scene !== "home" ? <Companion scene={scene} fallbackCue={companionCue} /> : null}
+        {footer ? <View style={styles.footer}>{footer}</View> : null}
+      </KeyboardAvoidingView>
     </SafeAreaView>
+    </SceneContext.Provider>
   );
 }
 

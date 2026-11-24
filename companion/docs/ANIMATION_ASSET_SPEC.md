@@ -62,3 +62,11 @@ image-to-video with Kling 4.0 (start frame = end frame, so each clip returns to 
 the green was keyed out with ffmpeg (`chromakey`, then green clamped to `max(r, b)` so the cyan trim
 survives) and the frames packed with `img2webp`. The cue-to-clip table is `src/game/avatarMotion.ts`
 (tested); `AnimatedAvatarRenderer.tsx` plays them with `expo-image`. Reduce Motion shows the stills only.
+
+### Per-action clips (added 2026-11-24, second batch)
+
+Ten more one-shot clips made the same way (Kling 4.0, same start/end frame, same keying script):
+`catch` (confirmed incoming payment only), `send` (payment submitted: a gesture, not a result), `think`,
+`nod`, `pointdown`, `hush` (seed, hidden balance, device auth), `yawn`, `startle` (tapped), `talk`
+(story, explanations), `search` (history, coins, scanning). Sixteen clips in total; only `idle` and the
+clip being played may be mounted at once.

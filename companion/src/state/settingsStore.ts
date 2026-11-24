@@ -19,7 +19,12 @@ export interface Settings {
   introSeen: boolean;
   questsDone: Record<string, boolean>;
   seedBackupConfirmed: boolean;
-  update(patch: Partial<Omit<Settings, "update" | "completeQuest">>): void;
+  /** Highest total of confirmed outgoing sats ever seen in this wallet's history (decimal string). Story progress only. */
+  storySentSats: string;
+  /** Chapters the user has read. */
+  storyRead: Record<string, boolean>;
+  markStoryRead(id: string): void;
+  update(patch: Partial<Omit<Settings, "update" | "completeQuest" | "markStoryRead">>): void;
   completeQuest(id: string): void;
 }
 
@@ -36,6 +41,9 @@ export const useSettings = create<Settings>()(
       introSeen: false,
       questsDone: {},
       seedBackupConfirmed: false,
+      storySentSats: "0",
+      storyRead: {},
+      markStoryRead: (id) => set((s) => (s.storyRead[id] ? s : { storyRead: { ...s.storyRead, [id]: true } })),
       update: (patch) => set(patch),
       completeQuest: (id) => set((s) => (s.questsDone[id] ? s : { questsDone: { ...s.questsDone, [id]: true } })),
     }),

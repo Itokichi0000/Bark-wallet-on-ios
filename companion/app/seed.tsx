@@ -1,3 +1,4 @@
+import { userAction } from "@/components/companionEvents";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { router, useFocusEffect } from "expo-router";
@@ -24,7 +25,15 @@ export default function SeedScene() {
   const focused = useRef(false);
   const request = useRef(0);
   const update = useSettings((s) => s.update);
+  const showing = useRef(false);
   const [state, setState] = useState<State>({ kind: "locked" });
+
+  useEffect(() => {
+    const shown = state.kind === "shown";
+    if (shown !== showing.current) userAction(shown ? "seed-shown" : "seed-hidden");
+    showing.current = shown;
+  }, [state.kind]);
+  useEffect(() => () => { if (showing.current) userAction("seed-hidden"); }, []);
 
   const hide = useCallback(() => setState((s) => (s.kind === "shown" ? { kind: "locked" } : s)), []);
   useFocusEffect(useCallback(() => {
@@ -43,6 +52,7 @@ export default function SeedScene() {
     const id = ++request.current;
     setState({ kind: "asking" });
     try {
+      userAction("auth-asked");
       const result = await wallet.revealSeed(t("seed.authPrompt"));
       if (!focused.current || id !== request.current) return;
       if (AppState.currentState !== "active") { setState({ kind: "locked" }); return; }
@@ -56,7 +66,7 @@ export default function SeedScene() {
   };
 
   return (
-    <Screen title={t("seed.title")}>
+    <Screen scene="seed" title={t("seed.title")}>
       <Notice tone="danger">{t("seed.warning")}</Notice>
       {state.kind === "error" ? <Notice tone="warning">{state.message}</Notice> : null}
       {state.kind === "shown" ? (

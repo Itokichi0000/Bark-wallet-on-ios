@@ -114,7 +114,7 @@ describe("AvatarOrchestrator", () => {
     const { clock, advance } = fakeClock();
     const o = new AvatarOrchestrator(clock);
     let n = 0;
-    o.subscribe((c) => { if (c.lineKey === "avatar.tapped") n += 1; });
+    o.subscribe((c) => { if (c.lineKey?.startsWith("avatar.tapped.")) n += 1; });
     for (let i = 0; i < 10; i++) {
       o.handle({ type: "AVATAR_TAPPED", id: `t${i}` });
       advance(50);
@@ -163,21 +163,58 @@ describe("illustrated avatar frames", () => {
 
 describe("motion clips", () => {
   const { clipForCue } = require("@/game/avatarMotion") as typeof import("@/game/avatarMotion");
-  it("plays the celebration only for a celebrate cue", () => {
-    const actions = ["idle", "blink", "float", "wave", "point-left", "point-right", "listen", "speak", "inspect", "prepare-send", "sending", "receive", "warn", "rest"] as const;
+  it("plays the success clips only for the success actions", () => {
+    const actions = ["idle", "blink", "float", "wave", "point-left", "point-right", "listen", "speak", "inspect", "prepare-send", "sending", "receive", "warn", "rest", "think", "nod", "point-down", "hush", "yawn", "startle", "talk", "search"] as const;
     for (const action of actions) {
       for (const emotion of ["neutral", "happy", "curious", "thinking", "focused", "surprised", "sleepy", "concerned"] as const) {
-        expect(clipForCue({ action, emotion })).not.toBe("celebrate");
+        expect(["celebrate", "catch"]).not.toContain(clipForCue({ action, emotion }));
       }
     }
     expect(clipForCue({ action: "celebrate", emotion: "happy" })).toBe("celebrate");
+    expect(clipForCue({ action: "catch", emotion: "happy" })).toBe("catch");
+  });
+  it("gives the catch and celebrate actions only to confirmed payment results", () => {
+    const o = new AvatarOrchestrator();
+    const seen: string[] = [];
+    o.subscribe((c) => seen.push(c.action));
+    const screens = ["home", "receive", "send", "assets", "archive", "settings", "quest", "story", "seed", "recovery", "onboarding"] as const;
+    screens.forEach((screen, i) => o.handle({ type: "SCREEN_ENTERED", id: `s${i}`, screen }));
+    const acts = ["address-copied", "scan-opened", "destination-valid", "destination-invalid", "max-selected", "seed-shown", "backup-exported", "review-cancelled"] as const;
+    acts.forEach((action, i) => o.handle({ type: "USER_ACTION", id: `a${i}`, action }));
+    o.handle({ type: "PAYMENT_SUBMITTED", id: "p1", operationId: "op" });
+    o.handle({ type: "PAYMENT_OUTCOME_UNKNOWN", id: "p2", operationId: "op" });
+    o.handle({ type: "STORY_UNLOCKED", id: "st", chapter: "c1" });
+    expect(seen).not.toContain("celebrate");
+    expect(seen).not.toContain("catch");
+    o.handle({ type: "PAYMENT_RECEIVED", id: "r", movementId: "m" });
+    expect(seen[seen.length - 1]).toBe("catch");
+  });
+  it("keeps a story announcement until the payment celebration has finished", () => {
+    jest.useFakeTimers();
+    const o = new AvatarOrchestrator();
+    o.handle({ type: "PAYMENT_SUCCEEDED", id: "p", operationId: "op" });
+    o.handle({ type: "STORY_UNLOCKED", id: "s", chapter: "c1" });
+    expect(o.cue.action).toBe("celebrate");
+    jest.advanceTimersByTime(4100);
+    expect(o.cue.lineKey).toBe("avatar.storyUnlocked");
+    jest.useRealTimers();
+  });
+  it("lets a screen's standing line give way to anything that happens on it", () => {
+    const o = new AvatarOrchestrator();
+    o.handle({ type: "SCREEN_ENTERED", id: "s", screen: "send" });
+    expect(o.cue.lineKey).toBe("avatar.screen.send");
+    o.handle({ type: "USER_ACTION", id: "a", action: "destination-invalid" });
+    expect(o.cue.action).toBe("warn");
+    o.handle({ type: "PAYMENT_SUBMITTED", id: "p", operationId: "op" });
+    o.handle({ type: "USER_ACTION", id: "a2", action: "address-copied" });
+    expect(o.cue.action).toBe("sending");
   });
   it("shows worry for warnings and never a cheerful clip", () => {
     expect(clipForCue({ action: "warn", emotion: "concerned" })).toBe("worry");
     expect(clipForCue({ action: "idle", emotion: "concerned" })).toBe("worry");
   });
   it("falls back to a still for poses without a clip", () => {
-    expect(clipForCue({ action: "rest", emotion: "sleepy" })).toBeUndefined();
+    expect(clipForCue({ action: "rest", emotion: "sleepy" })).toBe("yawn");
     expect(clipForCue({ action: "idle", emotion: "surprised" })).toBeUndefined();
     expect(clipForCue({ action: "idle", emotion: "neutral" })).toBe("idle");
   });

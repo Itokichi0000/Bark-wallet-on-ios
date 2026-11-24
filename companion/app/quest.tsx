@@ -1,3 +1,4 @@
+import { userAction } from "@/components/companionEvents";
 import { BitcoinIcon, type BitcoinIconName } from "@/components/BitcoinIcon";
 import { Disclosure } from "@/components/Disclosure";
 import { useState } from "react";
@@ -18,8 +19,9 @@ export default function QuestScene() {
   const [expanded, setExpanded] = useState<QuestId>();
   const done = QUEST_IDS.filter((q) => questsDone[q]).length;
   return (
-    <Screen title={t("quest.title")}>
+    <Screen scene="quest" title={t("quest.title")}>
       <P muted>{t("quest.intro")}</P>
+      <Button label={t("story.guideEntry")} icon="star" kind="secondary" onPress={() => router.push("/story")} />
       <H>{t("quest.progress", { done, total: QUEST_IDS.length })}</H>
       <Panel style={{ gap: 0, paddingVertical: 0 }}>
         {QUEST_IDS.map((q, index) => {
@@ -29,7 +31,7 @@ export default function QuestScene() {
           return (
             <View key={q} style={index > 0 && styles.divider}>
               <View style={styles.row}>
-                <Pressable onPress={() => setExpanded(open ? undefined : q)} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${t(`quest.${q}.title`)}. ${t(complete ? "quest.done" : "quest.todo")}`} style={({ pressed }) => [styles.task, { opacity: pressed ? 0.65 : 1 }]}>
+                <Pressable onPress={() => { if (!open) userAction("details-opened"); setExpanded(open ? undefined : q); }} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${t(`quest.${q}.title`)}. ${t(complete ? "quest.done" : "quest.todo")}`} style={({ pressed }) => [styles.task, { opacity: pressed ? 0.65 : 1 }]}>
                   <BitcoinIcon name={ICON[q]} size={22} />
                   <Text style={styles.title}>{t(`quest.${q}.title`)}</Text>
                   {complete ? <BitcoinIcon name="check" size={20} color={theme.colors.primary} /> : null}

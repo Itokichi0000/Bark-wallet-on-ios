@@ -194,8 +194,11 @@ export class WalletService {
   validateDestination(input: string): Promise<DestinationCheck> {
     return this.d.adapter.validateDestination(input);
   }
-  quoteSend(draft: SendDraft): Promise<SendQuote> {
-    return this.d.adapter.quoteSend(draft);
+  async quoteSend(draft: SendDraft): Promise<SendQuote> {
+    const quote = await this.d.adapter.quoteSend(draft);
+    // The review can be shown: announced here, once a real quote exists, not by the screen.
+    this.d.bus.emit({ type: "PAYMENT_REVIEW_READY", id: this.d.bus.nextId("review") });
+    return quote;
   }
   quoteMaxSend(method: PaymentMethod): Promise<MaxSendResult> {
     return this.d.adapter.quoteMaxSend(method);

@@ -22,10 +22,13 @@ export class IdleDirector {
   next(): IdleBeat {
     const r = this.random();
     let beat: IdleBeat;
-    if (r < 0.55) beat = { action: "blink", emotion: "neutral", durationMs: 220 };
-    else if (r < 0.8) beat = { action: "float", emotion: "curious", durationMs: 1600 };
-    else if (r < 0.93) beat = { action: "inspect", emotion: "thinking", durationMs: 1800 };
-    else beat = { action: "wave", emotion: "happy", durationMs: 1400 };
+    // Gestures are full motion clips (about 5 s); a blink leaves the idle loop running.
+    if (r < 0.35) beat = { action: "blink", emotion: "neutral", durationMs: 220 };
+    else if (r < 0.55) beat = { action: "search", emotion: "curious", durationMs: 5000 };
+    else if (r < 0.72) beat = { action: "think", emotion: "thinking", durationMs: 5000 };
+    else if (r < 0.86) beat = { action: "nod", emotion: "happy", durationMs: 5000 };
+    else if (r < 0.95) beat = { action: "wave", emotion: "happy", durationMs: 5000 };
+    else beat = { action: "yawn", emotion: "sleepy", durationMs: 5000 };
     // Never the same non-blink gesture twice in a row.
     if (beat.action !== "blink" && beat.action === this.last) beat = { action: "blink", emotion: "neutral", durationMs: 220 };
     this.last = beat.action;

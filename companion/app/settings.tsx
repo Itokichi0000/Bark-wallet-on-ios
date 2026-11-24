@@ -1,3 +1,4 @@
+import { userAction } from "@/components/companionEvents";
 import { TermHelp } from "@/components/TermHelp";
 import { Disclosure } from "@/components/Disclosure";
 import { useEffect, useState } from "react";
@@ -59,6 +60,7 @@ export default function SettingsScene() {
   const [switching, setSwitching] = useState(false);
   const doSwitch = async (target: NetworkId) => {
     setAuthError(undefined);
+    userAction("auth-asked");
     const auth = await authenticateUser(t("settings.switch.authPrompt"));
     if (!auth.ok && auth.reason !== "not-enrolled") {
       if (auth.reason === "failed") setAuthError(t("seed.authFailed"));
@@ -67,6 +69,7 @@ export default function SettingsScene() {
     setSwitching(true);
     try {
       // The open wallet is closed first; the app then restarts with everything built for the other network.
+      userAction("setting-changed");
       await wallet.shutdown();
       await switchNetworkAndReload(target);
     } catch (e) {
@@ -92,14 +95,14 @@ export default function SettingsScene() {
   };
   const exportBackup = async () => {
     setBusy("export");
-    await backup.exportLatest().catch(() => false);
+    await backup.exportLatest().then((offered) => { if (offered) userAction("backup-exported"); }).catch(() => false);
     setBusy(null);
   };
 
   const backupTone = b.status === "failed" ? "danger" : b.status === "current" && b.exportedGeneration >= b.generation ? "success" : "warning";
 
   return (
-    <Screen title={t("settings.title")} subtitle="SETTINGS">
+    <Screen scene="settings" title={t("settings.title")} subtitle="SETTINGS">
       <Panel tone={b.status === "failed" ? "danger" : undefined}>
         <H>{t("settings.backup")}</H>
         {b.status === "unsupported" ? (
@@ -134,13 +137,13 @@ export default function SettingsScene() {
 
       <Panel>
         <H>{t("settings.experience")}</H>
-        <Choice label={t("settings.language")} value={s.language} options={[{ id: "ja", label: "日本語" }, { id: "en", label: "English" }]} onChange={(language) => s.update({ language })} />
-        <Choice label={t("settings.unit")} value={s.unit} options={[{ id: "sats", label: "sats" }, { id: "btc", label: "BTC" }]} onChange={(unit) => s.update({ unit })} />
-        <Toggle label={t("settings.hideBalance")} value={s.balanceHidden} onChange={(balanceHidden) => s.update({ balanceHidden })} />
-        <Toggle label={t("settings.speech")} note={t("settings.speechNote")} value={s.speechEnabled} onChange={(speechEnabled) => s.update({ speechEnabled })} />
-        <Toggle label={t("settings.haptics")} value={s.hapticsEnabled} onChange={(hapticsEnabled) => s.update({ hapticsEnabled })} />
-        <Toggle label={t("settings.avatarMotion")} value={s.avatarMotion} onChange={(avatarMotion) => s.update({ avatarMotion })} />
-        <Toggle label={t("settings.reduceMotion")} note={t("settings.reduceMotionNote")} value={s.forceReduceMotion} onChange={(forceReduceMotion) => s.update({ forceReduceMotion })} />
+        <Choice label={t("settings.language")} value={s.language} options={[{ id: "ja", label: "日本語" }, { id: "en", label: "English" }]} onChange={(language) => { s.update({ language }); userAction("setting-changed"); }} />
+        <Choice label={t("settings.unit")} value={s.unit} options={[{ id: "sats", label: "sats" }, { id: "btc", label: "BTC" }]} onChange={(unit) => { s.update({ unit }); userAction("unit-changed"); }} />
+        <Toggle label={t("settings.hideBalance")} value={s.balanceHidden} onChange={(balanceHidden) => { s.update({ balanceHidden }); userAction(balanceHidden ? "balance-hidden" : "balance-shown"); }} />
+        <Toggle label={t("settings.speech")} note={t("settings.speechNote")} value={s.speechEnabled} onChange={(speechEnabled) => { s.update({ speechEnabled }); userAction("setting-changed"); }} />
+        <Toggle label={t("settings.haptics")} value={s.hapticsEnabled} onChange={(hapticsEnabled) => { s.update({ hapticsEnabled }); userAction("setting-changed"); }} />
+        <Toggle label={t("settings.avatarMotion")} value={s.avatarMotion} onChange={(avatarMotion) => { s.update({ avatarMotion }); userAction("setting-changed"); }} />
+        <Toggle label={t("settings.reduceMotion")} note={t("settings.reduceMotionNote")} value={s.forceReduceMotion} onChange={(forceReduceMotion) => { s.update({ forceReduceMotion }); userAction("setting-changed"); }} />
         <P muted>{t("settings.voiceNote")}</P>
       </Panel>
 

@@ -97,7 +97,7 @@ describe("WalletService sending", () => {
     expect(outcome.status).toBe("succeeded");
     expect(t.adapter.sendCalls).toBe(1);
     const order = t.types().filter((x) => x.startsWith("PAYMENT_"));
-    expect(order).toEqual(["PAYMENT_SUBMITTED", "PAYMENT_SUCCEEDED"]);
+    expect(order).toEqual(["PAYMENT_REVIEW_READY", "PAYMENT_SUBMITTED", "PAYMENT_SUCCEEDED"]);
     expect(t.backups).toContain("send");
   });
 
@@ -232,7 +232,7 @@ describe("WalletService sending", () => {
     const t = setup({ initialSats: 0n });
     await t.service.create(MNEMONIC);
     let celebrations = 0;
-    t.avatar.subscribe((cue) => { if (cue.action === "celebrate") celebrations += 1; });
+    t.avatar.subscribe((cue) => { if (cue.action === "catch") celebrations += 1; });
     const m = t.adapter.simulateIncoming(2_000n);
     t.bus.emit({ type: "PAYMENT_RECEIVED", id: "dup", movementId: m.id });
     expect(celebrations).toBe(1);

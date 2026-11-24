@@ -1,3 +1,4 @@
+import { userAction } from "@/components/companionEvents";
 import { usePullRefresh } from "@/components/usePullRefresh";
 import { SyncStatus } from "@/components/SyncStatus";
 import { TermHelp } from "@/components/TermHelp";
@@ -47,7 +48,7 @@ export default function AssetsScene() {
   const show = (m: string | undefined) => (m === undefined ? t("home.balanceUnknown") : formatAmount(m, unit));
 
   return (
-    <Screen title={t("menu.assets")} subtitle="ASSETS" onRefresh={refresh.onRefresh} refreshing={refresh.refreshing}>
+    <Screen scene="assets" title={t("menu.assets")} subtitle="ASSETS" onRefresh={refresh.onRefresh} refreshing={refresh.refreshing}>
       <Panel>
         <Row label={t("assets.spendable")} value={show(balance?.spendableSats)} valueStyle={{ fontSize: 32, fontWeight: "700" }} />
         <P muted>{t(lastSyncError !== undefined || lifecycle === "degraded" ? "assets.healthOffline" : !maintenance ? "assets.healthLoading" : maintenance.severity === "none" ? "assets.healthReady" : "assets.healthAttention")}</P>
@@ -80,7 +81,7 @@ export default function AssetsScene() {
       </Panel>
 
       <TermHelp term="vtxo" />
-      <Button label={advanced ? t("assets.hideVtxos") : t("assets.showVtxos", { n: vtxos.length })} kind="secondary" onPress={() => setAdvanced((a) => !a)} />
+      <Button label={advanced ? t("assets.hideVtxos") : t("assets.showVtxos", { n: vtxos.length })} kind="secondary" onPress={() => { if (!advanced) userAction("details-opened"); setAdvanced(!advanced); }} />
       {advanced && (
         <Panel>
           <H>VTXO</H>
@@ -89,7 +90,7 @@ export default function AssetsScene() {
           {vtxos.map((v) => {
             const on = selected === v.id;
             return (
-              <Pressable key={v.id} onPress={() => setSelected(on ? undefined : v.id)} accessibilityRole="button" accessibilityState={{ expanded: on }} style={styles.vtxo}>
+              <Pressable key={v.id} onPress={() => { if (!on) userAction("details-opened"); setSelected(on ? undefined : v.id); }} accessibilityRole="button" accessibilityState={{ expanded: on }} style={styles.vtxo}>
                 <Crystal color={HEALTH_COLOR[v.health]} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={styles.vtxoAmount}>{formatAmount(v.amountSats, unit)}</Text>

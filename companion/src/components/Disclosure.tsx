@@ -1,3 +1,4 @@
+import { userAction } from "./companionEvents";
 import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BitcoinIcon } from "./BitcoinIcon";
@@ -8,7 +9,7 @@ export function Disclosure({ title, children }: { title: string; children: React
   const [open, setOpen] = useState(false);
   return (
     <View style={styles.wrap}>
-      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen(!open)} style={styles.trigger}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => { if (!open) userAction("details-opened"); setOpen(!open); }} style={styles.trigger}>
         <Text style={styles.title}>{title}</Text>
         <BitcoinIcon name={open ? "caret-up" : "caret-down"} size={20} />
       </Pressable>

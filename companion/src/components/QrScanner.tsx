@@ -13,7 +13,7 @@ export function QrScanner({ visible, onClose, onScanned }: { visible: boolean; o
   const [done, setDone] = useState(false);
   return (
     <Modal visible={visible} animationType={reduceMotion ? "none" : "slide"} onRequestClose={onClose} onShow={() => setDone(false)}>
-      <Screen title={t("scan.title")} scroll={false} onBack={onClose}>
+      <Screen scene="send" announceScene={false} title={t("scan.title")} scroll={false} onBack={onClose}>
         {permission?.granted ? (
           <CameraView
             style={styles.camera}
