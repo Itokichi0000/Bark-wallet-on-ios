@@ -18,7 +18,7 @@ const MOCK_DEMO = WALLET_MODE === "mock" && process.env.EXPO_PUBLIC_MOCK_DEMO ==
 function createAdapter(): WalletAdapter {
   if (WALLET_MODE === "mock") {
     const { MockWalletAdapter } = require("@/infrastructure/mock/MockWalletAdapter") as typeof import("@/infrastructure/mock/MockWalletAdapter");
-    return MOCK_DEMO ? new MockWalletAdapter({ initialSats: 120_000n, created: true }) : new MockWalletAdapter({ initialSats: 0n });
+    return MOCK_DEMO ? new MockWalletAdapter({ initialSats: 120_000n, created: true, demoHistory: true }) : new MockWalletAdapter({ initialSats: 0n });
   }
   // Required lazily so a mock build never loads the native module.
   const { BarkWalletAdapter } = require("@/infrastructure/bark/BarkWalletAdapter") as typeof import("@/infrastructure/bark/BarkWalletAdapter");
@@ -154,9 +154,6 @@ async function start(): Promise<string | undefined> {
   if (MOCK_DEMO) await seeds.store(generateMnemonic());
   await wallet.boot();
   if (!MOCK_DEMO) return undefined;
-  const demo = adapter as unknown as { simulateIncoming(sats: bigint): unknown; simulateSent(sats: bigint): unknown };
-  demo.simulateIncoming(21_000n);
-  demo.simulateSent(6_000n);
   await wallet.refresh();
   const { Settings } = require("react-native") as typeof import("react-native");
   const route: unknown = Settings.get("reviewRoute");

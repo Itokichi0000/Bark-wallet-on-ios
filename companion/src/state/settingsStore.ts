@@ -12,6 +12,8 @@ export interface Settings {
   unit: Unit;
   balanceHidden: boolean;
   speechEnabled: boolean;
+  /** Noa's recorded voice, or off. Japanese only; other languages stay silent unless read-aloud is on. */
+  noaVoice: "off" | "a" | "b" | "c";
   hapticsEnabled: boolean;
   avatarMotion: boolean;
   /** Follows the OS setting unless the user forces it on. */
@@ -35,6 +37,7 @@ export const useSettings = create<Settings>()(
       unit: "sats",
       balanceHidden: false,
       speechEnabled: false,
+      noaVoice: "a",
       hapticsEnabled: true,
       avatarMotion: true,
       forceReduceMotion: false,

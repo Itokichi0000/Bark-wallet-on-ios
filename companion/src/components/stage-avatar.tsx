@@ -1,5 +1,4 @@
 import { memo, useEffect, useState, type ReactNode } from "react";
-import { Image } from "expo-image";
 import { Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming, withSequence } from "react-native-reanimated";
 import { bus } from "@/container";
@@ -12,15 +11,16 @@ import { theme } from "@/theme";
 import { useT } from "@/i18n";
 
 export function stageBoardSize(width: number) {
-  // ~250pt held board on a phone, including its rim/fingers; the QR surface is >=200pt.
-  return Math.max(200 / BOARD_CONTENT_RATIO, Math.min(width * 0.64, 260));
+  // This is the paper width. The actual QR surface (including its quiet zone)
+  // is 220pt at 390pt and never shrinks below 200pt to accommodate a footer.
+  return Math.max(200, Math.min(240, width - 170)) / BOARD_CONTENT_RATIO;
 }
 export function stageBoardContentSize(width: number) { return stageBoardSize(width) * BOARD_CONTENT_RATIO; }
 export function stageCloseHeight(width: number) { return stageBoardSize(width) / HOLD_BOARD.width / AVATAR_ASPECT * 0.44 + theme.spacing.md; }
 
-export const StageAvatar = memo(function StageAvatar({ cue, width, height, reduceMotion, board, boardImmediate, onBoardActiveChange, speaking, lineKey, disabled = false, fullBody = false, replyBeat, onPress, framingHeight, headOffset = 0 }: {
+export const StageAvatar = memo(function StageAvatar({ cue, width, height, reduceMotion, board, boardImmediate, onBoardActiveChange, speaking, lineKey, disabled = false, fullBody = false, bust = false, minimumBustHeight = 0, replyBeat, onPress, framingHeight, headOffset = 0 }: {
   speaking: boolean; lineKey: string; disabled?: boolean; cue: AvatarCue; width: number; height: number; reduceMotion: boolean; board?: ReactNode; onBoardActiveChange(active: boolean): void;
-  boardImmediate?: boolean; headOffset?: number; framingHeight?: number; fullBody?: boolean; replyBeat?: number; onPress?: () => void;
+  boardImmediate?: boolean; headOffset?: number; framingHeight?: number; fullBody?: boolean; bust?: boolean; minimumBustHeight?: number; replyBeat?: number; onPress?: () => void;
 }) {
   const t = useT();
   const { height: windowHeight } = useWindowDimensions();
@@ -31,7 +31,11 @@ export const StageAvatar = memo(function StageAvatar({ cue, width, height, reduc
   const close = isHolding(cue) || boardActive;
   const fullHeight = stageBoardSize(width) / HOLD_BOARD.width / AVATAR_ASPECT;
   const fullWidth = fullHeight * AVATAR_ASPECT;
-  const restingScale = fullBody || (!reduceMotion && celebrating) ? Math.min((framingHeight ?? height) / fullHeight, width / fullWidth) : Math.min(windowHeight < p.shortScreen ? p.heroShort : p.heroTall, Math.max(180, (framingHeight ?? height) / 0.45)) / fullHeight;
+  const frame = Math.max(1, (framingHeight ?? height) - theme.spacing.sm * 2);
+  const restingScale = bust
+    ? Math.min(width / AVATAR_ASPECT, Math.max(minimumBustHeight, frame / 0.30)) / fullHeight
+    : fullBody || (!reduceMotion && celebrating) ? Math.min(frame / fullHeight, width / fullWidth)
+    : Math.min(windowHeight < p.shortScreen ? p.heroShort : p.heroTall, Math.max(180, frame / 0.45)) / fullHeight;
   const scale = useSharedValue(close ? 1 : restingScale);
   const y = useSharedValue(headOffset + theme.spacing.sm);
   useEffect(() => { onBoardActiveChange(close); }, [close, onBoardActiveChange]);
@@ -61,29 +65,33 @@ export const StageAvatar = memo(function StageAvatar({ cue, width, height, reduc
   </View>;
 });
 
-/** A foreground prop: the head and board use separate camera distances on
- * constrained phones. Both keep their aspect ratio; the board's rim/fingers
- * are a crop of the same hold artwork, not a stretched full-body sprite. */
+/** Measured in-flow composition. The portrait can become a small bust, but
+ * the entire paper (including fingers/rim and the QR quiet zone) stays visible. */
+export function stageBoardLayout(width: number, height: number) {
+  const contentSize = Math.max(200, Math.min(stageBoardContentSize(width), (height - 96) * BOARD_CONTENT_RATIO));
+  const fullHeight = contentSize / BOARD_CONTENT_RATIO / HOLD_BOARD.width / AVATAR_ASPECT;
+  const paperHeight = fullHeight * HOLD_BOARD.height;
+  const rim = 8;
+  const headHeight = Math.max(48, Math.min(140, height - paperHeight - rim * 2));
+  return { contentSize, fullHeight, paperHeight, headHeight, rim };
+}
 export function StageBoard({ cue, width, height, reduceMotion, speaking, board }: {
   cue: AvatarCue; width: number; height: number; reduceMotion: boolean; speaking: boolean;
   board: ReactNode | ((size: number) => ReactNode);
 }) {
-  const boardSize = Math.max(200, Math.min(240, height - 48));
-  const portraitHeight = Math.max(48, Math.min(140, height - boardSize));
-  const portraitFullHeight = portraitHeight / 0.20;
-  const propHeight = boardSize / HOLD_BOARD.height;
-  const propWidth = propHeight * AVATAR_ASPECT;
-  const paperWidth = propWidth * HOLD_BOARD.width;
-  const contentSize = paperWidth * BOARD_CONTENT_RATIO;
-  return <View style={{ width, height, alignItems: "center", justifyContent: "flex-end" }}>
-    <View pointerEvents="none" style={{ width, height: portraitHeight, overflow: "hidden", alignItems: "center" }}>
-      <AnimatedAvatarRenderer cue={cue} height={portraitFullHeight} reduceMotion={reduceMotion} speaking={speaking} boardImmediate />
+  const { contentSize, fullHeight, paperHeight, headHeight, rim } = stageBoardLayout(width, height);
+  const fullWidth = fullHeight * AVATAR_ASPECT;
+  const portraitHeight = headHeight / HOLD_BOARD.y;
+  return <View style={{ width, minHeight: headHeight + paperHeight + rim * 2, flex: 1, alignItems: "center", justifyContent: "flex-end" }}>
+    <View style={{ width, height: headHeight, overflow: "hidden" }}>
+      <View style={{ position: "absolute", left: (width - portraitHeight * AVATAR_ASPECT) / 2 }}>
+        <AnimatedAvatarRenderer cue={cue} height={portraitHeight} reduceMotion={reduceMotion} speaking={speaking} boardImmediate />
+      </View>
     </View>
-    <View style={{ width, height: boardSize, overflow: "hidden", alignItems: "center" }}>
-      <Image pointerEvents="none" source={require("../../assets/avatar/hold.png")} contentFit="contain" accessible={false}
-        style={{ position: "absolute", width: propWidth, height: propHeight, left: (width - propWidth) / 2, top: -propHeight * HOLD_BOARD.y }} />
-      <View style={{ position: "absolute", top: (boardSize - contentSize) / 2, left: (width - propWidth) / 2 + propWidth * HOLD_BOARD.x + (paperWidth - contentSize) / 2, width: contentSize, height: contentSize, backgroundColor: "#FFFFFF" }}>
-        {typeof board === "function" ? board(contentSize) : board}
+    <View style={{ width, height: paperHeight + rim * 2, overflow: "hidden" }}>
+      <View style={{ position: "absolute", left: (width - fullWidth) / 2, top: rim - fullHeight * HOLD_BOARD.y }}>
+        <AnimatedAvatarRenderer cue={cue} height={fullHeight} reduceMotion speaking={false} boardImmediate
+          board={typeof board === "function" ? board(contentSize) : board} />
       </View>
     </View>
   </View>;

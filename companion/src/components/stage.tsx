@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -35,18 +35,19 @@ export function usePresentBoard(enabled: boolean, emotion: AvatarCue["emotion"],
   } : undefined, [enabled, emotion, lineKey]);
 }
 
-export function StageChoices({ choices, compact = false, deliberate = false }: { choices: readonly StageAnswer[]; compact?: boolean; deliberate?: boolean }) {
+export function StageChoices({ choices, compact = false, deliberate = false, accessory }: { choices: readonly StageAnswer[]; compact?: boolean; deliberate?: boolean; accessory?: ReactNode }) {
   return <View style={styles.choices}>
     {choices.map((choice, index) => <View key={choice.id} style={compact ? undefined : styles.choice}>
       {deliberate ? <Button label={choice.label} onPress={() => { replyHaptic(); choice.onPress(); }} kind={index === 0 ? "primary" : "secondary"} disabled={choice.disabled} busy={choice.busy} accessibilityHint={choice.hint} /> :
         <Reply {...choice} round={compact} primary={!compact && (choice.primary ?? index === 0)} />}
     </View>)}
+    {accessory}
   </View>;
 }
 
 type Props = {
   scene: "home" | "receive" | "send" | "story"; line: string; onLinePress?: () => void; choices: readonly StageAnswer[];
-  children?: ReactNode; speechFacts?: ReactNode; caption?: ReactNode; onStagePress?: () => void; headerActions?: ReactNode; afterChoices?: ReactNode; board?: ReactNode | ((size: number) => ReactNode); fallbackCue?: AvatarCue;
+  children?: ReactNode; speechFacts?: ReactNode; caption?: ReactNode; onStagePress?: () => void; headerActions?: ReactNode; afterChoices?: ReactNode | ((keyboard: boolean) => ReactNode); choiceAccessory?: ReactNode; board?: ReactNode | ((size: number) => ReactNode); fallbackCue?: AvatarCue;
   boardCue?: AvatarCue; boardImmediate?: boolean;
   locked?: boolean; onBack?: () => void; review?: boolean; active?: boolean;
   sendResult?: { phase: SendPhase; operationId?: string }; receivedId?: string;
@@ -61,7 +62,7 @@ export function Stage(props: Props) {
   </View></SceneContext.Provider>;
 }
 
-function StageContent({ scene, line, onLinePress, choices, children, speechFacts, caption, onStagePress, headerActions, afterChoices, board, boardCue, boardImmediate, fallbackCue, locked = false, onBack, review = false, active, sendResult, receivedId }: Props) {
+function StageContent({ scene, line, onLinePress, choices, children, speechFacts, caption, onStagePress, headerActions, afterChoices, choiceAccessory, board, boardCue, boardImmediate, fallbackCue, locked = false, onBack, review = false, active, sendResult, receivedId }: Props) {
   const t = useT();
   const { width, height: windowHeight, fontScale } = useWindowDimensions();
   const view = useWalletStore();
@@ -80,7 +81,9 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
   const [boardActive, setBoardActive] = useState(false);
   const [replyHeight, setReplyHeight] = useState(0);
   const [heroHeight, setHeroHeight] = useState(0);
+  const [speechHeight, setSpeechHeight] = useState(0);
   const roomScroll = useRef<ComponentRef<typeof ScrollView>>(null);
+  const sceneScroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const unresolved = sendResult?.phase === "pending" || sendResult?.phase === "unknown";
   const expected = sendResult?.phase === "succeeded" ? `paid:${sendResult.operationId}` : sendResult?.phase === "failed" ? `failed:${sendResult.operationId}` : sendResult?.phase === "unknown" ? `unknown:${sendResult.operationId}` : undefined;
   const success = current.action === "celebrate" || current.action === "catch";
@@ -104,21 +107,23 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
   const roomWidth = Math.min(width, 620);
   const [keyboard, setKeyboard] = useState(Keyboard.isVisible());
   const compact = windowHeight < 740 || fontScale > 1.2;
-  // Footer is measured first and stays outside the scene. The face/board get
-  // the remaining space; lengthy warnings can scroll inside speech only.
-  const minHero = close ? 248 : keyboard ? 0 : 72;
-  const speechLimit = Math.max(44, available - replyHeight - minHero - (compact ? 24 : 58));
-  const revealInput = useCallback(() => {
-    const input = TextInput.State.currentlyFocusedInput();
-    if (input) roomScroll.current?.scrollResponderScrollNativeHandleToKeyboard(input, 20, true);
-  }, []);
+  // Measure natural speech/footer heights first. Only the portrait yields space.
+  // The single scene scroller handles genuinely oversized text/forms; an editor
+  // must never be a shrinking nested ScrollView inside a capped footer.
+  const compactSpeech = compact || keyboard || close || review;
+  const minHero = close ? 316 : keyboard ? 88 : 72;
+  const speechLimit = review ? Math.min(140, available * 0.22) : Math.max(68, Math.min(120, available - replyHeight - minHero - 24));
+  const portraitHeight = Math.max(minHero, available - speechHeight - replyHeight);
+  const boardHeight = Math.max(316, available - speechHeight - replyHeight);
+  const revealEditor = () => { if (keyboard) sceneScroll.current?.scrollToEnd({ animated: false }); };
   useEffect(() => {
     if (!active) return;
     setKeyboard(Keyboard.isVisible());
-    const show = Keyboard.addListener("keyboardDidShow", () => { setKeyboard(true); revealInput(); });
-    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboard(false));
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setKeyboard(true));
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKeyboard(false));
     return () => { show.remove(); hide.remove(); };
-  }, [active, revealInput]);
+  }, [active]);
+  useEffect(() => { if (!keyboard) sceneScroll.current?.scrollTo({ y: 0, animated: false }); }, [keyboard]);
   useEffect(() => { roomScroll.current?.scrollTo({ y: 0, animated: false }); }, [close]);
   useEffect(() => { roomScroll.current?.scrollTo({ y: 0, animated: false }); }, [line]);
   const balanceText = balanceHidden ? "••••••" : view.balance ? formatAmount(view.balance.spendableSats, unit) : t("home.balanceUnknown");
@@ -127,13 +132,21 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
     {fontScale <= 1.2 ? <BitcoinIcon name={balanceHidden ? "hidden" : "visible"} size={18} /> : null}
     <Text style={[styles.balanceText, fontScale > 1.2 && { fontSize: 13 }]}>{balanceText}</Text>
   </Pressable>;
-  const speech = <View style={[styles.speechSlot, compact && styles.wideSpeech]}>
-    <SpeechBubble compact={compact} maxHeight={speechLimit} dialogue={dialogueState} onAdvance={onLinePress} subdued={listening}>{speechFacts}</SpeechBubble>
+  const speech = <View style={[styles.speechSlot, compactSpeech && styles.wideSpeech]} onLayout={(e) => setSpeechHeight(e.nativeEvent.layout.height)}>
+    <SpeechBubble compact={compactSpeech} naturalHeight={!close && !review} maxHeight={speechLimit} dialogue={dialogueState} onAdvance={onLinePress} subdued={listening}>{speechFacts}</SpeechBubble>
   </View>;
+  const replies = <>
+    {caption}
+    {scene !== "home" && conversation.turn && !protectedStep ? <PlayerBubble turn={conversation.turn} /> : null}
+    {!review && children ? <View style={styles.answers}>{children}</View> : null}
+    {(scene !== "home" || !keyboard) && (choices.length > 0 || choiceAccessory) ? <StageChoices choices={choices} deliberate={protectedStep} accessory={choiceAccessory} /> : null}
+    {typeof afterChoices === "function" ? afterChoices(keyboard) : afterChoices}
+    {headerActions && !keyboard ? <View style={styles.extras}>{headerActions}</View> : null}
+  </>;
   return <>
     <SceneBackground state={ambientState(view)} active={active} />
     <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={keyboard ? ["top"] : ["top", "bottom"]}>
       <ModeBanner />
       <View style={styles.hud}>
         <View style={styles.hudTop}>
@@ -148,30 +161,34 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
       {IS_MAINNET ? <Text style={styles.mainnet} accessibilityRole="alert">{t("net.mainnetLong")}</Text> : null}
         <ConversationContext.Provider value={conversation}>
         <View style={styles.safe} onLayout={(e) => setAvailable(e.nativeEvent.layout.height)}>
-          {review ? <ScrollView ref={roomScroll} style={styles.safe} contentContainerStyle={styles.reviewBody} keyboardShouldPersistTaps="handled">
+          {close ? <ScrollView style={styles.safe} contentContainerStyle={{ minHeight: available }} keyboardShouldPersistTaps="handled">
             {speech}
-            <View style={{ height: 88, overflow: "hidden" }}>
-              {active ? <StageAvatar cue={visual} width={roomWidth} height={88} reduceMotion={reduceMotion} onBoardActiveChange={setBoardActive} speaking={false} lineKey={spokenLine} disabled framingHeight={88} /> : null}
+            <View style={{ height: boardHeight, alignItems: "center", flexShrink: 0 }}>
+              {active && board ? <StageBoard cue={visual} width={roomWidth} height={boardHeight} reduceMotion={reduceMotion} speaking={dialogueState.typing && !listening} board={board} /> : null}
             </View>
-            <Animated.View style={[styles.receipt, panelStyle]}>{children}</Animated.View>
-          </ScrollView> : <>
+            <View style={[styles.replyArea, compact && styles.compactReplies]} onLayout={(e) => setReplyHeight(e.nativeEvent.layout.height)}>{replies}</View>
+          </ScrollView> : review ? <>
             {speech}
-            <View style={styles.hero} onLayout={(e) => setHeroHeight(e.nativeEvent.layout.height)}>
-              {active && heroHeight > 0 ? close ? <StageBoard cue={visual} width={roomWidth} height={heroHeight} reduceMotion={reduceMotion} speaking={dialogueState.typing && !listening} board={board} /> :
-                <StageAvatar cue={visual} width={roomWidth} height={heroHeight} reduceMotion={reduceMotion} onBoardActiveChange={setBoardActive} speaking={dialogueState.typing && !listening} lineKey={spokenLine} disabled={protectedStep} framingHeight={heroHeight} fullBody={cue.action === "celebrate" || cue.action === "catch"} replyBeat={listening ? conversation.turn?.id : undefined} onPress={onStagePress ? (dialogueState.typing ? dialogueState.complete : onStagePress) : undefined} /> : null}
+            <View style={{ height: compact ? 100 : 140, alignItems: "center", overflow: "hidden" }}>
+              {active ? <StageAvatar cue={visual} width={roomWidth} height={compact ? 100 : 140} reduceMotion={reduceMotion} onBoardActiveChange={setBoardActive} speaking={false} lineKey={spokenLine} disabled bust /> : null}
             </View>
-          </>}
-          <View style={[styles.replyArea, compact && styles.compactReplies]} onLayout={(e) => setReplyHeight(e.nativeEvent.layout.height)}>
-            {caption}
-            {/* A listening echo is transient; it must never displace a board or an input. */}
-            {conversation.turn?.listening && !close && !keyboard && !children ? <PlayerBubble turn={conversation.turn} /> : null}
-            {!review && children ? <ScrollView ref={roomScroll} style={{ maxHeight: Math.max(80, available - (keyboard ? 68 : 160) - 120) }} keyboardShouldPersistTaps="handled" onLayout={() => { if (keyboard) revealInput(); }} onContentSizeChange={() => { if (keyboard) revealInput(); }}>
-              <View style={styles.answers}>{children}</View>
-            </ScrollView> : null}
-            <StageChoices choices={choices} deliberate={protectedStep} />
-            {afterChoices}
-            {headerActions && !keyboard ? <View style={styles.extras}>{headerActions}</View> : null}
-          </View>
+            <ScrollView ref={roomScroll} style={styles.safe} contentContainerStyle={styles.reviewBody} keyboardShouldPersistTaps="handled">
+              <Animated.View style={[styles.receipt, panelStyle]}>{children}</Animated.View>
+            </ScrollView>
+            <View style={[styles.replyArea, compact && styles.compactReplies]}>{replies}</View>
+          </> : <ScrollView ref={sceneScroll} style={styles.safe} contentContainerStyle={{ flexGrow: 1 }}
+            automaticallyAdjustKeyboardInsets={false} contentInsetAdjustmentBehavior="never"
+            keyboardShouldPersistTaps="handled" onLayout={revealEditor} onContentSizeChange={revealEditor}>
+            {speech}
+            <View style={[styles.hero, { flex: 0, height: portraitHeight }]} onLayout={(e) => setHeroHeight(e.nativeEvent.layout.height)}>
+              {active && heroHeight > 0 ?
+                <StageAvatar cue={visual} width={roomWidth} height={heroHeight} reduceMotion={reduceMotion} onBoardActiveChange={setBoardActive} speaking={dialogueState.typing && !listening} lineKey={spokenLine} disabled={protectedStep} framingHeight={heroHeight} bust={keyboard} minimumBustHeight={keyboard ? Math.min(650, Math.max(450, (heroHeight - 16) / 0.30)) : 0} fullBody={!!receivedId || cue.action === "celebrate" || cue.action === "catch"} replyBeat={listening ? conversation.turn?.id : undefined} onPress={onStagePress ? (dialogueState.typing ? dialogueState.complete : onStagePress) : undefined} /> : null}
+              {scene === "home" && conversation.turn && !protectedStep ? <View pointerEvents="box-none" style={styles.echoSlot}>
+                <ScrollView style={styles.echoScroll} contentContainerStyle={styles.echoContent} keyboardShouldPersistTaps="handled"><PlayerBubble turn={conversation.turn} /></ScrollView>
+              </View> : null}
+            </View>
+            <View style={[styles.replyArea, compact && styles.compactReplies, keyboard && styles.keyboardReplies]} onLayout={(e) => setReplyHeight(e.nativeEvent.layout.height)}>{replies}</View>
+          </ScrollView>}
         </View>
         </ConversationContext.Provider>
     </SafeAreaView>
@@ -191,9 +208,13 @@ const styles = StyleSheet.create({
   reviewBody: { paddingBottom: 12 },
   wideSpeech: { width: "auto", marginRight: 16, paddingTop: 4 },
   compactReplies: { paddingBottom: 8, gap: 4 },
-  speechSlot: { width: `${theme.presence.bubbleWidth * 100}%`, marginLeft: theme.presence.edge, paddingTop: theme.spacing.sm, zIndex: 2 },
+  speechSlot: { width: `${theme.presence.bubbleWidth * 100}%`, marginLeft: theme.presence.edge, paddingTop: theme.spacing.sm, zIndex: 2, flexShrink: 0 },
   replyArea: { paddingHorizontal: theme.presence.edge, paddingBottom: theme.spacing.sm, gap: theme.presence.gap, zIndex: 3, flexShrink: 0 },
-  answers: { gap: theme.presence.gap },
+  keyboardReplies: { paddingBottom: 0, gap: 4 },
+  echoSlot: { ...StyleSheet.absoluteFill, justifyContent: "flex-end", paddingHorizontal: theme.presence.edge },
+  echoScroll: { flexGrow: 0 },
+  echoContent: { alignItems: "flex-end" },
+  answers: { gap: theme.presence.gap, flexShrink: 0 },
   receipt: { backgroundColor: c.panelSolid, padding: theme.spacing.md, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: c.controlBorder, gap: theme.spacing.md },
   choices: { alignSelf: "stretch", flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: theme.presence.gap },
   choice: { maxWidth: "100%", flexShrink: 1 },

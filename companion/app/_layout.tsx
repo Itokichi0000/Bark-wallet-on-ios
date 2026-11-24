@@ -13,6 +13,7 @@ import { translate } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
 import { theme } from "@/theme";
+import { hasClip, noaVoice } from "@/voice/NoaVoice";
 
 export default function RootLayout() {
   const reduceMotion = useReduceMotion();
@@ -32,8 +33,11 @@ export default function RootLayout() {
       if (s.hapticsEnabled && cue.action === "celebrate") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       void Speech.stop();
       if (!cue.lineKey) return;
-      if (s.speechEnabled && !(s.balanceHidden && cue.lineKey === "voice.balance")) {
-        Speech.speak(translate(s.language, cue.lineKey, cue.lineParams), { language: s.language === "ja" ? "ja-JP" : "en-US", rate: 1.0 });
+      const text = translate(s.language, cue.lineKey, cue.lineParams);
+      // A line her recorded voice will say is not also read by the device's voice.
+      const recorded = s.language === "ja" && s.noaVoice !== "off" && hasClip(s.noaVoice, text);
+      if (s.speechEnabled && !recorded && !(s.balanceHidden && cue.lineKey === "voice.balance")) {
+        Speech.speak(text, { language: s.language === "ja" ? "ja-JP" : "en-US", rate: 1.0 });
       }
     });
 
@@ -45,7 +49,7 @@ export default function RootLayout() {
       }
       if (state === "active") autoSync.start();
       else autoSync.stop();
-      if (state !== "active") void Speech.stop();
+      if (state !== "active") { void Speech.stop(); noaVoice.stop(); }
     });
     return () => {
       offQuests();

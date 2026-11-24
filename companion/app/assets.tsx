@@ -13,7 +13,7 @@ import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
 import { theme } from "@/theme";
-import { formatAmount, formatTime, shorten } from "@/utils/format";
+import { formatAmount, shorten } from "@/utils/format";
 
 const HEALTH_COLOR: Record<WalletVtxo["health"], string> = {
   ok: theme.colors.primary,
@@ -35,7 +35,7 @@ function Crystal({ color }: { color: string }) {
 export default function AssetsScene() {
   const t = useT();
   const refresh = usePullRefresh();
-  const { unit, language, completeQuest } = useSettings();
+  const { unit, completeQuest } = useSettings();
   const { balance, vtxos, maintenance, lastSyncError, lifecycle } = useWalletStore();
   const [selected, setSelected] = useState<string>();
   const [advanced, setAdvanced] = useState(false);
@@ -52,12 +52,11 @@ export default function AssetsScene() {
       <Panel>
         <Row label={t("assets.spendable")} value={show(balance?.spendableSats)} valueStyle={{ fontSize: 32, fontWeight: "700" }} />
         <P muted>{t(lastSyncError !== undefined || lifecycle === "degraded" ? "assets.healthOffline" : !maintenance ? "assets.healthLoading" : maintenance.severity === "none" ? "assets.healthReady" : "assets.healthAttention")}</P>
-        <Disclosure title={t("common.details")}>
+        <Disclosure title={t("assets.balanceDetails")}>
         <Row label={t("assets.total")} value={show(balance?.totalSats)} />
         <P muted>{t("assets.totalNote")}</P>
         <Row label={t("assets.pending")} value={show(balance?.pendingSats)} />
         <Row label={t("assets.needsRefresh")} value={show(balance?.needsRefreshSats)} />
-        <Row label={t("assets.asOf")} value={balance?.lastSyncedAt ? formatTime(balance.lastSyncedAt, language) : t("status.neverSynced")} />
         </Disclosure>
       </Panel>
 
@@ -71,7 +70,7 @@ export default function AssetsScene() {
       <Panel>
         <H>{t("assets.maintenance.title")}</H>
         <TermHelp term="expiry" />
-        <Disclosure title={t("common.details")}>
+        <Disclosure title={t("assets.expiryDetails")}>
         <Row label={t("assets.maintenance.tip")} value={maintenance?.tipHeight !== undefined ? String(maintenance.tipHeight) : t("assets.unknown")} />
         <Row label={t("assets.maintenance.toRefresh")} value={maintenance ? String(maintenance.vtxosToRefresh) : t("assets.unknown")} />
         <Row label={t("assets.maintenance.nextRefresh")} value={maintenance?.nextRequiredRefreshHeight !== undefined ? String(maintenance.nextRequiredRefreshHeight) : t("assets.none")} />

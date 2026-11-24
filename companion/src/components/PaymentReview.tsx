@@ -23,6 +23,7 @@ export function PaymentReview({ quote, unit, embedded = false }: { quote: SendQu
       <Row label={t("review.after")} value={formatAmount(quote.balanceAfterSats, unit)} />
       <TermHelp term="fee" />
       {quote.feeIsEstimate ? <Notice tone="warning">{t("review.feeEstimate")}</Notice> : null}
+      {quote.method === "lightning" ? <Notice tone="info">{t("send.ln.note")}</Notice> : null}
       <Notice tone="info">{t("review.irreversible")}</Notice>
     </Container>
   );

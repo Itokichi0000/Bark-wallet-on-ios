@@ -29,7 +29,7 @@ export function RecentActivity() {
             <View style={styles.summary}>
               <BitcoinIcon name={m.direction === "incoming" ? "receive" : m.direction === "outgoing" ? "send" : "refresh"} size={20} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>{t(`archive.direction.${m.direction}`)}</Text>
+                <Text style={styles.label}>{t(`archive.direction.${m.direction}`)} · {t(`method.${m.method}`)}</Text>
                 <Text style={[styles.meta, unresolved && { color: theme.colors.warning }]}>{t(`archive.status.${m.status}`)}{unresolved ? ` · ${t("home.doNotResend")}` : ""}</Text>
               </View>
               <Text style={styles.amount}>{balanceHidden ? "••••" : `${m.direction === "incoming" ? "+" : m.direction === "outgoing" ? "−" : ""}${formatAmount(m.amountSats, unit)}`}</Text>

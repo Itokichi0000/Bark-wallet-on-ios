@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { Stage, StageChoices } from "@/components/stage";
 import { TalkInput } from "@/components/conversation";
+import { MockChip } from "@/components/MockChip";
 import type { BitcoinIconName } from "@/components/BitcoinIcon";
 import { adapter, avatar, bus } from "@/container";
 import { CuePriority } from "@/domain/avatar";
@@ -56,16 +57,11 @@ export default function HomeScene() {
   }));
   return <Stage scene="home" line={line} onLinePress={route ? () => router.push(route) : undefined} choices={answers.slice(0, 2)} headerActions={
       <View style={styles.headerActions}>
-        {adapter.isMock && "simulateIncoming" in adapter ? <Pressable onPress={() => (adapter as typeof adapter & { simulateIncoming(sats: bigint): void }).simulateIncoming(10_000n)} accessibilityRole="button" accessibilityLabel={t("mock.simulateIncoming")} style={({ pressed }) => [styles.practice, pressed && { opacity: 0.65 }]}>
-          <Text style={styles.mockBadge}>{t("stage.mockOnly")}</Text><Text style={styles.practiceLabel}>{t("mock.short")}</Text>
-        </Pressable> : null}
+        {adapter.isMock && "simulateIncoming" in adapter ? <MockChip onPress={() => (adapter as typeof adapter & { simulateIncoming(sats: bigint): void }).simulateIncoming(10_000n)} label={t("mock.simulateIncoming")} /> : null}
       </View>
-    } afterChoices={<><StageChoices choices={answers.slice(2)} compact /><TalkInput onSubmit={onCommand} /></>} />;
+    } afterChoices={(keyboard) => <>{!keyboard ? <StageChoices choices={answers.slice(2)} compact /> : null}<TalkInput onSubmit={onCommand} /></>} />;
 }
 
 const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, flexShrink: 1 },
-  practice: { minHeight: 44, paddingHorizontal: 8, paddingVertical: 4, alignItems: "center", justifyContent: "center", borderRadius: 10, borderWidth: 1, borderColor: theme.colors.warning, backgroundColor: theme.colors.backgroundRaised, flexShrink: 1 },
-  mockBadge: { color: theme.colors.warning, fontSize: 10, lineHeight: 13, fontWeight: "800", letterSpacing: 1 },
-  practiceLabel: { color: theme.colors.warning, fontSize: 12, lineHeight: 16, fontWeight: "600" },
 });

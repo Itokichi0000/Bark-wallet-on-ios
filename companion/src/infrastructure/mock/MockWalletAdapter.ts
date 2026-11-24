@@ -1,4 +1,4 @@
-import { ACTIVE_NETWORK } from "@/config/network";
+import { ACTIVE_NETWORK, LIGHTNING_ENABLED } from "@/config/network";
 import { WalletError } from "@/domain/errors";
 import { fromMoney, toMoney } from "@/domain/money";
 import type {
@@ -16,6 +16,8 @@ export interface MockOptions {
   created?: boolean;
   feeSats?: bigint;
   now?: () => Date;
+  /** Demo builds: a past receipt and a past payment already in the history when it opens. Nothing is announced. */
+  demoHistory?: boolean;
 }
 
 /**
@@ -44,7 +46,8 @@ export class MockWalletAdapter implements WalletAdapter {
   /** Counts SDK-level send calls, so tests can prove nothing was sent twice. */
   sendCalls = 0;
   failNextSync = false;
-  readonly lightning = true;
+  readonly lightning = LIGHTNING_ENABLED;
+  private readonly demoHistory: boolean;
   private invoices = new Map<string, { amount: bigint; state: LightningReceiveState }>();
 
   constructor(opts: MockOptions = {}) {
@@ -52,6 +55,7 @@ export class MockWalletAdapter implements WalletAdapter {
     this.created = opts.created ?? false;
     this.fee = opts.feeSats ?? 0n;
     this.now = opts.now ?? (() => new Date());
+    this.demoHistory = opts.demoHistory ?? false;
     if (this.spendable > 0n) this.addVtxo(this.spendable, MOCK_TIP + 4000);
   }
 
@@ -89,7 +93,7 @@ export class MockWalletAdapter implements WalletAdapter {
   simulateIncoming(sats: bigint): WalletMovement {
     this.requireOpen();
     // A pretend invoice that is waiting gets paid first, so the Lightning screen can be practised.
-    const waiting = [...this.invoices.values()].find((i) => i.state === "awaiting");
+    const waiting = [...this.invoices.values()].reverse().find((i) => i.state === "awaiting");
     if (waiting) {
       waiting.state = "settled";
       sats = waiting.amount;
@@ -113,6 +117,18 @@ export class MockWalletAdapter implements WalletAdapter {
     if (!opts.create && !this.created) throw new WalletError("no-wallet");
     this.created = true;
     this.opened = true;
+    if (this.demoHistory && this.movements.length === 0) {
+      // Written straight into the history, before anyone subscribes: the past is not celebrated again.
+      const at = (minutes: number) => new Date(this.now().getTime() - minutes * 60_000).toISOString();
+      this.spendable += 21_000n;
+      this.addVtxo(21_000n, MOCK_TIP + 4320);
+      this.movements.unshift(
+        { id: String(this.nextId++), method: "ark", kind: "mock.receive", direction: "incoming", amountSats: "21000", feeSats: "0", status: "succeeded", rawStatus: "successful", counterparty: `${MOCK_PREFIX}self`, createdAt: at(90), completedAt: at(90) },
+      );
+      this.movements.unshift(
+        { id: String(this.nextId++), method: "ark", kind: "mock.send", direction: "outgoing", amountSats: "6000", feeSats: "0", status: "succeeded", rawStatus: "successful", counterparty: `${MOCK_PREFIX}friend`, createdAt: at(30), completedAt: at(30) },
+      );
+    }
   }
   async close(): Promise<void> {
     this.opened = false;
@@ -149,7 +165,7 @@ export class MockWalletAdapter implements WalletAdapter {
   async newLightningInvoice(amountSats: string): Promise<LightningInvoiceRequest> {
     this.requireOpen();
     const amount = fromMoney(amountSats);
-    if (amount <= 0n) throw new WalletError("quote-unavailable");
+    if (amount <= 0n || !this.lightning) throw new WalletError("quote-unavailable");
     const paymentHash = `mockhash${this.invoices.size + 1}`;
     this.invoices.set(paymentHash, { amount, state: "awaiting" });
     return {
@@ -164,10 +180,11 @@ export class MockWalletAdapter implements WalletAdapter {
   }
   async validateDestination(input: string): Promise<DestinationCheck> {
     this.requireOpen();
-    const text = input.trim().toLowerCase();
+    const text = input.trim().toLowerCase().replace(/^lightning:/, "");
     if (text === "") return { valid: false, reason: "empty" };
     if (text.startsWith("ark1")) return { valid: false, reason: "wrong-network" };
     if (text.startsWith(MOCK_LN_PREFIX)) {
+      if (!this.lightning) return { valid: false, reason: "method-not-enabled" };
       return { valid: true, method: "lightning", destination: text, fixedAmountSats: text.includes("fixed") ? "2100" : undefined };
     }
     if (text.startsWith("lntbs") || text.startsWith("lnbc")) return { valid: false, reason: "unrecognised" };

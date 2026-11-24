@@ -1,5 +1,5 @@
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState, type ComponentRef, type ReactNode } from "react";
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputProps } from "react-native";
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputProps } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import * as Haptics from "expo-haptics";
@@ -13,6 +13,12 @@ import { DialogueLine, type DialogueState } from "./dialogue";
 const p = theme.presence;
 const c = theme.colors;
 const ease = Easing.bezier(...p.easeOut);
+/** Literal wallet data must never pass through an IME or spelling replacement. Not for conversation. */
+export const literalInputProps = {
+  keyboardType: Platform.OS === "ios" ? "ascii-capable" : "visible-password",
+  autoCapitalize: "none", autoCorrect: false, spellCheck: false,
+  autoComplete: "off", textContentType: "none", smartInsertDelete: false,
+} as const satisfies TextInputProps;
 export function replyHaptic() { if (useSettings.getState().hapticsEnabled) void Haptics.selectionAsync().catch(() => undefined); }
 
 type Turn = { id: number; text: string; listening: boolean };
@@ -25,19 +31,25 @@ export function useConversation(active: boolean, protectedStep: boolean, reduceM
   const serial = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const clear = useCallback(() => { clearTimeout(timer.current); serial.current++; }, []);
-  useEffect(() => { if (!active || protectedStep || reduceMotion) { clear(); setTurn(undefined); } return clear; }, [active, protectedStep, reduceMotion, clear]);
+  useEffect(() => { if (!active || protectedStep) { clear(); setTurn(undefined); } return clear; }, [active, protectedStep, clear]);
   const say = useCallback((text: string, action: () => void) => {
     clear();
     replyHaptic();
     if (!active) return;
-    if (protectedStep || reduceMotion) { setTurn({ id: serial.current, text, listening: false }); action(); return; }
+    if (protectedStep) { setTurn(undefined); action(); return; }
     const id = serial.current;
-    setTurn({ id, text, listening: true });
-    timer.current = setTimeout(() => {
+    const answer = () => {
       if (id !== serial.current) return;
       setTurn({ id, text, listening: false });
       action();
-    }, p.beatMs);
+      // The answer takes over after 2.5s; allow the echo's opacity fade to finish.
+      timer.current = setTimeout(() => { if (id === serial.current) setTurn(undefined); }, 2500 + p.fadeMs);
+    };
+    if (reduceMotion) answer();
+    else {
+      setTurn({ id, text, listening: true });
+      timer.current = setTimeout(answer, p.beatMs);
+    }
   }, [active, protectedStep, reduceMotion, clear]);
   return { turn, say };
 }
@@ -49,8 +61,8 @@ function Tail({ side, compact = false }: { side: "down" | "left"; compact?: bool
   </Svg>;
 }
 
-export const SpeechBubble = memo(function SpeechBubble({ dialogue, children, onAdvance, hint, side = "down", subdued = false, compact = false, maxHeight }: {
-  dialogue: DialogueState; children?: ReactNode; onAdvance?: () => void; hint?: string; side?: "down" | "left"; subdued?: boolean; compact?: boolean; maxHeight?: number;
+export const SpeechBubble = memo(function SpeechBubble({ dialogue, children, onAdvance, hint, side = "down", subdued = false, compact = false, maxHeight, naturalHeight = false }: {
+  dialogue: DialogueState; children?: ReactNode; onAdvance?: () => void; hint?: string; side?: "down" | "left"; subdued?: boolean; compact?: boolean; maxHeight?: number; naturalHeight?: boolean;
 }) {
   const { fontScale } = useWindowDimensions();
   const enter = useSharedValue(1);
@@ -66,6 +78,10 @@ export const SpeechBubble = memo(function SpeechBubble({ dialogue, children, onA
   }, [dialogue.line, dialogue.reduceMotion, enter]);
   const pop = useAnimatedStyle(() => ({ opacity: enter.get() * (subdued ? 0.55 : 1), transform: [{ scale: dialogue.reduceMotion ? 1 : 0.94 + enter.get() * 0.06 }] }));
   const silhouette = useAnimatedStyle(() => ({ transform: [{ scaleY: dialogue.reduceMotion ? 1 : resize.get() }] }));
+  const content = <>
+    <DialogueLine dialogue={dialogue} style={[styles.speechText, compact && styles.compactSpeechText]} onAdvance={onAdvance} hint={hint} />
+    {children ? <View style={styles.facts}>{children}</View> : null}
+  </>;
   return <Animated.View style={[styles.speech, compact && styles.compactSpeech, { transformOrigin: side === "left" ? [-p.tail, p.bubblePadding + p.tail * 0.66, 0] : ["66%", bubbleHeight + p.tail, 0] }, pop]} onLayout={(event) => {
     const next = event.nativeEvent.layout.height;
     if (measured.current && next !== measured.current && !dialogue.reduceMotion) {
@@ -77,10 +93,7 @@ export const SpeechBubble = memo(function SpeechBubble({ dialogue, children, onA
   }}>
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.silhouette, silhouette]} />
     <Tail side={side} compact={compact} />
-    <ScrollView ref={scroll} nestedScrollEnabled style={{ maxHeight: maxHeight ?? p.speechLine * fontScale * 5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
-      <DialogueLine dialogue={dialogue} style={[styles.speechText, compact && styles.compactSpeechText]} onAdvance={onAdvance} hint={hint} />
-      {children ? <View style={styles.facts}>{children}</View> : null}
-    </ScrollView>
+    {naturalHeight ? <View>{content}</View> : <ScrollView ref={scroll} nestedScrollEnabled style={{ flexGrow: 0, maxHeight: maxHeight ?? p.speechLine * fontScale * 5 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>{content}</ScrollView>}
   </Animated.View>;
 });
 
@@ -90,11 +103,18 @@ export function SpeechFact({ children, tone = "muted", selectable = false }: { c
 
 export const PlayerBubble = memo(function PlayerBubble({ turn }: { turn: Turn }) {
   const reduceMotion = useReduceMotion();
-  const { fontScale } = useWindowDimensions();
   const progress = useSharedValue(1);
+  const fade = useSharedValue(1);
   useEffect(() => { progress.set(0); progress.set(withTiming(1, { duration: p.replyMs, easing: ease })); return () => cancelAnimation(progress); }, [turn.id, progress]);
-  const motion = useAnimatedStyle(() => ({ opacity: progress.get(), transform: [{ translateY: reduceMotion ? 0 : p.rise * (1 - progress.get()) }] }));
-  return <Animated.View style={[styles.player, motion]}><ScrollView nestedScrollEnabled style={{ maxHeight: p.replyLine * fontScale * 5 }}><Text style={styles.playerText}>{turn.text}</Text></ScrollView></Animated.View>;
+  useEffect(() => {
+    fade.set(1);
+    // Reading time is not animation time: Reanimated's withDelay skips its
+    // delay under OS Reduce Motion, which would immediately hide the echo.
+    const timer = !turn.listening ? setTimeout(() => fade.set(withTiming(0, { duration: p.fadeMs, easing: ease })), 2500) : undefined;
+    return () => { clearTimeout(timer); cancelAnimation(fade); };
+  }, [turn.id, turn.listening, fade]);
+  const motion = useAnimatedStyle(() => ({ opacity: progress.get() * fade.get(), transform: [{ translateY: reduceMotion ? 0 : p.rise * (1 - progress.get()) }] }));
+  return <Animated.View style={[styles.player, motion]}><Text style={styles.playerText}>{turn.text}</Text></Animated.View>;
 });
 
 export function Reply({ label, onPress, primary, disabled, busy, icon, hint, round, unread }: {
@@ -126,17 +146,28 @@ export function TalkInput({ onSubmit }: { onSubmit(text: string): void }) {
     setText(""); Keyboard.dismiss();
     if (conversation) conversation.say(value, () => onSubmit(value)); else onSubmit(value);
   };
-  return <ReplyComposer value={text} onChangeText={setText} placeholder={t("presence.talkPlaceholder")} accessibilityLabel={t("talk.title")} submitLabel={t("talk.send")} onSend={submit} disabled={!text.trim()} />;
+  return <ReplyComposer value={text} onChangeText={setText} placeholder={t("presence.talkPlaceholder")} accessibilityLabel={t("talk.title")} submitLabel={t("talk.input.send")} onSend={submit} disabled={!text.trim()} />;
 }
 
-export function ReplyComposer({ onSend, submitLabel, disabled, children, replyText, ...input }: TextInputProps & {
-  onSend(): void; submitLabel: string; disabled?: boolean; children?: ReactNode; replyText?: string;
+export function ReplyComposer({ onSend, submitLabel, disabled, children, replyText, inputAccessory, ...input }: TextInputProps & {
+  onSend(): void; submitLabel: string; disabled?: boolean; children?: ReactNode; replyText?: string; inputAccessory?: ReactNode;
 }) {
   const conversation = useContext(ConversationContext);
   const submit = () => { if (disabled) return; if (replyText && conversation) { Keyboard.dismiss(); conversation.say(replyText, onSend); } else onSend(); };
+  // The field owns what is being typed. Feeding every keystroke back through `value` lets a slow
+  // re-render write an older string over newer keystrokes (fast typing lost "ark" of "tark1…").
+  // The parent's value is applied only when it changes for another reason (scan, paste, clear).
+  const { value, onChangeText } = input;
+  const [text, setText] = useState(value ?? "");
+  const emitted = useRef(value ?? "");
+  useEffect(() => {
+    if (value !== undefined && value !== emitted.current) { emitted.current = value; setText(value); }
+  }, [value]);
+  const change = useCallback((next: string) => { emitted.current = next; setText(next); onChangeText?.(next); }, [onChangeText]);
   return <View style={styles.composer}>
     <View style={styles.composeRow}>
-      <TextInput {...input} placeholderTextColor={c.textMuted} style={[styles.input, input.style]} returnKeyType={input.returnKeyType ?? "send"} onSubmitEditing={submit} />
+      <TextInput {...input} value={value === undefined ? undefined : text} onChangeText={change} placeholderTextColor={c.textMuted} style={[styles.input, input.style]} returnKeyType={input.returnKeyType ?? "done"} onSubmitEditing={input.onSubmitEditing ?? submit} />
+      {inputAccessory}
       <Pressable accessibilityRole="button" accessibilityLabel={submitLabel} accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={submit} style={({ pressed }) => [styles.arrow, { opacity: disabled ? 0.4 : pressed ? 0.65 : 1 }]}>
         <BitcoinIcon name="caret-right" size={22} color={c.background} />
       </Pressable>
@@ -146,14 +177,14 @@ export function ReplyComposer({ onSend, submitLabel, disabled, children, replyTe
 }
 
 const styles = StyleSheet.create({
-  speech: { padding: p.bubblePadding, minHeight: p.touch, marginBottom: p.tail, alignSelf: "stretch" },
+  speech: { padding: p.bubblePadding, minHeight: p.touch, marginBottom: p.tail, alignSelf: "stretch", flexShrink: 0 },
   silhouette: { borderRadius: p.bubbleRadius, borderCurve: "continuous", backgroundColor: c.speech, boxShadow: p.bubbleShadow, transformOrigin: "bottom center" },
   tailDown: { position: "absolute", bottom: -p.tail + 1, left: "62%" },
   tailLeft: { position: "absolute", left: -p.tail + 1, top: p.bubblePadding },
   speechText: { color: c.speechInk, fontSize: p.speechSize, lineHeight: p.speechLine },
   facts: { gap: p.gap, paddingTop: p.gap },
   fact: { fontSize: p.footnoteSize, lineHeight: p.footnoteLine },
-  player: { maxWidth: "85%", alignSelf: "flex-end", padding: p.bubblePadding, borderRadius: p.replyRadius, borderBottomRightRadius: theme.spacing.xs, backgroundColor: c.primary, marginBottom: p.gap },
+  player: { maxWidth: "70%", alignSelf: "flex-end", flexShrink: 0, padding: p.bubblePadding, borderRadius: p.replyRadius, borderBottomRightRadius: theme.spacing.xs, backgroundColor: c.primary, marginBottom: p.gap },
   playerText: { color: c.background, fontSize: p.replySize, lineHeight: p.replyLine },
   reply: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: p.gap, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, minHeight: p.touch, borderRadius: p.replyRadius, borderBottomRightRadius: theme.spacing.xs, backgroundColor: c.reply, borderWidth: 1, borderColor: c.replyBorder, boxShadow: p.replyShadow },
   primary: { backgroundColor: c.primary, borderColor: c.primary },
@@ -163,7 +194,7 @@ const styles = StyleSheet.create({
   compactSpeechText: { fontSize: 15, lineHeight: 21 },
   replyText: { flexShrink: 1, color: c.text, fontSize: p.replySize, lineHeight: p.replyLine, fontWeight: "600", textAlign: "center" },
   unread: { position: "absolute", right: theme.spacing.xs, top: theme.spacing.xs, width: p.gap, height: p.gap, borderRadius: theme.radius.pill, backgroundColor: c.primary },
-  composer: { alignSelf: "stretch", padding: theme.spacing.sm, borderRadius: p.replyRadius, borderBottomRightRadius: theme.spacing.xs, backgroundColor: c.reply, borderWidth: 1, borderColor: c.replyBorder, gap: p.gap },
+  composer: { alignSelf: "stretch", flexShrink: 0, padding: theme.spacing.sm, borderRadius: p.replyRadius, borderBottomRightRadius: theme.spacing.xs, backgroundColor: c.reply, borderWidth: 1, borderColor: c.replyBorder, gap: p.gap },
   composeRow: { flexDirection: "row", alignItems: "center", gap: p.gap },
   input: { flex: 1, minWidth: 0, color: c.text, fontSize: p.replySize, minHeight: p.touch, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.sm },
   arrow: { minWidth: p.touch, minHeight: p.touch, borderRadius: theme.radius.pill, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },

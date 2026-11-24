@@ -1,10 +1,12 @@
-import { Reply, ReplyComposer, SpeechFact } from "@/components/conversation";
+import { NET } from "@/config/network";
+import { AmountComposer } from "@/components/amount-composer";
+import { Reply, ReplyComposer, SpeechFact, literalInputProps } from "@/components/conversation";
 import { userAction } from "@/components/companionEvents";
 import { useSendPresentation } from "@/components/SendCompanion";
 import { Stage, finishStage, usePresentBoard, type StageAnswer } from "@/components/stage";
 import { sendTurn, type SendChoice } from "@/game/dialogue";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Keyboard, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { router, useFocusEffect, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { PaymentReview } from "@/components/PaymentReview";
@@ -12,6 +14,7 @@ import { QrScanner } from "@/components/QrScanner";
 import { Button, Notice, Row } from "@/components/ui";
 import { avatar, bus, wallet } from "@/container";
 import { CuePriority, type AvatarCue } from "@/domain/avatar";
+import type { DestinationCheck } from "@/domain/wallet";
 import { WalletError, errorMessage } from "@/domain/errors";
 import { btcDecimalToSats, formatBtc, parseSatsInput, toMoney } from "@/domain/money";
 import { type PendingOperation, initialSendState, sendReducer } from "@/domain/payment";
@@ -27,6 +30,7 @@ const QUOTE_MAX_AGE_MS = 120_000;
 /** S03 Send. The reducer in domain/payment.ts decides what may happen next; this file only renders it. */
 export default function SendScene() {
   const t = useT();
+  const lightningAvailable = wallet.lightningAvailable && NET.network === "signet";
   const params = useLocalSearchParams<{ amount?: string; max?: string }>();
   const unit = useSettings((s) => s.unit);
   const balanceHidden = useSettings((s) => s.balanceHidden);
@@ -70,6 +74,7 @@ export default function SendScene() {
     dispatch({ type: "FORM_ERROR", message });
   }, [cancelTyping]);
   const typeAmount = (amountInput: string) => {
+    avatar.cancel();
     dispatch({ type: "AMOUNT_CHANGED", amountInput });
     cancelTyping();
     if (amountInput) amountTimer.current = setTimeout(() => {
@@ -110,9 +115,10 @@ export default function SendScene() {
     cancelTyping();
     Keyboard.dismiss();
     dispatch({ type: "VALIDATE_STARTED" });
-    let check;
+    let check: DestinationCheck;
     try {
       check = await wallet.validateDestination(state.input);
+      if (check.valid && check.method === "lightning" && !lightningAvailable) check = { valid: false, reason: "method-not-enabled" };
     } catch (e) {
       announceValidation(state.input, false);
       dispatch({ type: "VALIDATED", check: { valid: false, reason: "unrecognised", detail: errorMessage(e) } });
@@ -147,7 +153,7 @@ export default function SendScene() {
     setBusyMax(true);
     setBtcInput(undefined);
     try {
-      const max = await wallet.quoteMaxSend("ark");
+      const max = await wallet.quoteMaxSend(state.check?.valid ? state.check.method : "ark");
       if (max.ok) dispatch({ type: "AMOUNT_CHANGED", amountInput: max.amountSats });
       else formError(t(`send.max.${max.reason}`));
     } catch (e) {
@@ -156,7 +162,7 @@ export default function SendScene() {
       releaseEditLock();
       setBusyMax(false);
     }
-  }, [t, cancelTyping, formError, releaseEditLock]);
+  }, [t, cancelTyping, formError, releaseEditLock, state.check]);
 
   useEffect(() => {
     if (wantMax.current) {
@@ -233,23 +239,24 @@ export default function SendScene() {
     if (!input.trim() || !focused.current) return;
     const serial = ++validationSerial.current;
     // Preserve the latest scan/paste while max/quote owns the edit lock.
-    if (editLock.current) { setQueuedDestination(input.trim()); return; }
+    if (editLock.current) { setQueuedDestination(input); return; }
     setQueuedDestination(undefined);
     Keyboard.dismiss();
-    dispatch({ type: "INPUT_CHANGED", input: input.trim() });
+    dispatch({ type: "INPUT_CHANGED", input });
     dispatch({ type: "VALIDATE_STARTED" });
     try {
-      const check = await wallet.validateDestination(input.trim());
+      let check = await wallet.validateDestination(input);
+      if (check.valid && check.method === "lightning" && !lightningAvailable) check = { valid: false, reason: "method-not-enabled" };
       if (serial !== validationSerial.current) return;
-      announceValidation(input.trim(), check.valid);
+      announceValidation(input, check.valid);
       dispatch({ type: "VALIDATED", check });
       if (check.valid) { setTyping(false); setBtcInput(undefined); }
     } catch (e) {
       if (serial !== validationSerial.current) return;
-      announceValidation(input.trim(), false);
+      announceValidation(input, false);
       dispatch({ type: "VALIDATED", check: { valid: false, reason: "unrecognised", detail: errorMessage(e) } });
     }
-  }, [announceValidation]);
+  }, [announceValidation, lightningAvailable]);
   useEffect(() => {
     if (queuedDestination && !editLock.current) void checkDestination(queuedDestination);
   }, [queuedDestination, editRevision, checkDestination]);
@@ -287,11 +294,11 @@ export default function SendScene() {
   };
   const awaitingDestination = turn.step === "destination" || turn.step === "bad-destination";
   const answers: StageAnswer[] = scanning ? [{ id: "stop", label: t("stage.stopScan"), onPress: () => setScanning(false), alwaysVisible: true }] : turn.choices.filter((id) =>
-    !(turn.step === "amount" && (id === "max" || id === "confirm-amount")) &&
+    !(turn.step === "amount" && (id === "confirm-amount" || (id === "max" && !keyboardOpen))) &&
     // The editor is already open. Keep Scan/Paste beside it without a second
     // row of redundant entry/reset replies consuming keyboard space.
     !(typing && keyboardOpen && (id === "type" || id === "clear"))).map((id) => ({
-    id, label: id === "send" ? t("send.confirm") : t(`talk.send.choice.${id}`), onPress: () => choose(id),
+    id, label: id === "send" ? t("send.confirm") : id === "max" && keyboardOpen ? t("send.max") : t(`talk.send.choice.${id}`), onPress: () => choose(id),
     hint: id === "send" ? t("send.confirmHint") : id === "max" ? t("send.maxHint") : undefined,
     busy: id === "max" && busyMax,
     disabled: busyMax || ((id === "confirm-amount" || id === "send") && (!openLoaded || blocking.length > 0)),
@@ -299,17 +306,17 @@ export default function SendScene() {
   const amountValue = fixed ?? state.amountInput;
   const parsedAmount = parseSatsInput(amountValue);
   const amountDisplay = amountUnit === "btc" ? (btcInput ?? (parsedAmount.ok ? formatBtc(parsedAmount.sats).replace(/,/g, "") : "")) : amountValue;
-  return <Stage scene="send" line={t(scanning ? "talk.scan.show" : turn.lineKey)} choices={answers}
+  return <Stage scene="send" line={t(scanning ? "talk.scan.show" : turn.step === "destination" && !lightningAvailable ? "talk.send.destination.arkOnly" : turn.lineKey)} choices={answers}
     boardCue={boardCue} boardImmediate
     fallbackCue={presentation} sendResult={{ phase, operationId: state.operationId }} locked={inFlight} review={phase === "review"}
     onBack={scanning ? () => setScanning(false) : phase === "review" ? cancelReview : finishStage}
-    board={scanning ? <QrScanner visible onScanned={(data) => { setScanning(false); setTyping(false); void checkDestination(data.trim()); }} /> : undefined}
+    board={scanning ? <QrScanner visible onScanned={(data) => { setScanning(false); setTyping(false); void checkDestination(data); }} /> : undefined}
     speechFacts={<>
       {blocking.length > 0 && editing ? <SpeechFact tone="warning">{t("send.openOps.title")}{"\n"}{t("send.openOps.body")}</SpeechFact> : null}
       {!scanning && turn.step === "amount" && fixed !== undefined ? <SpeechFact>{t("send.amountFixed")}</SpeechFact> : null}
-      {!scanning && awaitingDestination ? <SpeechFact>{t("send.methodsNote")}</SpeechFact> : null}
+      {!scanning && awaitingDestination ? <SpeechFact>{t(lightningAvailable ? "send.methodsNote" : "send.methodsNote.arkOnly")}</SpeechFact> : null}
       {!scanning && state.check && !state.check.valid ? <SpeechFact tone="danger">{explainCheck(state.check.reason)}{state.check.detail ? `\n${state.check.detail}` : ""}</SpeechFact> : null}
-      {!scanning && turn.step === "amount" && state.check?.valid ? <SpeechFact selectable>{t("send.to")}: {state.check.destination}</SpeechFact> : null}
+      {!scanning && turn.step === "amount" && state.check?.valid ? <SpeechFact selectable>{t(`method.${state.check.method}`)} · {t("send.to")}: {state.check.method === "lightning" ? shorten(state.check.destination, 12, 8) : state.check.destination}{state.check.description ? `\n${state.check.description}` : ""}</SpeechFact> : null}
       {state.formError && !scanning ? <SpeechFact tone="danger">{state.formError}</SpeechFact> : null}
       {reconcileError ? <SpeechFact tone="warning">{reconcileError}</SpeechFact> : null}
       {openError && editing ? <SpeechFact tone="warning">{openError}</SpeechFact> : null}
@@ -326,12 +333,14 @@ export default function SendScene() {
       </View>)}
     </View> : null}
     {openError && editing ? <Button label={t("common.retry")} kind="secondary" onPress={() => void loadOpen()} /> : null}
-    {!scanning && awaitingDestination && typing ? <ReplyComposer value={state.input} onChangeText={(input) => { validationSerial.current++; setQueuedDestination(undefined); dispatch({ type: "INPUT_CHANGED", input }); }}
-      placeholder={t("send.toPlaceholder")} autoCapitalize="none" autoCorrect={false} autoFocus returnKeyType="next"
+    {!scanning && awaitingDestination && typing ? <ReplyComposer value={state.input} onChangeText={(input) => { validationSerial.current++; validationInput.current = undefined; setQueuedDestination(undefined); avatar.cancel(); dispatch({ type: "INPUT_CHANGED", input }); }}
+      {...literalInputProps} placeholder={t("send.toPlaceholder")} autoFocus returnKeyType="next"
       accessibilityLabel={t("send.to")} submitLabel={t("stage.checkDestination")} disabled={busyMax || !state.input.trim()}
-      replyText={state.input} onSend={() => void checkDestination(state.input)} /> : null}
+      replyText={/^(?:lightning:)?ln/i.test(state.input.trim()) ? shorten(state.input.trim(), 12, 8) : state.input} onSend={() => void checkDestination(state.input)} /> : null}
     {!scanning && turn.step === "amount" && state.check?.valid ? <>
-      <ReplyComposer submitLabel={t("talk.send.choice.confirm-amount")} onSend={() => void goReview()} replyText={`${amountDisplay || "0"} ${amountUnit === "btc" ? "BTC" : "sats"}`} disabled={busyMax || !openLoaded || blocking.length > 0}
+      <AmountComposer amountUnit={amountUnit} keyboardOpen={keyboardOpen} onUnitChange={() => { setBtcInput(undefined); setAmountUnit(amountUnit === "sats" ? "btc" : "sats"); userAction("unit-changed"); }}
+        helper={fixed === undefined ? <Reply label={t("talk.send.choice.max")} hint={t("send.maxHint")} onPress={() => void fillMax()} disabled={busyMax} busy={busyMax} /> : null}
+        submitLabel={t("talk.send.choice.confirm-amount")} onSend={() => void goReview()} replyText={`${amountDisplay || "0"} ${amountUnit === "btc" ? "BTC" : "sats"}`} disabled={busyMax || !openLoaded || blocking.length > 0}
         value={amountDisplay} editable={fixed === undefined && !busyMax} onChangeText={(value) => {
           if (amountUnit === "btc") {
             setBtcInput(value);
@@ -339,16 +348,9 @@ export default function SendScene() {
             typeAmount(sats === undefined ? "" : toMoney(sats));
           } else typeAmount(value);
         }} onEndEditing={() => { cancelTyping(); if (state.amountInput) bus.emit({ type: "AMOUNT_ENTERED", id: bus.nextId("amount") }); }}
-          placeholder="0" placeholderTextColor={theme.colors.textMuted} keyboardType={amountUnit === "btc" ? "decimal-pad" : "number-pad"} style={[styles.amount, keyboardOpen && { fontSize: 28 }]} accessibilityLabel={`${t("send.amount")} (${amountUnit === "btc" ? "BTC" : "sats"})`}>
-        <View style={styles.helpers}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("home.unit")} accessibilityState={{ disabled: busyMax }} disabled={busyMax} onPress={() => {
-          setBtcInput(undefined); setAmountUnit(amountUnit === "sats" ? "btc" : "sats"); userAction("unit-changed");
-        }} style={styles.unitButton}><Text style={styles.unit}>{amountUnit === "btc" ? "BTC" : "sats"} ⇄</Text></Pressable>
-        {fixed === undefined ? <Reply label={t("talk.send.choice.max")} hint={t("send.maxHint")} onPress={() => void fillMax()} disabled={busyMax} busy={busyMax} /> : null}
-        </View>
+        >
         <Text style={styles.available}>{t("send.available", { amount: balanceHidden ? "••••••" : balance ? formatAmount(balance.spendableSats, unit) : t("home.balanceUnknown") })}</Text>
-      </ReplyComposer>
-      {keyboardOpen ? <Pressable accessibilityRole="button" accessibilityLabel={t("stage.dismissKeyboard")} onPress={() => { cancelTyping(); Keyboard.dismiss(); }} style={styles.keyboardDone}><Text style={styles.unit}>{t("stage.dismissKeyboard")}</Text></Pressable> : null}
+      </AmountComposer>
     </> : null}
     {phase === "review" && state.quote ? <>
       <PaymentReview quote={state.quote} unit={unit} embedded />
@@ -363,9 +365,4 @@ export default function SendScene() {
 
 const styles = StyleSheet.create({
   available: { color: theme.colors.textMuted, fontSize: theme.presence.footnoteSize, lineHeight: theme.presence.footnoteLine, paddingHorizontal: theme.spacing.sm },
-  helpers: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.sm },
-  amount: { fontSize: theme.presence.amountSize, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  unitButton: { minHeight: theme.presence.touch, minWidth: theme.presence.touch, justifyContent: "center", paddingHorizontal: theme.spacing.sm },
-  unit: { color: theme.colors.primary, fontSize: theme.presence.replySize },
-  keyboardDone: { minHeight: theme.presence.touch, alignSelf: "flex-end", justifyContent: "center", paddingHorizontal: theme.spacing.md },
 });

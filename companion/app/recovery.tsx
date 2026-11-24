@@ -1,5 +1,6 @@
 import { usePreventScreenCapture } from "expo-screen-capture";
 import { TermHelp } from "@/components/TermHelp";
+import { literalInputProps } from "@/components/conversation";
 import { useCallback, useState } from "react";
 import { StyleSheet, TextInput } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
@@ -80,8 +81,9 @@ export default function RecoveryScene() {
       <H>{t("recovery.phrase")}</H>
       <TermHelp term="seed" />
       <TextInput
+        {...literalInputProps}
         value={phrase}
-        onChangeText={setPhrase}
+        onChangeText={(value) => { setPhrase(value); setError(undefined); }}
         placeholder={t("recovery.phrasePlaceholder")}
         placeholderTextColor={theme.colors.textMuted}
         autoCapitalize="none"

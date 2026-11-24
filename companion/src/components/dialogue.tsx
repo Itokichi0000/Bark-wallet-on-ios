@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
+import { AccessibilityInfo, Platform, Pressable, Text, View, type StyleProp, type TextStyle } from "react-native";
 import { theme } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { useSettings } from "@/state/settingsStore";
+import { noaVoice } from "@/voice/NoaVoice";
 
 /** One clock drives both the visible letters and the mouth. No duration guess or audio. */
 export function useDialogue(line: string, reduceMotion: boolean, immediate = false, active = true) {
@@ -11,7 +12,11 @@ export function useDialogue(line: string, reduceMotion: boolean, immediate = fal
   useEffect(() => {
     if (!active || lastTick.current === line) return;
     lastTick.current = line;
-    if (useSettings.getState().hapticsEnabled) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    const s = useSettings.getState();
+    if (s.hapticsEnabled) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    // Her recorded voice: only lines recorded in advance can sound, so nothing typed or secret is ever spoken.
+    if (s.language === "ja") noaVoice.say(s.noaVoice, line);
+    else noaVoice.stop();
   }, [line, active]);
   const [reader, setReader] = useState<boolean>();
   const [frame, setFrame] = useState({ line, count: 0, skipped: false });
@@ -64,11 +69,10 @@ export function DialogueLine({ dialogue, style, onAdvance, hint }: { dialogue: D
     accessibilityLiveRegion="polite" onPress={dialogue.typing ? dialogue.complete : onAdvance ?? dialogue.complete}
     style={{ minHeight: theme.presence.touch, justifyContent: "center" }}>
     <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {/* The full line determines layout from the first frame; only the overlay changes. */}
-      <Text style={[style, { opacity: 0 }]}>{dialogue.line}</Text>
-      <Text style={[style, StyleSheet.absoluteFill]}>{dialogue.visible}</Text>
+      {/* One text layout owns both visible and unrevealed glyphs. An absolute
+          overlay could wrap differently and paint over the following footnotes. */}
+      <Text style={style}>{dialogue.visible}<Text style={{ color: "transparent" }}>{dialogue.line.slice(dialogue.visible.length)}</Text></Text>
     </View>
 
   </Pressable>;
 }
-

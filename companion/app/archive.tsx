@@ -4,6 +4,7 @@ import { usePullRefresh } from "@/components/usePullRefresh";
 import { SyncStatus } from "@/components/SyncStatus";
 import { BitcoinIcon, type BitcoinIconName } from "@/components/BitcoinIcon";
 import { TermHelp } from "@/components/TermHelp";
+import { Disclosure } from "@/components/Disclosure";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { H, Notice, P, Panel, Row, Screen } from "@/components/ui";
@@ -13,7 +14,7 @@ import { useT } from "@/i18n";
 import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
 import { theme } from "@/theme";
-import { chunkAddress, formatAmount, formatTime } from "@/utils/format";
+import { chunkAddress, formatAmount, formatTime, shorten } from "@/utils/format";
 
 const STATUS_ICON: Record<MovementStatus, BitcoinIconName> = { succeeded: "check", pending: "clock", failed: "cross", unknown: "question-circle" };
 const STATUS_COLOR: Record<MovementStatus, string> = {
@@ -40,13 +41,18 @@ function Card({ m, open, onPress }: { m: WalletMovement; open: boolean; onPress(
       {m.status === "pending" || m.status === "unknown" ? <Notice tone="warning">{t("archive.detail.notFinal")}</Notice> : null}
       {open ? (
         <View style={styles.detail}>
-          <Row label={t("archive.detail.status")} value={`${t(`archive.status.${m.status}`)} (${m.rawStatus})`} />
-          <Row label={t("archive.detail.kind")} value={m.kind} />
+          <Row label={t("archive.detail.status")} value={t(`archive.status.${m.status}`)} />
+          <Row label={t("review.method")} value={t(`method.${m.method}`)} />
+          <Row label={t("send.amount")} value={formatAmount(m.amountSats, unit)} />
           <Row label={t("review.fee")} value={formatAmount(m.feeSats, unit)} />
-          {m.counterparty ? <Row label={t("archive.detail.address")} value={chunkAddress(m.counterparty)} mono /> : null}
+          <Row label={t("archive.detail.created")} value={formatTime(m.createdAt, language)} />
+          {m.counterparty ? <Row label={t("archive.detail.address")} value={m.method === "lightning" ? shorten(m.counterparty, 12, 8) : chunkAddress(m.counterparty)} mono /> : null}
           {m.completedAt ? <Row label={t("archive.detail.completed")} value={formatTime(m.completedAt, language)} /> : null}
-          <Row label="ID" value={m.id} />
-
+          <Disclosure title={t("archive.detail.technical")}>
+            <Row label={t("archive.detail.rawStatus")} value={m.rawStatus} />
+            <Row label={t("archive.detail.kind")} value={m.kind} />
+            <Row label={t("archive.detail.id")} value={m.id} />
+          </Disclosure>
         </View>
       ) : null}
     </View>

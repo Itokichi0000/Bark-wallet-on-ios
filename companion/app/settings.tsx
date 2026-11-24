@@ -15,6 +15,7 @@ import { useSettings } from "@/state/settingsStore";
 import { useWalletStore } from "@/state/walletStore";
 import { theme } from "@/theme";
 import { formatTime } from "@/utils/format";
+import { VOICE_PREVIEW_LINE, noaVoice } from "@/voice/NoaVoice";
 
 function Toggle({ label, note, value, onChange }: { label: string; note?: string; value: boolean; onChange(v: boolean): void }) {
   return (
@@ -44,6 +45,12 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
 }
 
 /** S07 Settings. */
+/** Lets the owner hear the voice they just picked. Plays a fixed line; silent when the switch is on silent. */
+function previewVoice(voice: "off" | "a" | "b" | "c") {
+  if (voice === "off") noaVoice.stop();
+  else noaVoice.say(voice, VOICE_PREVIEW_LINE);
+}
+
 export default function SettingsScene() {
   const t = useT();
   const s = useSettings();
@@ -140,6 +147,8 @@ export default function SettingsScene() {
         <Choice label={t("settings.language")} value={s.language} options={[{ id: "ja", label: "日本語" }, { id: "en", label: "English" }]} onChange={(language) => { s.update({ language }); userAction("setting-changed"); }} />
         <Choice label={t("settings.unit")} value={s.unit} options={[{ id: "sats", label: "sats" }, { id: "btc", label: "BTC" }]} onChange={(unit) => { s.update({ unit }); userAction("unit-changed"); }} />
         <Toggle label={t("settings.hideBalance")} value={s.balanceHidden} onChange={(balanceHidden) => { s.update({ balanceHidden }); userAction(balanceHidden ? "balance-hidden" : "balance-shown"); }} />
+        <Choice label={t("settings.noaVoice")} value={s.noaVoice} options={[{ id: "off", label: t("settings.noaVoice.off") }, { id: "a", label: t("settings.noaVoice.a") }, { id: "b", label: t("settings.noaVoice.b") }, { id: "c", label: t("settings.noaVoice.c") }]} onChange={(noaVoice) => { s.update({ noaVoice }); previewVoice(noaVoice); }} />
+        <P muted>{t("settings.noaVoiceNote")}</P>
         <Toggle label={t("settings.speech")} note={t("settings.speechNote")} value={s.speechEnabled} onChange={(speechEnabled) => { s.update({ speechEnabled }); userAction("setting-changed"); }} />
         <Toggle label={t("settings.haptics")} value={s.hapticsEnabled} onChange={(hapticsEnabled) => { s.update({ hapticsEnabled }); userAction("setting-changed"); }} />
         <Toggle label={t("settings.avatarMotion")} value={s.avatarMotion} onChange={(avatarMotion) => { s.update({ avatarMotion }); userAction("setting-changed"); }} />
