@@ -26,6 +26,10 @@ const config: ExpoConfig = {
         "話しかけた言葉を端末の中で文字にして、ノアが答えるために使います / Your words are recognised on the device so Noa can answer.",
       NSFaceIDUsageDescription:
         "送金の確定とシードフレーズの表示の前に本人確認をします / Face ID confirms payments and seed reveal.",
+      // Not used by the app: expo-image (animated avatar) contains a photo-library loader,
+      // so App Store Connect requires a purpose string anyway (ITMS-90683).
+      NSPhotoLibraryUsageDescription:
+        "このアプリが写真ライブラリを読み込むことはありません。画像表示に使っている部品がこの機能を含むため記載しています / The app never reads your photo library; an image component it uses includes this capability.",
       ITSAppUsesNonExemptEncryption: false,
     },
   },
