@@ -22,9 +22,10 @@ import { fullBodyLayout, hologramLayout, useAvatarDrift } from "./avatar-drift";
 import { useLivingAvatar } from "./useLivingAvatar";
 import { useDialogue } from "./dialogue";
 import { Button, ModeBanner, NetworkTag } from "./ui";
-import { ConversationContext, PlayerBubble, Reply, SpeechBubble, replyHaptic, useConversation } from "./conversation";
+import { ConversationContext, Reply, SpeechBubble, replyHaptic, useConversation } from "./conversation";
+import { StageEcho, stageEchoLayout } from "./stage-echo";
 import { useNoaTalk, type TalkChoice } from "./use-noa-talk";
-import { HandsIndicator, ListeningFeedback, MicButton } from "./talk-controls";
+import { HandsIndicator, MicButton } from "./talk-controls";
 
 const c = theme.colors;
 export type StageAnswer = { id: string; label: string; onPress(): void; primary?: boolean; disabled?: boolean; busy?: boolean; hint?: string; icon?: BitcoinIconName; unread?: boolean; alwaysVisible?: boolean };
@@ -108,6 +109,9 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
   const listening = talk.listening || !!conversation.turn?.listening;
   const playerTurn = talk.listening ? { id: -1, text: talk.partial || t("talk.mic.listening"), listening: true } : conversation.turn;
   const dialogueState = useDialogue(spokenLine, reduceMotion, protectedStep || talk.listening, !!active && !listening);
+  // Only the figure is pressable; reading takes priority over mic/reaction taps.
+  // Undefined preserves StageAvatar's AVATAR_TAPPED fallback on both layouts.
+  const onAvatarPress = dialogueState.typing ? dialogueState.complete : onStagePress ?? (talk.voiceInput ? talk.toggleMic : undefined);
   // Lip-flap uses the idle clip; keep it from replacing a requested wave.
   const speaking = dialogueState.typing && !listening && (talkCue ?? presentation).action !== "wave";
   // A scene greeting must not
@@ -130,8 +134,11 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
   const speechLimit = keyboard ? 48 : close ? 68 : review ? Math.min(140, available * 0.22) : Math.max(68, Math.min(120, available - replyHeight - minHero - 24));
   const portraitHeight = Math.max(minHero, available - speechHeight + speechOverlap - Math.max(64, replyHeight));
   const boardHeight = Math.max(0, available - speechHeight - replyHeight);
+  // Keep the echo slot in the figure's allocation, independent of whether a
+  // chip, typed message or voice partial is currently being echoed.
+  const echoSlot = stageEchoLayout(roomWidth, close ? boardHeight : portraitHeight, close);
   const drift = useAvatarDrift(reduceMotion || !active, dialogueState.typing && choices.length > 0 && !protectedStep);
-  const body = close ? hologramLayout(roomWidth, boardHeight).body : fullBodyLayout(roomWidth, review ? (compact ? 120 : 160) : portraitHeight, windowHeight);
+  const body = close ? hologramLayout(roomWidth, echoSlot.figureHeight).body : fullBodyLayout(review ? roomWidth : echoSlot.figureWidth, review ? (compact ? 120 : 160) : echoSlot.figureHeight, windowHeight);
   const headX = useDerivedValue(() => body.left + body.bodyWidth / 2 + drift.wander.get() * body.travel + (close ? 0 : body.bodyHeight * 0.4 * Math.sin(drift.tilt.get() * Math.PI / 180)));
   const bubbleWidth = roomWidth - (compactSpeech ? 32 : 64);
   const bubbleLeft = useDerivedValue(() => Math.max(16, Math.min(roomWidth - bubbleWidth - 16, headX.get() - bubbleWidth / 2)));
@@ -159,12 +166,11 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
   </Animated.View>;
   const replies = <>
     {caption}
-    {playerTurn && !protectedStep ? <PlayerBubble turn={playerTurn} /> : null}
-    {!protectedStep ? <ListeningFeedback listening={talk.listening} gesture={talk.gesture} /> : null}
     {!review && children ? <View style={styles.answers}>{children}</View> : null}
     <StageChoices choices={choices} deliberate={protectedStep} accessory={<>{choiceAccessory}{scene !== "home" && !protectedStep ? <MicButton onPress={talk.toggleMic} listening={talk.listening} enabled={talk.voiceInput} /> : null}</>} />
     {typeof afterChoices === "function" ? afterChoices(keyboard) : afterChoices}
   </>;
+  const echo = !protectedStep ? <StageEcho slot={echoSlot} turn={playerTurn} listening={talk.listening} gesture={talk.gesture} /> : null;
   return <>
     <SceneBackground state={ambientState(view)} active={active} avatarX={headX} stageWidth={roomWidth} />
     <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -188,7 +194,10 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
           {close ? <>
             {speech}
             <View style={{ height: boardHeight, alignItems: "center", flexShrink: 0 }}>
-              {active && board ? <StageBoard cue={visual} onPress={talk.voiceInput ? talk.toggleMic : undefined} width={roomWidth} height={boardHeight} reduceMotion={reduceMotion} speaking={speaking} board={board} drift={drift} /> : null}
+              <View style={{ width: roomWidth, height: boardHeight }}>
+                {active && board ? <StageBoard cue={visual} onPress={onAvatarPress} width={roomWidth} height={echoSlot.figureHeight} reduceMotion={reduceMotion} speaking={speaking} board={board} drift={drift} /> : null}
+                {echo}
+              </View>
             </View>
             <ScrollView style={styles.safe} automaticallyAdjustKeyboardInsets={false} contentInsetAdjustmentBehavior="never" keyboardShouldPersistTaps="handled">
               <View style={[styles.replyArea, styles.compactReplies]} onLayout={(e) => setReplyHeight(e.nativeEvent.layout.height)}>{replies}</View>
@@ -205,9 +214,11 @@ function StageContent({ scene, line, onLinePress, choices, children, speechFacts
           </> : <>
             {speech}
             <View style={[styles.hero, { flex: 0, height: portraitHeight }]} onLayout={(e) => setHeroHeight(e.nativeEvent.layout.height)}>
-              {active && heroHeight > 0 ?
-                <StageAvatar cue={visual} width={roomWidth} height={heroHeight} reduceMotion={reduceMotion} speaking={speaking} disabled={protectedStep} drift={drift} onPress={talk.voiceInput ? talk.toggleMic : onStagePress ? (dialogueState.typing ? dialogueState.complete : onStagePress) : undefined} /> : null}
-
+              <View style={{ width: roomWidth, height: portraitHeight }}>
+                {active && heroHeight > 0 ?
+                  <StageAvatar cue={visual} width={roomWidth} height={echoSlot.figureHeight} layout={body} reduceMotion={reduceMotion} speaking={speaking} disabled={protectedStep} drift={drift} onPress={onAvatarPress} /> : null}
+                {echo}
+              </View>
             </View>
             <ScrollView ref={sceneScroll} style={styles.safe}
               automaticallyAdjustKeyboardInsets={false} contentInsetAdjustmentBehavior="never" keyboardShouldPersistTaps="handled"

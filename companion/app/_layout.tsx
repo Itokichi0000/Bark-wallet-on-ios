@@ -46,7 +46,8 @@ export default function RootLayout() {
     });
 
     const sub = AppState.addEventListener("change", (state) => {
-      conversation.setForeground(state === "active");
+      // "inactive" is also what a permission alert causes; only a real background stops the sensors.
+      if (state !== "inactive") conversation.setForeground(state === "active");
       const lifecycle = useWalletStore.getState().lifecycle;
       if (state === "active" && (lifecycle === "ready" || lifecycle === "degraded")) {
         // Coming back: re-sync and resolve anything a kill or a suspend left open. Read-only for funds.

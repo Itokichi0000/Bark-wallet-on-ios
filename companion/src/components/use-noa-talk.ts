@@ -37,9 +37,11 @@ export function useNoaTalk(options: Options) {
   const focused = useRef(false);
   const scope = useRef(0);
   useFocusEffect(useCallback(() => {
+    // Display-only companions must not cancel the route owner's listening on blur/unmount.
+    if (!options.active || options.blocked) return;
     focused.current = true;
     return () => { focused.current = false; scope.current++; conversation.cancelListening(); };
-  }, []));
+  }, [options.active, options.blocked]));
   const listening = options.active && !options.blocked && (ears === "listening" || ears === "hearing");
   const canAct = () => focused.current && latest.current.active && !latest.current.blocked && AppState.currentState === "active";
   const respond = useCallback((lineKey: string, wave = false) => setResponse({ id: ++seq.current, lineKey, wave }), []);
@@ -138,8 +140,8 @@ export function useNoaTalk(options: Options) {
     setResponse(undefined);
     setGesture(undefined);
     scope.current++;
-    if (options.active) conversation.cancelListening();
-  }, [options.turnKey, options.sensitive, options.active]);
+    if (options.active && !options.blocked) conversation.cancelListening();
+  }, [options.turnKey, options.sensitive, options.active, options.blocked]);
   useEffect(() => {
     if (!response) return;
     const timer = setTimeout(() => setResponse(undefined), 5000);

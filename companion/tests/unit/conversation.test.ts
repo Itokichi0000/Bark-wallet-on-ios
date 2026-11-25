@@ -59,5 +59,15 @@ describe("spoken answers", () => {
     expect(spokenAmountSats("ゼロ")).toBeUndefined();
     expect(spokenAmountSats("0")).toBeUndefined();
     expect(spokenAmountSats("送って")).toBeUndefined();
+    expect(spokenAmountSats("二〇〇〇")).toBe("2000");
+    expect(spokenAmountSats("三千二百")).toBe("3200");
+    expect(spokenAmountSats("三千で")).toBe("3000");
+    expect(spokenAmountSats("1000 sats お願いします")).toBe("1000");
+  });
+
+  it("does not read numbers out of other words or units", () => {
+    for (const said of ["2.5万サッツ", "1000円分", "万が一", "十分", "あと3000くらい", "1.5", "3千ドル", "一億"]) {
+      expect([said, spokenAmountSats(said)]).toEqual([said, undefined]);
+    }
   });
 });

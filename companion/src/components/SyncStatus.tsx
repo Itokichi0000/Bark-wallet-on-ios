@@ -41,7 +41,7 @@ export function SyncStatus({ compact = false, disabled = false, showCompanion = 
           <P>{t("sync.automatic")}</P>
           <P muted>{t("help.sync.body")}</P>
           <P muted>{age === undefined ? t("status.neverSynced") : t("sync.minutesAgo", { n: age })}</P>
-          {help && showCompanion ? <Companion scene={scene} /> : null}
+          {help && showCompanion ? <Companion scene={scene} blocked /> : null}
         </Screen>
       </Modal>
     </View>

@@ -19,7 +19,7 @@ import { ListeningFeedback } from "./talk-controls";
 
 
 /** Offscreen routes do not decode clips; the keyboard keeps a compact full-body companion. */
-export const Companion = memo(function Companion(props: { scene: SceneId; large?: boolean; fallbackCue?: AvatarCue; unresolved?: boolean; sendResult?: { phase: SendPhase; operationId?: string } }) {
+export const Companion = memo(function Companion(props: { scene: SceneId; large?: boolean; blocked?: boolean; fallbackCue?: AvatarCue; unresolved?: boolean; sendResult?: { phase: SendPhase; operationId?: string } }) {
   const [focused, setFocused] = useState(false);
   const [keyboard, setKeyboard] = useState(Keyboard.isVisible());
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
@@ -31,7 +31,7 @@ export const Companion = memo(function Companion(props: { scene: SceneId; large?
   return focused ? <CompanionContent {...props} large={keyboard ? false : props.large} /> : null;
 });
 
-function CompanionContent({ scene, large = false, fallbackCue, unresolved = false, sendResult }: { scene: SceneId; large?: boolean; fallbackCue?: AvatarCue; unresolved?: boolean; sendResult?: { phase: SendPhase; operationId?: string } }) {
+function CompanionContent({ scene, large = false, blocked: conversationBlocked = false, fallbackCue, unresolved = false, sendResult }: { scene: SceneId; large?: boolean; blocked?: boolean; fallbackCue?: AvatarCue; unresolved?: boolean; sendResult?: { phase: SendPhase; operationId?: string } }) {
   const current = useAvatarCue();
   const reduceMotion = useReduceMotion();
   const t = useT();
@@ -43,9 +43,9 @@ function CompanionContent({ scene, large = false, fallbackCue, unresolved = fals
   const unrelatedPayment = !!sendResult && current.priority === CuePriority.paymentResult && current.eventId !== expectedPayment;
   const baseCue = fallbackCue && (unsafeForUnresolved || unrelatedPayment || current.priority < fallbackCue.priority) ? fallbackCue : foreignScreen ? IDLE_CUE : current;
   const protectedStep = sendResult?.phase === "review" || sendResult?.phase === "authorizing" || sendResult?.phase === "submitting";
-  const blocked = scene === "seed" || scene === "recovery" || scene === "onboarding";
-  const echo = useConversation(true, protectedStep || blocked, reduceMotion);
-  const talk = useNoaTalk({ active: true, sensitive: protectedStep, blocked, turnKey: scene, choices: [], say: echo.say, cancel: echo.cancel });
+  const blocked = conversationBlocked || scene === "seed" || scene === "recovery" || scene === "onboarding";
+  const echo = useConversation(!blocked, protectedStep || blocked, reduceMotion);
+  const talk = useNoaTalk({ active: !blocked, sensitive: protectedStep, blocked, turnKey: scene, choices: [], say: echo.say, cancel: echo.cancel });
   const cue = !protectedStep && baseCue.priority < CuePriority.paymentResult && talk.cue ? talk.cue : baseCue;
   const line = t(cue.lineKey ?? `avatar.screen.${scene}`, cue.lineParams);
   const story = cue.lineKey === "avatar.storyUnlocked";

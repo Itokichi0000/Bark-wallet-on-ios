@@ -56,11 +56,10 @@ describe("conversation sensors", () => {
     expect(mockSpeech.start).not.toHaveBeenCalled();
   });
 
-  it("blocks are counted, and nothing is heard while blocked", async () => {
+  it("nothing is heard while blocked, and blocking is idempotent", async () => {
     const c = new ConversationService();
     c.setBlocked(true);
     c.setBlocked(true);
-    c.setBlocked(false);
     expect(await c.listen()).toBe(false);
     c.setBlocked(false);
     const started = c.listen();

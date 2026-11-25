@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { Image as NativeImage, StyleSheet, View } from "react-native";
 import { CuePriority } from "@/domain/avatar";
 import { AVATAR_ASPECT, type AvatarRendererProps } from "./AvatarRenderer";
+import { AVATAR_FRAMES, frameForCue } from "./IllustratedAvatarRenderer";
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { baseLoop, clipDurationMs, clipForCue, type AvatarClip } from "./avatarMotion";
 
@@ -66,7 +67,14 @@ function Clip({ clip, onReady, onEnding, onFinish }: { clip: AvatarClip; onReady
     onDisplay={() => { if (!ready) { setReady(true); callbacks.current.onReady(); } }} onError={() => callbacks.current.onFinish()} />;
 }
 
-export function AnimatedAvatarRenderer({ cue, height, reduceMotion, speaking = false, floatingPanel = false }: Props) {
+export function AnimatedAvatarRenderer(props: Props) {
+  if (props.reduceMotion) return <View pointerEvents="none" style={{ width: props.height * AVATAR_ASPECT, height: props.height }}>
+    <NativeImage source={AVATAR_FRAMES[frameForCue(props.cue)]} style={StyleSheet.absoluteFill} resizeMode="contain" fadeDuration={0} accessible={false} />
+  </View>;
+  return <MotionAvatarRenderer {...props} />;
+}
+
+function MotionAvatarRenderer({ cue, height, speaking = false, floatingPanel = false }: Props) {
   const next = useRef(cue);
   next.current = cue;
   const [playback, setPlayback] = useState<Playback>(() => ({ id: cue.id, clip: clipForCue(cue) }));
@@ -85,11 +93,11 @@ export function AnimatedAvatarRenderer({ cue, height, reduceMotion, speaking = f
     id: `${previous.id}:rest`,
     clip: floatingPanel ? "idle" : previous.clip === "present" && next.current.action === "present" ? "pointdown" : next.current.action === "listen" ? "focus" : "idle",
   })), [floatingPanel]);
-  // Reduce Motion keeps only breathing/blinking and mouth loops; no spatial movement or one-shots.
+  // Reduce Motion uses the static renderer above, without mounting/preloading clips.
   const base = baseLoop({ holding: false, speaking });
   // The large QR-side figure uses the measured pointing gesture. Wide-arm clips
   // would cross the panel or leave the left edge at this scale.
-  const oneShot = !reduceMotion && playback.clip && playback.clip !== "idle" && playback.clip !== "hold"
+  const oneShot = playback.clip && playback.clip !== "idle" && playback.clip !== "hold"
     ? floatingPanel ? playback.clip === "present" || playback.clip === "pointdown" ? "pointdown" : undefined : playback.clip
     : undefined;
   useEffect(() => { blend.set(0); return () => cancelAnimation(blend); }, [playback.id, oneShot, blend]);

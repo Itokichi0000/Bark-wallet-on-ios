@@ -21,7 +21,7 @@ export class ConversationService {
   private speechSubs: { remove(): void }[] = [];
   private offGesture: (() => void) | undefined;
   private offEyesState: (() => void) | undefined;
-  private blocks = 0;
+  private blockedByScreen = false;
   private foreground = true;
   private cameraSuspended = false;
   private watching = false;
@@ -55,15 +55,16 @@ export class ConversationService {
   }
 
   private get blocked(): boolean {
-    return this.blocks > 0 || !this.foreground;
+    return this.blockedByScreen || !this.foreground;
   }
 
   /**
-   * Screens that show the seed or restore a wallet call this with true on focus and false on blur:
-   * no microphone, no camera. Calls are counted, so overlapping screens cannot unblock early.
+   * True while any screen that shows the seed or restores a wallet is focused: no microphone, no
+   * camera. Idempotent: callers that track several screens pass "is any still open" each time
+   * (see useConversationBlocked).
    */
   setBlocked(blocked: boolean): void {
-    this.blocks = Math.max(0, this.blocks + (blocked ? 1 : -1));
+    this.blockedByScreen = blocked;
     if (this.blocked) {
       this.cancelListening();
       void this.stopEyes();
@@ -185,6 +186,13 @@ export class ConversationService {
     });
     this.offEyesState ??= NoaGestures.onState((state) => {
       if (state === "watching" && this.watching) useTalk.setState({ eyes: "watching" });
+      else if (state === "stopped" && this.watching) {
+        // The camera stopped without us asking (interruption, another app took it). Say so, and
+        // start again if it is still wanted.
+        this.watching = false;
+        useTalk.setState({ eyes: "off" });
+        void this.syncEyes();
+      }
       else if (state === "unavailable") useTalk.setState({ eyes: "unavailable" });
     });
     const ok = await NoaGestures.start();
